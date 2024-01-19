@@ -10,7 +10,7 @@ You can download the repository install the package using:
 cd my_utilities
 
 # editable installtion
-python -m pip install --editable .
+python3 -m pip install --editable .
 # current path (i.e. `./`) should be containing the `pyproject.toml`` file.
 ```
 

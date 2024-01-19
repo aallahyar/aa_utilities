@@ -22,6 +22,8 @@ def add_pvalue(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, li
         ax with the added annotation
     '''
     """
+    
+    __version__ = '0.0.1'
 
     if ax is None:
         ax = plt.gca()
