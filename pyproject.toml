@@ -1,0 +1,37 @@
+
+
+[build-system]
+requires      = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my_utilities"
+version = "0.0.1"
+description = "General utilities that I often use during my day-to-day work"
+readme = "README.md"
+authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["utilities", "personal"]
+dependencies = [
+    "matplotlib", 
+    'tomli; python_version < "3.11"' # only if python version is below 3.11
+]
+requires-python = ">=3.7"
+
+    # [project.optional-dependencies]
+    # build = ["build", "twine"]
+    # dev   = ["black", "bumpver", "isort", "mypy", "pytest"]
+
+    # [project.scripts]
+    # realpython = "reader.__main__:main"
+
+    [project.urls]
+    repository    = "https://github.com/realpython/reader"
+    # documentation = "https://realpython.com/pypi-publish-python-package/"
+
+
