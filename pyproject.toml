@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "my_utilities"
-version = "0.0.1"
+version = "0.0.15"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -31,7 +31,7 @@ requires-python = ">=3.7"
     # realpython = "reader.__main__:main"
 
     [project.urls]
-    repository    = "https://github.com/realpython/reader"
-    # documentation = "https://realpython.com/pypi-publish-python-package/"
+    repository    = "https://github.com/aallahyar/my_utilities.git"
+    documentation = "https://github.com/aallahyar/my_utilities/blob/main/README.md"
 
 

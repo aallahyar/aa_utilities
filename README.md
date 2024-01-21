@@ -35,6 +35,6 @@ sns.boxplot(
     y='val',
     ax=ax,
 )
-add_pvalue(ax, 'test', [0, 1.2], 130, 170, 150)
+add_pvalue([0, 1], 'test', 130, 170, 150, ax=ax)
 plt.show()
 ```
