@@ -79,5 +79,12 @@ def add_pvalue(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, li
     #         text = 'n. s.'
 
 
+if __name__ == '__main__':
+    from my_utilities.graphics import add_pvalue
 
+    fig = plt.figure()
+    ax = fig.gca()
+    ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
+    add_pvalue([0, 1], 'test p-value = string', 130, 170, 150, ax=ax)
+    plt.show()
 
