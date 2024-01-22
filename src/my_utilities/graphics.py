@@ -1,7 +1,7 @@
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
 from matplotlib import pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 
 def add_pvalue(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=None, **kwargs):
     """Link two x-ticks and place a text (often the p-value) over the link
@@ -79,22 +79,5 @@ def add_pvalue(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, li
     #         text = 'n. s.'
 
 
-if __name__ == '__main__':
-    df = pd.DataFrame({
-        'a': range(100),
-        'b': np.arange(40, 140),
-    })
-    print(df)
-
-    fig = plt.figure()
-    ax = fig.gca()
-    sns.boxplot(
-        data=df.melt(var_name='col', value_name='val'),
-        x='col',
-        y='val',
-        ax=ax,
-    )
-    add_pvalue(ax, 'test', [0, 1.2], 130, 170, 150)
-    plt.show()
 
 
