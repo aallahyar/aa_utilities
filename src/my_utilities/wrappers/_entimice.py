@@ -1,11 +1,8 @@
-class EntimICE:
-    import pandas as pd
+import pandas as pd
 
-    # __version__ = '0.0.1'
+class EntimICE:
     
     # initializations
-    SCRATCH_DIR = '~/mounts/scratch/workspaces/course_dryrun/'
-    STUDY_ID = 'D5241C00001'
     DATASET_NAMES = [
         'adsl', # Subject-Level Analysis Dataset
         'adlb', # Laboratory Test Results, Analysis Data
@@ -13,7 +10,9 @@ class EntimICE:
     ]
     data = {}
 
-    def __init__(self):
+    def __init__(self, scratch_path, study_id):
+        self.SCRATCH_DIR = scratch_path
+        self.STUDY_ID = study_id
         self.load_data()
         self.sanity_checks()
     
