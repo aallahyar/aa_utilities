@@ -1,9 +1,18 @@
+import pandas as pd
 
 class RSpace():
+    """A wrapper around `rpy2` package to facilitate import/export of variables between R and Python as well as running R commands.
+
+    Returns:
+        RSpace object: An instance of the RSpace wrapper
+    
+    Examples:
+        
+    """
+
     from rpy2 import robjects as ro
     from rpy2.robjects import pandas2ri
 
-    __version__ = '0.0.1'
     
     def __init__(self):
         self.ro = RSpace.ro

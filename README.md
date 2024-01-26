@@ -19,7 +19,8 @@ Alternatively, you can install it using `pip`s specification in `requirement.txt
 # in requirements.txt
 my_utilities @ git+https://github.com/aallahyar/my_utilities.git@v0.0.3
 ```
-This installs version `0.0.3` of the package
+This installs version `0.0.3` of the package.
+The further details about this is explained [here](https://stackoverflow.com/questions/16584552/how-to-state-in-requirements-txt-a-direct-github-source).
 
 ## How to use
 
