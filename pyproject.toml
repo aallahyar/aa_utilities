@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "my_utilities"
-version = "0.0.4"
+version = "0.0.5"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -17,23 +17,24 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = ["utilities", "personal"]
-dependencies = [
-    'numpy >= 1.26.2',
-    'pandas >= 2.1.3',
-    "matplotlib", 
-    'tomli; python_version < "3.11"', # only if python version is below 3.11,
-]
 requires-python = ">=3.7"
+dynamic = ["dependencies"]
 
-    # [project.optional-dependencies]
-    # build = ["build", "twine"]
-    # dev   = ["black", "bumpver", "isort", "mypy", "pytest"]
+[project.urls]
+repository    = "https://github.com/aallahyar/my_utilities.git"
+documentation = "https://github.com/aallahyar/my_utilities/blob/main/README.md"
 
-    # [project.scripts]
-    # realpython = "reader.__main__:main"
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
-    [project.urls]
-    repository    = "https://github.com/aallahyar/my_utilities.git"
-    documentation = "https://github.com/aallahyar/my_utilities/blob/main/README.md"
+
+# [project.optional-dependencies]
+# build = ["build", "twine"]
+# dev   = ["black", "bumpver", "isort", "mypy", "pytest"]
+
+# [project.scripts]
+# realpython = "reader.__main__:main"
+
+
 
 

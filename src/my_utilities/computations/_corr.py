@@ -67,6 +67,7 @@ def spearman(A, B=None, low_memory=False):
         
 
 if __name__ == '__main__':
+    from scipy import stats
     import pandas as pd
     import timeit
 
@@ -80,6 +81,7 @@ if __name__ == '__main__':
         'my_numpy':  lambda: _pearson_numpy(A, A),
         'np_coef':   lambda: _np.corrcoef(A),
         'pd_coef':   lambda: pd.DataFrame(A.T).corr(method='pearson'),
+        'scipy_coef':   lambda: stats.pearsonr(A.T).statistic,  # only supports 1D arrays
     }
 
     for i, (name, func) in enumerate(funcs.items()):
