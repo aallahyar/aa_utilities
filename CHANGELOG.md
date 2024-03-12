@@ -1,4 +1,9 @@
 
+## [0.0.7] - 2024-03-05
+### Added
+- Added a helper function to count the number of elements shared between a given 
+    set of lists or iterables.
+
 ## [0.0.6] - 2024-03-05
 ### Added
 - Added a helper function to perform multi-column natrual sorting.
