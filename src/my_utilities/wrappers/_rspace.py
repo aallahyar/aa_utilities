@@ -36,8 +36,8 @@ class RSpace():
         # adding column names if present
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if R(f'names({name})') != self.ro.rinterface.NULL:
-            value_df.index = list(R(f'names({name})'))
+        if self(f'names({name})') != self.ro.rinterface.NULL:
+            value_df.index = list(self(f'names({name})'))
             value_df.columns = ['column']
         elif self(f'colnames({name})') != self.ro.rinterface.NULL:
             value_df.columns = self(f'colnames({name})')
