@@ -19,7 +19,10 @@ class RSpace():
         
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
         if ipython:
-            %load_ext rpy2.ipython
+            # source: https://stackoverflow.com/questions/10361206/how-to-run-ipython-magic-from-a-script
+            from IPython import get_ipython
+            ipython_shell = get_ipython()
+            ipython_shell.run_line_magic("load_ext", "rpy2.ipython")
 
     def __setitem__(self, name, value):
         with (self.ro.default_converter + RSpace.pandas2ri.converter).context():

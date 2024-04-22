@@ -1,12 +1,17 @@
 
+## [0.0.9] - 2024-04-22
+### Fixed:
+- A bug in `RSpace`, where its `IPython` extension was loaded with a wrong syntax.
+### Changed:
+- Expanded installation explanations in `README.md`.
+
 ## [0.0.8] - 2024-03-05
-### Added:
 ### Changed:
 - Added an `ipython` flag to `RSpace` constructor to initiate 
 [its extension](https://rpy2.github.io/doc/latest/html/interactive.html#usage).
 - Removed strict version definitions in `requirements.txt`. E.g., `natsort==8.4.0`
 to `natsort>=8.4.0`
-- 
+
 
 ## [0.0.7] - 2024-03-05
 ### Added:

@@ -5,6 +5,7 @@ The file structure is inspired from [this RealPython tutorial](https://realpytho
 
 ## Installation
 
+### 1. Manual download and installation:
 You can download the repository and install the package using:
 ```bash
 git clone https://github.com/aallahyar/my_utilities.git
@@ -14,9 +15,21 @@ cd my_utilities
 python3 -m pip install --editable .
 # current path (i.e. `./`) should be containing the `pyproject.toml`` file.
 ```
+
+### 2. Installing via `pip install`:
+You can also install using `pip`, via:
+```bash
+pip3 install git+https://github.com/aallahyar/my_utilities
+```
+
+### 3. Adding the packge to `requirements.txt`:
 Alternatively, you can install it using `pip`s specification in `requirement.txt` file as follows:
 ```
-# in requirements.txt
+# in ./requirements.txt
+# 1. For installing the latest commit:
+my_utilities @ git+https://github.com/aallahyar/my_utilities
+
+# 2. For installing a specific version/tag
 my_utilities @ git+https://github.com/aallahyar/my_utilities.git@v0.0.3
 ```
 This installs version `0.0.3` of the package.
