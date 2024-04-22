@@ -14,8 +14,12 @@ class RSpace():
     from rpy2 import robjects as ro
     from rpy2.robjects import pandas2ri
 
-    def __init__(self):
+    def __init__(self, ipython=False):
         self.ro = RSpace.ro
+        
+        # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
+        if ipython:
+            %load_ext rpy2.ipython
 
     def __setitem__(self, name, value):
         with (self.ro.default_converter + RSpace.pandas2ri.converter).context():
