@@ -25,15 +25,19 @@ class RSpace():
             ipython_shell.run_line_magic("load_ext", "rpy2.ipython")
 
     def __setitem__(self, name, value):
-        with (self.ro.default_converter + RSpace.pandas2ri.converter).context():
-            value_r = self.ro.conversion.get_conversion().py2rpy(value)
-            self.ro.r.assign(name, value_r)
+        with (RSpace.ro.default_converter + RSpace.pandas2ri.converter).context():
+            value_r = RSpace.ro.conversion.get_conversion().py2rpy(value)
+            RSpace.ro.r.assign(name, value_r)
 
     def __getitem__(self, name):
-        with (self.ro.default_converter + RSpace.pandas2ri.converter).context():
-            value_r = self.ro.conversion.get_conversion().rpy2py(
-                self.ro.globalenv[name])
+        with (RSpace.ro.default_converter + RSpace.pandas2ri.converter).context():
+            value_r = RSpace.ro.conversion.get_conversion().rpy2py(RSpace.ro.globalenv[name])
 
+        # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
+        if self(f'is.atomic({name}) && length({name}) == 1L')[0]:
+            return value_r[0]
+        
+        # check if the variable is already a `pd.DataFrame`
         if isinstance(value_r, pd.DataFrame):
             return value_r
         value_df = pd.DataFrame(

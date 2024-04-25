@@ -1,4 +1,8 @@
 
+## [0.0.10] - 2024-XX-XX
+### Changed:
+- `R['var']` now returns a scalar, if the `var` is atomic, and also has `length(var)=1`
+
 ## [0.0.9] - 2024-04-22
 ### Fixed:
 - A bug in `RSpace`, where its `IPython` extension was loaded with a wrong syntax.
