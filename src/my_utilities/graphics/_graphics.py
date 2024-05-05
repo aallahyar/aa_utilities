@@ -3,8 +3,8 @@
 from matplotlib import pyplot as plt
 # import seaborn as sns
 
-def add_pvalue(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=None, **kwargs):
-    """Link two x-ticks and place a text (often the p-value) over the link
+def link(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=None, text_kw=None):
+    """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
     
     Parameters:
     ----------
@@ -50,7 +50,7 @@ def add_pvalue(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, li
     link = ax.plot(line_x, line_y, **line_kw)[0]
 
     # adding text
-    link.text = ax.text(sum(x_ticks) / 2, y_top * 1.0, text, va='bottom', ha='center', **kwargs)
+    link.text = ax.text(sum(x_ticks) / 2, y_top * 1.0, text, va='bottom', ha='center', **text_kw)
 
     # adjust y-lim if needed
     if y_top + y_step * 3 > y_lim[1]:
