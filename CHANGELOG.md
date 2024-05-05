@@ -1,7 +1,8 @@
 
-## [0.0.10] - 2024-XX-XX
+## [0.0.10] - 2024-05-05
 ### Changed:
 - `R['var']` now returns a scalar, if the `var` is atomic, and also has `length(var)=1`
+- `add_pvalue` function is now called `link` to make it more intuitive.
 
 ## [0.0.9] - 2024-04-22
 ### Fixed:
