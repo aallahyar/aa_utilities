@@ -1,2 +1,2 @@
 
-from ._graphics import add_pvalue
+from ._graphics import link
