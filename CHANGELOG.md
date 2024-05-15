@@ -1,4 +1,11 @@
 
+## [0.0.11] - 2024-05-15
+### Added:
+- `forest_plot` is added to produce `ForestPlots`, useful in treatment-response presentations.
+
+### Changed:
+- `add_pvalue` function is now called `link` to make it more intuitive.
+
 ## [0.0.10] - 2024-05-05
 ### Changed:
 - `R['var']` now returns a scalar, if the `var` is atomic, and also has `length(var)=1`

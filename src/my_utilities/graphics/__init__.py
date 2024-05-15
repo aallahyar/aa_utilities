@@ -1,2 +1,2 @@
 
-from ._graphics import link
+from ._graphics import *

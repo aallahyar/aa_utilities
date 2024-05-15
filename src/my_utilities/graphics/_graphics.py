@@ -1,5 +1,5 @@
 # import pandas as pd
-# import numpy as np
+import numpy as np
 from matplotlib import pyplot as plt
 # import seaborn as sns
 
@@ -21,6 +21,16 @@ def link(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=
     ax: matplotlib ax
         ax with the added annotation
     '''
+
+    Example:
+    -------
+    ```python
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
+        add_pvalue([0, 1], 'test p-value = string', 130, 170, 150, ax=ax)
+        plt.show()
+    ```
     """
     
     # __version__ = '0.0.1'
@@ -78,13 +88,154 @@ def link(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=
     #     if len(text) == 0:
     #         text = 'n. s.'
 
+def forest_plot(
+        estimates, 
+        origin=0, 
+        estimate_labels=None, 
+        p_values=None, 
+        counts=None, 
+        line_labels=None, 
+        line_colors=None, 
+        marker_colors=None,
+        ax=None,
+    ):
+    """Generates a ForestPlot that is often used in Treatment-effect presentations
+
+    Args:
+        estimates (pd.DataFrame): A dataframe containing the `estimate` column
+        origin (int, optional): _description_. Defaults to 0.
+        estimate_labels (_type_, optional): _description_. Defaults to None.
+        p_values (_type_, optional): _description_. Defaults to None.
+        counts (_type_, optional): _description_. Defaults to None.
+        line_labels (_type_, optional): _description_. Defaults to None.
+        line_colors (_type_, optional): _description_. Defaults to None.
+        marker_colors (_type_, optional): _description_. Defaults to None.
+
+    Returns:
+        plt.axe: The ax on which the Forest Plot is drawn. Several properties are added:
+            * `err_lines`: Is a list of `line` handles.
+            * `origin`:
+    
+    Example:
+        ```python
+        import pandas as pd
+
+        estimates = pd.DataFrame({
+            'estimate': [0.5, 0.6, 0.7, 0.8],
+            'conf.low': [0.45, 0.70, 0.90, 0.81],
+            'conf.high': [0.55, 0.50, 0.50, 0.79],
+        })
+        ax = forest_plot(
+            estimates=estimates,
+            origin=1,
+            counts=[10, 20, 30, 40],
+            line_labels=[f'row{i}' for i in range(4)],
+            p_values=np.linspace(0, 0.1, 4),
+            # ax=ax,
+        )
+        ax.set_xlim([0.3, 2])
+        print(ax.err_lines)
+        plt.show()
+        ```
+            
+    """
+    from matplotlib.ticker import ScalarFormatter
+    import matplotlib.transforms as transforms
+
+    expected = np.array(estimates['estimate'])
+    n_line = len(expected)
+
+    # calculate error-bound coordinates
+    err_ends = np.abs(estimates[['conf.low', 'conf.high']].values - expected[:, None]).T # each column refers to a single line
+
+    if line_colors is None:
+        line_colors = np.repeat('#000000', n_line)
+    if marker_colors is None:
+        marker_colors = line_colors
+    line_colors = np.array(line_colors)
+    marker_colors = np.array(marker_colors)
+
+    if ax is None:
+        fig = plt.figure(figsize=(2, n_line / 1.7))
+        ax = fig.gca()
+
+    # tranforming axes coordinates to data coordinates:
+    # this will do the transform, but if xlim/ylim changes later on, it does not update the coord
+    # coord_ax2data = ax.transAxes + ax.transData.inverted()
+    # x_right_margin = coord_ax2data.transform((1.02, 0))[0]
+    trans_axes_data = transforms.blended_transform_factory(ax.transAxes, ax.transData)
+
+    # ax.invert_yaxis()
+    ax.set_ylim([n_line - 0.5, -0.5])
+
+    # add origin
+    ax.origin = ax.axvline(x=origin, linestyle=':', color='#cccccc')
+
+    # add error lines
+    ax.err_lines = [None] * n_line
+    for ri in range(n_line):
+        ax.err_lines[ri] = ax.errorbar(
+            x=expected[ri], 
+            y=ri, 
+            xerr=err_ends[:, [ri]], 
+            color=line_colors[ri],
+            elinewidth=1,
+            marker='d', 
+            markerfacecolor=marker_colors[ri],
+            markeredgecolor='none', 
+            markersize=10, 
+            capsize=3, # error end-cap height
+            markeredgewidth=2, # error end-cap width
+        )
+
+    # add estimates labels
+    if estimate_labels is not None:
+        estimate_labels = np.array(estimate_labels)
+        for ri in range(n_line):
+            ax.text(expected[ri], ri + 0.25, estimate_labels[ri], va='top', ha='center', fontsize=8)
+
+    # add pvalue
+    if p_values is not None:
+        p_values = np.array(p_values)
+        for ri in range(n_line):
+           pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
+           ax.text(1.02, ri, f'p={p_values[ri]:0.2g}', va='center', ha='left', color=pval_color, fontsize=8, transform=trans_axes_data)
+
+    # add counts
+    if counts is not None:
+        counts = np.array(counts, dtype=int)
+        for ri in range(n_line):
+           ax.text(-0.03, ri + 0.35, f'n={counts[ri]}', va='center', ha='right', color='#444444', fontsize=8, transform=trans_axes_data)
+
+    # add line labels
+    if line_labels is not None:
+        ax.set_yticks(range(n_line), line_labels)
+    ax.set_xscale('log', base=2)
+    ax.xaxis.set_major_formatter(ScalarFormatter())
+    
+    return ax
 
 if __name__ == '__main__':
-    from my_utilities.graphics import add_pvalue
+    pass
+    # fig = plt.figure()
+    # ax = fig.gca()
 
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
-    add_pvalue([0, 1], 'test p-value = string', 130, 170, 150, ax=ax)
-    plt.show()
+    # import pandas as pd
+
+    # estimates = pd.DataFrame({
+    #     'estimate': [0.5, 0.6, 0.7, 0.8],
+    #     'conf.low': [0.45, 0.70, 0.90, 0.81],
+    #     'conf.high': [0.55, 0.50, 0.50, 0.79],
+    # })
+    # ax = forest_plot(
+    #     estimates=estimates,
+    #     origin=1,
+    #     counts=[10, 20, 30, 40],
+    #     line_labels=[f'row{i}' for i in range(4)],
+    #     p_values=np.linspace(0, 0.1, 4),
+    #     # ax=ax,
+    # )
+    # ax.set_xlim([0.3, 2])
+    # print(ax.err_lines)
+    # plt.show()
 
