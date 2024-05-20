@@ -1,7 +1,9 @@
-## [0.0.12] - 2024-05-XX
+## [0.0.12] - 2024-05-20
 ### Added:
 - `interval2str` function is added to convert `Pandas.Interval` data types to a more 
 human-readable string.
+### Changed:
+- `forest_plot` now has a `line_ys` argument to determine the location of each estimate
 
 ## [0.0.11] - 2024-05-15
 ### Added:
