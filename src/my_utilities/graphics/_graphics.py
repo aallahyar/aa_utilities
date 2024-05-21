@@ -124,8 +124,8 @@ def forest_plot(
 
         estimates = pd.DataFrame({
             'estimate': [0.5, 0.6, 0.7, 0.8],
-            'conf.low': [0.45, 0.70, 0.90, 0.81],
-            'conf.high': [0.55, 0.50, 0.50, 0.79],
+            'conf.low': [0.45, 0.50, 0.60, 0.79],
+            'conf.high': [0.55, 0.65, 0.80, 0.91],
         })
         ax = forest_plot(
             estimates=estimates,
@@ -153,6 +153,7 @@ def forest_plot(
         line_ys = np.arange(n_line)
 
     # calculate error-bound coordinates
+    assert estimates['estimate'].between(estimates['conf.low'], estimates['conf.high'], inclusive='both').all()
     err_ends = np.abs(estimates[['conf.low', 'conf.high']].values - expected[:, None]).T # each column refers to a single line
 
     if line_colors is None:
@@ -224,26 +225,25 @@ def forest_plot(
 
 if __name__ == '__main__':
     pass
-    # import pandas as pd
-    # fig = plt.figure()
-    # ax = fig.gca()
+    import pandas as pd
+    fig = plt.figure(figsize=(2, 3 / 1.7))
+    ax = fig.gca()
 
-    # estimates = pd.DataFrame({
-    #     'estimate': [0.5, 0.6, 0.7, 0.8],
-    #     'conf.low': [0.45, 0.70, 0.90, 0.81],
-    #     'conf.high': [0.55, 0.50, 0.50, 0.79],
-    # })
-    # ax = forest_plot(
-    #     estimates=estimates,
-    #     origin=1,
-    #     counts=[10, 20, 30, 40],
-    #     # line_ys = np.array([1, 0, 3, 2]) + 0.5,
-    #     line_labels=[f'row{i}' for i in range(4)],
-    #     p_values=np.linspace(0, 0.1, 4),
-    #     estimate_labels=estimates.estimate.map(str),
-    #     # ax=ax,
-    # )
-    # ax.set_xlim([0.3, 2])
-    # print(ax.err_lines)
-    # plt.show()
+    estimates = pd.DataFrame({
+        'estimate': [0.5, 0.6, 0.7, 0.8],
+        'conf.low': [0.45, 0.50, 0.60, 0.79],
+        'conf.high': [0.55, 0.65, 0.80, 0.91],
+    })
+    ax = forest_plot(
+        estimates=estimates,
+        origin=1,
+        counts=[10, 20, 30, 40],
+        # line_ys = np.array([1, 0, 3, 2]) + 0.5,
+        line_labels=[f'row{i}' for i in range(4)],
+        p_values=np.linspace(0, 0.1, 4),
+        estimate_labels=estimates.estimate.map(str),
+        ax=ax,
+    )
+    ax.set_xlim([0.3, 2])
+    plt.show()
 
