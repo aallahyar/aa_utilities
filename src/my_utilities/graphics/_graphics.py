@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 # import seaborn as sns
 
-def link(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=None, text_kw=None):
+def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, line_kw=None, text_kw=None):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
     
     Parameters:
@@ -27,66 +27,61 @@ def link(x_ticks, text, y_left=None, y_top=None, y_right=None, ax=None, line_kw=
     ```python
         fig = plt.figure()
         ax = fig.gca()
-        ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
-        add_pvalue([0, 1], 'test p-value = string', 130, 170, 150, ax=ax)
+        ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
+        # ax.set_yscale('log', base=10)
+        ax.set_ylim([1, 100])
+        link([0, 1], text='test p-value = string', y_left=100, y_right=140, ax=ax)
         plt.show()
     ```
     """
     
     # __version__ = '0.0.1'
+    import matplotlib.transforms as mpl_transforms
 
     if ax is None:
         ax = plt.gca()
 
-    # setting line defaults
+    # setup coordinate offsets
+    y_offset = mpl_transforms.offset_copy(ax.transData, y=+12, units='dots')
+    dsp2dt = ax.transData.inverted()
+
+    # setting defaults
     if line_kw is None:
         line_kw = {
             'linestyle': '-',
             'color': 'k',
             'linewidth': 0.5,
         }
-    y_lim = ax.get_ylim()
-    y_step = (y_lim[1] - y_lim[0]) / 50
-    if y_left is None:
-        y_left = y_lim[1] - y_step * 4
+    
+    # setting text defaults
+    if text_kw is None:
+        text_kw = {
+        }
+    
+    # setting y defaults
     if y_right is None:
         y_right = y_left
     if y_top is None:
-        y_top = max(y_left, y_right) + y_step * 2
+        y_top = max(y_left, y_right)
+    
+    # bring top coordinate one step up
+    y_top_adj = dsp2dt.transform(y_offset.transform((1, y_top)))[1]
     
     # draw the lines
     line_x = [x_ticks[0], x_ticks[0], x_ticks[1], x_ticks[1]]
-    line_y = [y_left, y_top, y_top, y_right]
-    link = ax.plot(line_x, line_y, **line_kw)[0]
+    line_y = [y_left, y_top_adj, y_top_adj, y_right]
+    link = ax.plot(line_x, line_y, transform=y_offset, **line_kw)[0]
 
     # adding text
-    link.text = ax.text(sum(x_ticks) / 2, y_top * 1.0, text, va='bottom', ha='center', **text_kw)
+    link.text = ax.text(sum(x_ticks) / 2, y_top_adj, text, transform=y_offset, va='bottom', ha='center', **text_kw)
 
     # adjust y-lim if needed
-    if y_top + y_step * 3 > y_lim[1]:
-        ax.set_ylim([y_lim[0], y_top + y_step * 3])
+    y_max = y_top_adj + (y_top_adj - y_top) * 5
+    y_lim = list(ax.get_ylim())
+    if y_max > y_lim[1]:
+        ax.set_ylim(top=y_max)
     
     return link
-
-    # if type(data) is str:
-    #     text = data
-    # else:
-    #     # * is p < 0.05
-    #     # ** is p < 0.005
-    #     # *** is p < 0.0005
-    #     # etc.
-    #     text = ''
-    #     p = .05
-
-    #     while data < p:
-    #         text += '*'
-    #         p /= 10.
-
-    #         if maxasterix and len(text) == maxasterix:
-    #             break
-
-    #     if len(text) == 0:
-    #         text = 'n. s.'
 
 def forest_plot(
         estimates, 
@@ -121,30 +116,31 @@ def forest_plot(
     Example:
         ```python
         import pandas as pd
+        fig = plt.figure(figsize=(2, 3 / 1.7))
+        ax = fig.gca()
 
         estimates = pd.DataFrame({
-            'estimate': [0.5, 0.6, 0.7, 0.8],
-            'conf.low': [0.45, 0.50, 0.60, 0.79],
-            'conf.high': [0.55, 0.65, 0.80, 0.91],
+            'estimate': [0.5, 0.60, 0.7, 0.8],
+            'conf.low': [0.45, 0.50, 0.65, 0.79],
+            'conf.high': [0.55, 0.70, 0.80, 0.91],
         })
         ax = forest_plot(
             estimates=estimates,
             origin=1,
             counts=[10, 20, 30, 40],
-            line_ys = np.array([10, 20, 30, 40]),
+            line_ys = np.array([1, 0, 3, 2]) + 0.5,
             line_labels=[f'row{i}' for i in range(4)],
             p_values=np.linspace(0, 0.1, 4),
             estimate_labels=estimates.estimate.map(str),
-            # ax=ax,
+            ax=ax,
         )
         ax.set_xlim([0.3, 2])
-        print(ax.err_lines)
         plt.show()
         ```
             
     """
     from matplotlib.ticker import ScalarFormatter
-    import matplotlib.transforms as transforms
+    import matplotlib.transforms as mpl_transforms
 
     expected = np.array(estimates['estimate'])
     n_line = len(expected)
@@ -167,11 +163,11 @@ def forest_plot(
         fig = plt.figure(figsize=(2, n_line / 1.7))
         ax = fig.gca()
 
-    # tranforming axes coordinates to data coordinates:
-    # this will do the transform, but if xlim/ylim changes later on, it does not update the coord
-    # coord_ax2data = ax.transAxes + ax.transData.inverted()
-    # x_right_margin = coord_ax2data.transform((1.02, 0))[0]
-    trans_axes_data = transforms.blended_transform_factory(ax.transAxes, ax.transData)
+    # generate tranformers
+    trans_axes_data = mpl_transforms.blended_transform_factory(ax.transAxes, ax.transData)
+    count_offset = mpl_transforms.offset_copy(trans_axes_data, x=-10, y=-20, units='dots')
+    estimate_label_offset = mpl_transforms.offset_copy(ax.transData, y=-13, units='dots')
+    pval_offset = mpl_transforms.offset_copy(trans_axes_data, x=5, units='dots')
 
     # ax.invert_yaxis()
     ax.set_ylim([line_ys.max() + 0.5, line_ys.min() - 0.5])
@@ -195,55 +191,42 @@ def forest_plot(
             capsize=3, # error end-cap height
             markeredgewidth=2, # error end-cap width
         )
-
-    # add estimates labels
-    if estimate_labels is not None:
-        estimate_labels = np.array(estimate_labels)
-        for ri, y_pos in enumerate(line_ys):
-            ax.text(expected[ri], y_pos + 0.25, estimate_labels[ri], va='top', ha='center', fontsize=8)
-
-    # add pvalue
-    if p_values is not None:
-        p_values = np.array(p_values)
-        for ri, y_pos in enumerate(line_ys):
-           pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
-           ax.text(1.02, y_pos, f'p={p_values[ri]:0.2g}', va='center', ha='left', color=pval_color, fontsize=8, transform=trans_axes_data)
-
-    # add counts
-    if counts is not None:
-        counts = np.array(counts, dtype=int)
-        for ri, y_pos in enumerate(line_ys):
-           ax.text(-0.03, y_pos + 0.35, f'n={counts[ri]}', va='center', ha='right', color='#444444', fontsize=8, transform=trans_axes_data)
-
+    
     # add line labels
     if line_labels is not None:
         ax.set_yticks(line_ys, line_labels)
     ax.set_xscale('log', base=2)
     ax.xaxis.set_major_formatter(ScalarFormatter())
 
+    # add estimates labels
+    if estimate_labels is not None:
+        estimate_labels = np.array(estimate_labels)
+        for ri, y_pos in enumerate(line_ys):
+            ax.text(expected[ri], y_pos, estimate_labels[ri], va='top', ha='center', fontsize=8, transform=estimate_label_offset)
+
+    # add pvalue
+    if p_values is not None:
+        p_values = np.array(p_values)
+        for ri, y_pos in enumerate(line_ys):
+           pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
+           ax.text(1, y_pos, f'p={p_values[ri]:0.2g}', va='center', ha='left', color=pval_color, fontsize=8, transform=pval_offset)
+
+    # add counts
+    if counts is not None:
+        counts = np.array(counts, dtype=int)
+        for ri, y_pos in enumerate(line_ys):
+           ax.text(0, y_pos, f'n={counts[ri]}', va='center', ha='right', color='#444444', fontsize=8, transform=count_offset)
+
     return ax
 
 if __name__ == '__main__':
     pass
-    import pandas as pd
-    fig = plt.figure(figsize=(2, 3 / 1.7))
-    ax = fig.gca()
 
-    estimates = pd.DataFrame({
-        'estimate': [0.5, 0.6, 0.7, 0.8],
-        'conf.low': [0.45, 0.50, 0.60, 0.79],
-        'conf.high': [0.55, 0.65, 0.80, 0.91],
-    })
-    ax = forest_plot(
-        estimates=estimates,
-        origin=1,
-        counts=[10, 20, 30, 40],
-        # line_ys = np.array([1, 0, 3, 2]) + 0.5,
-        line_labels=[f'row{i}' for i in range(4)],
-        p_values=np.linspace(0, 0.1, 4),
-        estimate_labels=estimates.estimate.map(str),
-        ax=ax,
-    )
-    ax.set_xlim([0.3, 2])
+    fig = plt.figure()
+    ax = fig.gca()
+    ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
+    # ax.set_yscale('log', base=10)
+    ax.set_ylim([1, 100])
+    link([0, 1], text='test p-value = string', y_left=100, y_right=140, ax=ax)
     plt.show()
 

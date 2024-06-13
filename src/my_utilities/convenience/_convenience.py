@@ -15,3 +15,15 @@ def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
         raise ValueError('Unknown bound')
     return output_str
 
+
+def pvalue_to_asterisks(p_value):
+    if p_value <= 0.0001:
+        return '****'
+    if p_value <= 0.001:
+        return '***'
+    if p_value <= 0.01:
+        return '**'
+    if p_value <= 0.05:
+        return '*'
+    return 'ns'
+

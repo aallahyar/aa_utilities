@@ -1,3 +1,15 @@
+## [0.0.13] - 2024-06-08
+### Added:
+- `pvalue_to_asterisks` function, which converts `p_values` to astericks 
+(e.g., `0.002` ==> `**`)
+
+### Fixed:
+- A bug in `link`, where its `text_kw` were not set.
+- A bug in `link`, where the link was not drawing properly in log scaled axes.
+- A bug in `forest_plot`, where labels were differently distanced based on how large
+the figure was.
+
+
 ## [0.0.12] - 2024-05-20
 ### Added:
 - `interval2str` function is added to convert `Pandas.Interval` data types to a more 
