@@ -88,9 +88,9 @@ def forest_plot(
         origin=0, 
         estimate_labels=None, 
         p_values=None, 
-        counts=None,
         line_ys=None,
         line_labels=None, 
+        line_sublabels=None, 
         line_colors=None, 
         marker_colors=None,
         ax=None,
@@ -102,9 +102,9 @@ def forest_plot(
         origin (int, optional): _description_. Defaults to 0.
         estimate_labels (_type_, optional): _description_. Defaults to None.
         p_values (_type_, optional): _description_. Defaults to None.
-        counts (_type_, optional): _description_. Defaults to None.
         line_ys (_type_, optional): determines the location of each estimate. Defaults to None.
         line_labels (_type_, optional): _description_. Defaults to None.
+        line_sublabels (_type_, optional): _description_. Defaults to None.
         line_colors (_type_, optional): _description_. Defaults to None.
         marker_colors (_type_, optional): _description_. Defaults to None.
 
@@ -127,9 +127,9 @@ def forest_plot(
         ax = forest_plot(
             estimates=estimates,
             origin=1,
-            counts=[10, 20, 30, 40],
             line_ys = np.array([1, 0, 3, 2]) + 0.5,
             line_labels=[f'row{i}' for i in range(4)],
+            line_sublabels=[f'n={n}' for n in [0, 1, 2, 3]],
             p_values=np.linspace(0, 0.1, 4),
             estimate_labels=estimates.estimate.map(str),
             ax=ax,
@@ -147,6 +147,7 @@ def forest_plot(
 
     if line_ys is None:
         line_ys = np.arange(n_line)
+    line_ys = np.array(line_ys)
 
     # calculate error-bound coordinates
     assert estimates['estimate'].between(estimates['conf.low'], estimates['conf.high'], inclusive='both').all()
@@ -170,7 +171,7 @@ def forest_plot(
     pval_offset = mpl_transforms.offset_copy(trans_axes_data, x=5, units='dots')
 
     # ax.invert_yaxis()
-    ax.set_ylim([line_ys.max() + 0.5, line_ys.min() - 0.5])
+    ax.set_ylim(bottom=line_ys.max() + 0.75, top=line_ys.min() - 0.5)
 
     # add origin
     ax.origin = ax.axvline(x=origin, linestyle=':', color='#cccccc')
@@ -198,6 +199,12 @@ def forest_plot(
     ax.set_xscale('log', base=2)
     ax.xaxis.set_major_formatter(ScalarFormatter())
 
+    # add line sub-labels
+    if line_sublabels is not None:
+        line_sublabels = np.array(line_sublabels)
+        for ri, y_pos in enumerate(line_ys):
+           ax.err_lines[ri].sublabel = ax.text(0, y_pos, line_sublabels[ri], va='center', ha='right', color='#444444', fontsize=8, transform=count_offset)
+
     # add estimates labels
     if estimate_labels is not None:
         estimate_labels = np.array(estimate_labels)
@@ -211,22 +218,30 @@ def forest_plot(
            pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
            ax.text(1, y_pos, f'p={p_values[ri]:0.2g}', va='center', ha='left', color=pval_color, fontsize=8, transform=pval_offset)
 
-    # add counts
-    if counts is not None:
-        counts = np.array(counts, dtype=int)
-        for ri, y_pos in enumerate(line_ys):
-           ax.text(0, y_pos, f'n={counts[ri]}', va='center', ha='right', color='#444444', fontsize=8, transform=count_offset)
-
     return ax
 
 if __name__ == '__main__':
     pass
 
-    fig = plt.figure()
+    import pandas as pd
+    fig = plt.figure(figsize=(2, 3 / 1.7))
     ax = fig.gca()
-    ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
-    # ax.set_yscale('log', base=10)
-    ax.set_ylim([1, 100])
-    link([0, 1], text='test p-value = string', y_left=100, y_right=140, ax=ax)
+
+    estimates = pd.DataFrame({
+        'estimate': [0.5, 0.60, 0.7, 0.8],
+        'conf.low': [0.45, 0.50, 0.65, 0.79],
+        'conf.high': [0.55, 0.70, 0.80, 0.91],
+    })
+    ax = forest_plot(
+        estimates=estimates,
+        origin=1,
+        line_ys = np.array([1, 0, 3, 2]) + 0.5,
+        line_labels=[f'row{i}' for i in range(4)],
+        line_sublabels=[f'n={n}' for n in [0, 1, 2, 3]],
+        p_values=np.linspace(0, 0.1, 4),
+        estimate_labels=estimates.estimate.map(str),
+        ax=ax,
+    )
+    ax.set_xlim([0.3, 2])
     plt.show()
 

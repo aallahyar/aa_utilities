@@ -1,3 +1,8 @@
+## [0.0.14] - 2024-06-17
+### Changed:
+- `forest_plot` now has a `line_sublabel` argument to show lines below each line.
+- `forest_plot` no longer has `counts` argument (removed in favor of `line_sublabel` argument).
+
 ## [0.0.13] - 2024-06-08
 ### Added:
 - `pvalue_to_asterisks` function, which converts `p_values` to astericks 
