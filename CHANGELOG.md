@@ -1,6 +1,7 @@
 ## [0.0.15] - 2024-06-20
 ### Changed:
-- `wrappers.RSpace` is now capable of returning `numpy.ndarrays`.
+- `wrappers.RSpace` is now choosing to return `numpy.ndarrays` (instead of `pandas.DataFrame`) if the 
+array dimension is more than 2D.
 
 ## [0.0.14] - 2024-06-17
 ### Changed:
@@ -17,7 +18,6 @@
 - A bug in `link`, where the link was not drawing properly in log scaled axes.
 - A bug in `forest_plot`, where labels were differently distanced based on how large
 the figure was.
-
 
 ## [0.0.12] - 2024-05-20
 ### Added:

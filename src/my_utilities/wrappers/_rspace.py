@@ -39,8 +39,13 @@ class RSpace():
             return value_py[0]
         
         # check if the variable is already typed properly
-        if isinstance(value_py, (pd.DataFrame, np.ndarray)):
+        if isinstance(value_py, (pd.DataFrame, )):
             return value_py
+        
+        # check if the variable is more than 2D
+        if isinstance(value_py, (np.ndarray, )) and value_py.ndim > 2:
+            return value_py
+        
         value_df = pd.DataFrame(
             data=value_py,
         )
