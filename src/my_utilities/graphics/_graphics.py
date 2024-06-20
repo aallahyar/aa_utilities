@@ -166,7 +166,7 @@ def forest_plot(
 
     # generate tranformers
     trans_axes_data = mpl_transforms.blended_transform_factory(ax.transAxes, ax.transData)
-    count_offset = mpl_transforms.offset_copy(trans_axes_data, x=-10, y=-20, units='dots')
+    sublabel_offset = mpl_transforms.offset_copy(trans_axes_data, x=-10, y=-15, units='dots')
     estimate_label_offset = mpl_transforms.offset_copy(ax.transData, y=-13, units='dots')
     pval_offset = mpl_transforms.offset_copy(trans_axes_data, x=5, units='dots')
 
@@ -203,7 +203,9 @@ def forest_plot(
     if line_sublabels is not None:
         line_sublabels = np.array(line_sublabels)
         for ri, y_pos in enumerate(line_ys):
-           ax.err_lines[ri].sublabel = ax.text(0, y_pos, line_sublabels[ri], va='center', ha='right', color='#444444', fontsize=8, transform=count_offset)
+           ax.err_lines[ri].sublabel = ax.text(
+               0, y_pos, line_sublabels[ri], va='center', ha='right', color='#444444', fontsize=8, transform=sublabel_offset
+            )
 
     # add estimates labels
     if estimate_labels is not None:

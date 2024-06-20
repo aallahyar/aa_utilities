@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 
@@ -31,17 +32,17 @@ class RSpace():
 
     def __getitem__(self, name):
         with (RSpace.ro.default_converter + RSpace.pandas2ri.converter).context():
-            value_r = RSpace.ro.conversion.get_conversion().rpy2py(RSpace.ro.globalenv[name])
+            value_py = RSpace.ro.conversion.get_conversion().rpy2py(RSpace.ro.globalenv[name])
 
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
         if self(f'is.atomic({name}) && length({name}) == 1L')[0]:
-            return value_r[0]
+            return value_py[0]
         
-        # check if the variable is already a `pd.DataFrame`
-        if isinstance(value_r, pd.DataFrame):
-            return value_r
+        # check if the variable is already typed properly
+        if isinstance(value_py, (pd.DataFrame, np.ndarray)):
+            return value_py
         value_df = pd.DataFrame(
-            data=value_r,
+            data=value_py,
         )
 
         # adding column names if present

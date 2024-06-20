@@ -1,3 +1,7 @@
+## [0.0.15] - 2024-06-20
+### Changed:
+- `wrappers.RSpace` is now capable of returning `numpy.ndarrays`.
+
 ## [0.0.14] - 2024-06-17
 ### Changed:
 - `forest_plot` now has a `line_sublabel` argument to show lines below each line.
