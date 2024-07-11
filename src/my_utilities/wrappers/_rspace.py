@@ -42,6 +42,10 @@ class RSpace():
         if isinstance(value_py, (pd.DataFrame, )):
             return value_py
         
+        # do we have an array of Strings?
+        if isinstance(value_py, RSpace.ro.vectors.StrVector):
+            return np.array(value_py)
+        
         # check if the variable is more than 2D
         if isinstance(value_py, (np.ndarray, )) and value_py.ndim > 2:
             return value_py

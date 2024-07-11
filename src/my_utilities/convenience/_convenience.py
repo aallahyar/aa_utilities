@@ -27,3 +27,25 @@ def pvalue_to_asterisks(p_value):
         return '*'
     return 'ns'
 
+
+def generate_dataframe(n=100, seed=42):
+    import datetime
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(seed=seed)
+    
+    df = pd.DataFrame({
+        'A' : rng.normal(loc=0, scale=1, size=n),
+        'B' : rng.uniform(low=0, high=1, size=n),
+        'C' : rng.integers(low=0, high=100, size=n),
+        'D' : rng.exponential(scale=1, size=n),
+        'E' : rng.choice(['flour', 'egg', 'oil', 'milk', 'water', 'salt', 'suger'], size=n),
+        'F' : rng.choice([f'str_{i}' for i in range(10)], size=n),
+        'G' : rng.choice(pd.date_range(
+            datetime.datetime(2023,1,1),
+            datetime.datetime(2024,1,1)
+        ), size=n),
+    })
+    return df
+

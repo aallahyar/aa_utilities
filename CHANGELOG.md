@@ -1,3 +1,9 @@
+## [0.0.16] - 2024-XX-XX
+### Added:
+- `wrappers.RSpace` is now returning `numpy.ndarrays` if value is a list of `string`.
+- `convenience.generate_dataframe()` is now added to generate dummy dataframes 
+with specific `n` (i.e., number of samples) and `seed`.
+
 ## [0.0.15] - 2024-06-20
 ### Changed:
 - `wrappers.RSpace` is now choosing to return `numpy.ndarrays` (instead of `pandas.DataFrame`) if the 
