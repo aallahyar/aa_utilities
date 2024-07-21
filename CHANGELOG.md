@@ -1,8 +1,10 @@
-## [0.0.16] - 2024-XX-XX
+## [0.0.16] - 2024-07-21
 ### Added:
 - `wrappers.RSpace` is now returning `numpy.ndarrays` if value is a list of `string`.
 - `convenience.generate_dataframe()` is now added to generate dummy dataframes 
 with specific `n` (i.e., number of samples) and `seed`.
+- `InteractiveSelection` is added to allow interactive seleciton of points in a 
+`scatterplot`.
 
 ## [0.0.15] - 2024-06-20
 ### Changed:
