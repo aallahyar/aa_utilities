@@ -1,3 +1,7 @@
+## [0.0.17] - 2024-XX-XX
+### Added:
+- `convenience.LinkageTreeParser` to parse scikit-learn's `AgglomerativeClustering` trees.
+
 ## [0.0.16] - 2024-07-21
 ### Added:
 - `wrappers.RSpace` is now returning `numpy.ndarrays` if value is a list of `string`.

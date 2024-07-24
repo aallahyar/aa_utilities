@@ -12,6 +12,11 @@ from ._configuration import _configurations
 
 
 # making modules visible to user
-from . import graphics, wrappers, computations
+from . import (
+    graphics, 
+    wrappers, 
+    computations, 
+    convenience,
+)
 
 

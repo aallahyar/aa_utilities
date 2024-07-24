@@ -35,9 +35,9 @@ class InteractiveSelection:
 
     def __init__(self, collection, ax=None, alpha_other=0.3):
         
-        if matplotlib.get_backend() not in ['module://ipympl.backend_nbagg']:
+        if matplotlib.get_backend() not in ['ipympl', 'widget', 'module://ipympl.backend_nbagg']:
             raise ValueError(
-                """Place `%matplotlib widget` in the begining of 
+                """Place `%matplotlib ipympl` in the begining of 
                 the running cell to load it properly"""
             )
 
@@ -102,7 +102,8 @@ if __name__ == '__main__':
     ax = fig.gca()
     
     collection = ax.scatter(data[:, 0], data[:, 1], s=30)
-    selector = InteractiveSelection(collection, ax)
+    # `collection` is also located at: ax.collections[0]
+    selector = InteractiveSelection(collection=collection, ax=ax)
 
     fig.canvas.mpl_connect("key_press_event", func=selector.on_click)
     ax.set_title("Press <Enter> to accept selected points.")
