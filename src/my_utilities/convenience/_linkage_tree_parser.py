@@ -112,3 +112,24 @@ if __name__ == '__main__':
     parsed = my_utilities.convenience.LinkageTreeParser(model=model)
     print(parsed)
 
+    # from matplotlib import pyplot as plt
+    # import numpy as np
+    # import seaborn as sns
+    # cls_map = sns.clustermap(
+    #     data=X,
+    #     row_linkage=model,
+    #     cmap="vlag",
+    #     # colors_ratio = 0.02,
+    #     center=0,
+    #     # vmin=-3, vmax=3,
+    #     # cbar_pos=(1.0, 0.7, 0.02, 0.2),
+    #     figsize=(4, 7),
+    # )
+
+    # dgram = cls_map.dendrogram_row.dendrogram
+    # I = np.array(dgram['icoord'])
+    # D = np.array(dgram['dcoord'])
+    
+    # plt.show(block=True)
+    # print()
+

@@ -1,4 +1,4 @@
-## [0.0.17] - 2024-XX-XX
+## [0.0.17] - 2024-07-26
 ### Added:
 - `convenience.LinkageTreeParser` to parse scikit-learn's `AgglomerativeClustering` trees.
 
