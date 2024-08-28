@@ -1,3 +1,9 @@
+## [0.0.18] - 2024-08-28
+### Added:
+- `convenience.get_logger` to create a local logger with specific `name` and logging `level`.
+- `convenience.is_true` to test a given `condition` and return the provided data `data` if 
+condition is `condition=True`. Useful for `Pandas` chaining and testing conditions.
+
 ## [0.0.17] - 2024-07-26
 ### Added:
 - `convenience.LinkageTreeParser` to parse scikit-learn's `AgglomerativeClustering` trees.

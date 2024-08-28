@@ -16,6 +16,12 @@ class RSpace():
     from rpy2.robjects import pandas2ri
 
     def __init__(self, ipython=False):
+        """Initiates an `R` environment.
+
+        Args:
+            ipython (bool, optional): It enables the `%R` magics command. See 
+                https://rpy2.github.io/doc/latest/html/interactive.html for details
+        """
         self.ro = RSpace.ro
         
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage

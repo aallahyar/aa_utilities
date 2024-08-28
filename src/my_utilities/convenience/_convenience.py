@@ -1,5 +1,4 @@
 
-
 def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
     """converting pd.Interval data type to a more readable string"""
     range_str = fmt.format(interval.left, interval.right)
@@ -48,4 +47,66 @@ def generate_dataframe(n=100, seed=42):
         ), size=n),
     })
     return df
+
+
+def get_logger(name=None, level=None):
+    """
+    Defines a logger with a specified name, and level.
+    if `name` is None, return the root logger of the hierarchy
+    source: https://docs.python.org/3/library/logging.html#logging.getLogger
+    """
+    import logging
+
+    # initializations
+    if level is None:
+        level = logging.INFO
+
+    logger = logging.getLogger(name=name)
+    if len(logger.handlers) == 0:
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter(
+            fmt=r'%(asctime)s %(name)s [%(levelname)-s]: %(message)s', 
+            datefmt=r'%Y-%m-%d %H:%M:%S',
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(level)
+        return logger
+
+
+def is_true(condition, data, message='The condition is False!'):
+    """Returns the data, if `condition` is True
+    The `data` is designed as the second argument, as it reads more naturally. 
+    Even though it requires `lambda` and therefore its more lengthy in this design.
+    Even if it was designed as the first argument, the condition often uses the dateframe
+    to perform the check. Which mean that we need the `lambda` function anyway.
+
+    Args:
+        data (any): The object to be returned, if the condition is True.
+        condition (bool): The condition to be tested
+        message (str, optional): Messsage to be shown
+            if the condition is False. Defaults to 'Condition is False!'.
+
+    Returns:
+        any: The `data` as it is provided (i.e., no modification).
+    
+    Examples:
+        (
+            pd.DataFrame({
+                'a': range(5),
+                'b': range(100, 105),
+                'c': range(200, 205),
+            })
+            .pipe(lambda df: is_true(True, df))
+            .pipe(lambda df: is_true(df.b.gt(50).all(), df.iloc[:3]))
+            .pipe(lambda df: is_true(df.c.ge(200).all(), df.iloc[1:]))
+        )
+
+        #    a    b    c
+        # 1  1  101  201
+        # 2  2  102  202
+
+    """
+    assert condition, message
+    return data
 

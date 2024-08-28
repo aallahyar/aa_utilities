@@ -16,7 +16,7 @@ class Node:
         return list(self._clusters.values())
     
     def __repr__(self):
-        return f'<Node {self.id}>: Clusters={self.clusters}'
+        return f'<Node {self.id}>: {len(self.clusters)} clusters={self.clusters}'
 
 
 class LinkageTreeParser():
@@ -73,6 +73,9 @@ class LinkageTreeParser():
         for child in self.tree.values():
             output += '\n' + repr(child)
         return output
+    
+    def __getitem__(self, id):
+        return self.tree[id]
 
 
 if __name__ == '__main__':
