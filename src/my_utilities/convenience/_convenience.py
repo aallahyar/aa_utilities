@@ -55,6 +55,7 @@ def get_logger(name=None, level=None):
     if `name` is None, return the root logger of the hierarchy
     source: https://docs.python.org/3/library/logging.html#logging.getLogger
     """
+    import time
     import logging
 
     # initializations
@@ -71,6 +72,7 @@ def get_logger(name=None, level=None):
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.setLevel(level)
+        logger.last_print = time.time()
         return logger
 
 
