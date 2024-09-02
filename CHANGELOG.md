@@ -1,3 +1,15 @@
+## [0.0.19] - 2024-09-02
+### Added:
+- `get_logger` now has an additional attribute that stores the last time a message was printed.
+
+### Changed:
+- `is_true` now receives the `dataframe` as its first argument.
+- `is_true` now can receive a function as the `condition` which will be called on the given `dataframe`. The function
+needs to return `True` for a successfull function call.
+
+### Fixed:
+- `get_logger` now always return the logger, even if its already initiated.
+
 ## [0.0.18] - 2024-08-28
 ### Added:
 - `convenience.get_logger` to create a local logger with specific `name` and logging `level`.

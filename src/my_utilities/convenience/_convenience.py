@@ -55,7 +55,7 @@ def get_logger(name=None, level=None):
     if `name` is None, return the root logger of the hierarchy
     source: https://docs.python.org/3/library/logging.html#logging.getLogger
     """
-    import time
+    # import time
     import logging
 
     # initializations
@@ -71,17 +71,14 @@ def get_logger(name=None, level=None):
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-        logger.setLevel(level)
-        logger.last_print = time.time()
-        return logger
+    
+    logger.setLevel(level)
+    logger.last_print = 0
+    return logger
 
 
-def is_true(condition, data, message='The condition is False!'):
+def is_true(data, condition, message='The `condition` argument is False!'):
     """Returns the data, if `condition` is True
-    The `data` is designed as the second argument, as it reads more naturally. 
-    Even though it requires `lambda` and therefore its more lengthy in this design.
-    Even if it was designed as the first argument, the condition often uses the dateframe
-    to perform the check. Which mean that we need the `lambda` function anyway.
 
     Args:
         data (any): The object to be returned, if the condition is True.
@@ -93,15 +90,18 @@ def is_true(condition, data, message='The condition is False!'):
         any: The `data` as it is provided (i.e., no modification).
     
     Examples:
-        (
+        print(
             pd.DataFrame({
                 'a': range(5),
                 'b': range(100, 105),
                 'c': range(200, 205),
             })
-            .pipe(lambda df: is_true(True, df))
-            .pipe(lambda df: is_true(df.b.gt(50).all(), df.iloc[:3]))
-            .pipe(lambda df: is_true(df.c.ge(200).all(), df.iloc[1:]))
+            .pipe(is_true, condition=True)
+            .pipe(is_true, True)
+            .pipe(is_true, lambda df: df.b.gt(50).all())
+            .pipe(lambda df: is_true(df, True))
+            .pipe(lambda df: is_true(data=df.iloc[:-2], condition=df.c.ge(200).all()))
+            .pipe(lambda df: is_true(df.iloc[1:], df.a.ge(0).all()))
         )
 
         #    a    b    c
@@ -109,6 +109,29 @@ def is_true(condition, data, message='The condition is False!'):
         # 2  2  102  202
 
     """
-    assert condition, message
+
+    if callable(condition):
+        assert condition(data), message
+    else:
+        assert condition, message
     return data
+
+
+if __name__ == '__main__':
+
+    import pandas as pd
+
+    print(
+        pd.DataFrame({
+            'a': range(5),
+            'b': range(100, 105),
+            'c': range(200, 205),
+        })
+        .pipe(is_true, condition=True)
+        .pipe(is_true, True)
+        .pipe(is_true, lambda df: df.b.gt(50).all())
+        .pipe(lambda df: is_true(df, True))
+        .pipe(lambda df: is_true(data=df.iloc[:-2], condition=df.c.ge(200).all()))
+        .pipe(lambda df: is_true(df.iloc[1:], df.a.ge(0).all()))
+    )
 
