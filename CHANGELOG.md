@@ -1,3 +1,10 @@
+## [0.0.20] - 2024-XX-XX
+### Added:
+- 
+
+### Changed:
+- `convenience.LinkageTreeParser` now produces a less verbose output.
+
 ## [0.0.19] - 2024-09-02
 ### Added:
 - `get_logger` now has an additional attribute that stores the last time a message was printed.

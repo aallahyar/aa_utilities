@@ -16,7 +16,13 @@ class Node:
         return list(self._clusters.values())
     
     def __repr__(self):
-        return f'<Node {self.id}>: {len(self.clusters)} clusters={self.clusters}'
+        n_clusters = len(self.clusters)
+        parent_id = f'<{self.parent.id}>' if self.parent else 'Empty'
+        output = f'<Node {self.id}>: #clusters={n_clusters}, parent={parent_id}'
+        for ci in range(min(n_clusters, 5)):
+            cluster = self.clusters[ci]
+            output += f'\n\tC{ci+1}: size={len(cluster)} | members={cluster[:5]}'
+        return output
 
 
 class LinkageTreeParser():
@@ -69,9 +75,11 @@ class LinkageTreeParser():
             right.parent = self.tree[id_new]
     
     def __repr__(self):
-        output = 'Linkage tree:'
-        for child in self.tree.values():
+        output = f'Linkage tree: #nodes={len(self.tree)}'
+        for ci, child in enumerate(reversed(self.tree.values()), 1):
             output += '\n' + repr(child)
+            if ci >= 5:
+                break
         return output
     
     def __getitem__(self, id):
@@ -107,6 +115,7 @@ if __name__ == '__main__':
     
     parsed = my_utilities.convenience.LinkageTreeParser(model=model)
     print(parsed)
+    print(parsed[2])
 
     # scipy example
     from scipy.cluster.hierarchy import linkage
