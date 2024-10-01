@@ -1,6 +1,6 @@
-## [0.0.20] - 2024-XX-XX
-### Added:
-- 
+## [0.0.20] - 2024-10-01
+### Changed:
+- `Dataframes` should now be properly named when moved out of `R`.
 
 ### Changed:
 - `convenience.LinkageTreeParser` now produces a less verbose output.

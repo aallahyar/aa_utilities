@@ -66,9 +66,9 @@ class RSpace():
         if self(f'names({name})') != self.ro.rinterface.NULL:
             value_df.index = list(self(f'names({name})'))
             value_df.columns = ['column']
-        elif self(f'colnames({name})') != self.ro.rinterface.NULL:
+        if self(f'colnames({name})') != self.ro.rinterface.NULL:
             value_df.columns = self(f'colnames({name})')
-        elif self(f'rownames({name})') != self.ro.rinterface.NULL:
+        if self(f'rownames({name})') != self.ro.rinterface.NULL:
             value_df.index = self(f'rownames({name})')
 
         return value_df
