@@ -55,23 +55,26 @@ class RSpace():
         # check if the variable is more than 2D
         if isinstance(value_py, (np.ndarray, )) and value_py.ndim > 2:
             return value_py
-        
-        value_df = pd.DataFrame(
-            data=value_py,
-        )
 
         # adding column names if present
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if self(f'names({name})') != self.ro.rinterface.NULL:
-            value_df.index = list(self(f'names({name})'))
-            value_df.columns = ['column']
-        if self(f'colnames({name})') != self.ro.rinterface.NULL:
-            value_df.columns = self(f'colnames({name})')
-        if self(f'rownames({name})') != self.ro.rinterface.NULL:
-            value_df.index = self(f'rownames({name})')
+        if self(f'dim({name})') == self.ro.rinterface.NULL:
+            value_pd = pd.Series(
+                data=value_py,
+            )
+            if self(f'names({name})') != self.ro.rinterface.NULL:
+                value_pd.index = list(self(f'names({name})'))
+        else:
+            value_pd = pd.DataFrame(
+                data=value_py,
+            )
+            if self(f'rownames({name})') != self.ro.rinterface.NULL:
+                value_pd.index = self(f'rownames({name})')
+            if self(f'colnames({name})') != self.ro.rinterface.NULL:
+                value_pd.columns = self(f'colnames({name})')
 
-        return value_df
+        return value_pd
 
     def __call__(self, r_script):
         return self.ro.r(r_script)
@@ -102,7 +105,7 @@ if __name__ == '__main__':
 
     R("""
     data <- read.table(text="
-    expression mouse treat1 treat2
+    index expression mouse treat1 treat2
     1 1.01 MOUSE1 NO NO
     2 1.04 MOUSE2 NO NO
     3 1.04 MOUSE3 NO NO
@@ -114,8 +117,9 @@ if __name__ == '__main__':
     9 2.98 MOUSE9 NO YES
     10 5.00 MOUSE10 YES YES
     11 4.92 MOUSE11 YES YES
-    12 4.78 MOUSE12 YES YES
-    ", sep=" ", header=T)
+    12 4.78 MOUSE12 YES YES", 
+    sep=" ", header=T)
+    print(data)
 
     design <- model.matrix(~ treat1 + treat2, data=data)
     fit <- lm(formula='expression ~ treat1 + treat2', data=data)

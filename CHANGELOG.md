@@ -1,3 +1,11 @@
+## [0.0.21] - 2024-10-07
+### Added:
+- `select` to select subsets of rows from a `DataFrame` according to a given dictionary 
+of `queries`.
+### Fixed:
+- `RSpace` is now retuning a `pd.Series` or `pd.DataFrame` depending on the dimension of
+the requested variable.
+
 ## [0.0.20] - 2024-10-01
 ### Changed:
 - `Dataframes` should now be properly named when moved out of `R`.

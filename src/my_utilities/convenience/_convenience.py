@@ -1,4 +1,9 @@
 
+from typing import Any, Union
+
+import numpy as np
+import pandas as pd
+
 def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
     """converting pd.Interval data type to a more readable string"""
     range_str = fmt.format(interval.left, interval.right)
@@ -29,8 +34,6 @@ def pvalue_to_asterisks(p_value):
 
 def generate_dataframe(n=100, seed=42):
     import datetime
-    import numpy as np
-    import pandas as pd
 
     rng = np.random.default_rng(seed=seed)
     
@@ -77,8 +80,10 @@ def get_logger(name=None, level=None):
     return logger
 
 
-def is_true(data, condition, message='The `condition` argument is False!'):
-    """Returns the data, if `condition` is True
+def is_true(data: Any, condition, message='The `condition` argument is False!'):
+    """It returns the data, if `condition` is True
+    This is useful as a convenience function during Pandas chainig operations and 
+    data manupulation to check if a condision is True.
 
     Args:
         data (any): The object to be returned, if the condition is True.
@@ -116,6 +121,44 @@ def is_true(data, condition, message='The `condition` argument is False!'):
         assert condition, message
     return data
 
+def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='query'):
+    """Selects subsets of rows from a given DataFrame according to dictionary of queries
+    The resulting rows from each query is indicated in `indicator` column.
+
+    Example:
+        import pandas as pd
+        df = pd.DataFrame({
+            'id': list('AABAB'),
+            'day1': [23, 25, 27, 26, 24],
+            'day2': [22, 21, 25, 26, 23],
+        })
+
+        (
+            df
+            .pipe(select, 'id in ["A"] and day1 >= 25')
+        )
+    """
+
+    if isinstance(queries, str):
+        queries = {'': queries}
+    if isinstance(queries, list):
+        queries = {idx: que for idx, que in enumerate(queries)}
+
+    # select subsets of dataframe based on each query
+    subsets = []
+    for que_id, que_str in queries.items():
+        subsets.append(
+            dataframe
+            .query(que_str)
+            .copy(deep=True)
+            .assign(**{
+                indicator: que_id,
+            })
+        )
+
+    merged = pd.concat(subsets, axis=0, ignore_index=False, sort=False, copy=True)
+
+    return merged
 
 if __name__ == '__main__':
 
