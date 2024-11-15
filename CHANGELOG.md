@@ -1,3 +1,10 @@
+## [0.0.22] - 2024-11-15
+### Added:
+- When printed, `graphics.InteractiveSelection` object now show some information about what it holds.
+- `convenience.store` to store a given `data` into a given container with a given `name`.
+This is useful during the `Pandas` chaining to catch a state of the chained dataframe and store it
+in another variable.
+
 ## [0.0.21] - 2024-10-07
 ### Added:
 - `select` to select subsets of rows from a `DataFrame` according to a given dictionary 
@@ -18,9 +25,9 @@ the requested variable.
 - `get_logger` now has an additional attribute that stores the last time a message was printed.
 
 ### Changed:
-- `is_true` now receives the `dataframe` as its first argument.
-- `is_true` now can receive a function as the `condition` which will be called on the given `dataframe`. The function
-needs to return `True` for a successfull function call.
+- `convenience.is_true` now receives the `dataframe` as its first argument.
+- `convenience.is_true` now can receive a function as the `condition` which will be 
+called on the given `dataframe`. The function needs to return `True` for a successfull function call.
 
 ### Fixed:
 - `get_logger` now always return the logger, even if its already initiated.

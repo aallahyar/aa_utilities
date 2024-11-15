@@ -86,11 +86,18 @@ class InteractiveSelection:
             # print("Selected points:")
             # print(selector.points[selector.selected_indices])
 
+    def __str__(self):
+        return (
+            f'{len(self.selected_indices):,d} indices are selected. '
+            f'See `self.selected_indices` for the full list.'
+        )
 
 if __name__ == '__main__':
     
     # initialization
-    # %matplotlib widget
+    import matplotlib
+    matplotlib.use('ipympl')
+
     import numpy as np
     from matplotlib import pyplot as plt
     from my_utilities.graphics import InteractiveSelection

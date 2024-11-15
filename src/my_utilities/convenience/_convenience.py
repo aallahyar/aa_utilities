@@ -81,7 +81,7 @@ def get_logger(name=None, level=None):
 
 
 def is_true(data: Any, condition, message='The `condition` argument is False!'):
-    """It returns the data, if `condition` is True
+    """Returns the data, if `condition` is True
     This is useful as a convenience function during Pandas chainig operations and 
     data manupulation to check if a condision is True.
 
@@ -104,9 +104,10 @@ def is_true(data: Any, condition, message='The `condition` argument is False!'):
             .pipe(is_true, condition=True)
             .pipe(is_true, True)
             .pipe(is_true, lambda df: df.b.gt(50).all())
-            .pipe(lambda df: is_true(df, True))
-            .pipe(lambda df: is_true(data=df.iloc[:-2], condition=df.c.ge(200).all()))
-            .pipe(lambda df: is_true(df.iloc[1:], df.a.ge(0).all()))
+            .pipe(lambda df: is_true(data=df, True))
+            .pipe(lambda df: is_true(df.iloc[:-2], condition=df.c.ge(200).all())) # note: df.iloc[:-2] is returned
+            .pipe(lambda df: is_true(df.iloc[:-2], condition=df.c.ge(200).all()) and df) # note: df is returned
+            .pipe(lambda df: is_true(df.iloc[1:], df.a.ge(0).all())) # note: df.iloc[1:] is returned
         )
 
         #    a    b    c
@@ -135,7 +136,9 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
 
         (
             df
-            .pipe(select, 'id in ["A"] and day1 >= 25')
+            .pipe(select, 'id in ["A"] and day1 >= 25') # this is equivalent to .query()
+            .pipe(select, ['id in ["A"]', 'day1 >= 25'])
+            .pipe(select, {'set1': 'id in ["A"]', 'set2': 'day1 >= 25'})
         )
     """
 
@@ -160,21 +163,86 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
 
     return merged
 
+def store(data: Any, name='data', container=None, copy=True) -> Any:
+    """Stores the data into a (dict) container.
+    If container is not given, stores the data in the global name space.
+    This function is useful as during Pandas chainig operations to store an
+    intermediate dataframe in the middle of the chain.
+    The original provided `data` is returned.
+
+    Args:
+        data (any): The object to be stored.
+        name (bool): Name of the stored data
+        message (str, optional): Messsage to be shown
+            if the condition is False. Defaults to 'Condition is False!'.
+
+    Returns:
+        any: The `data` as it is provided (i.e., no modification).
+    
+    Examples:
+        import pandas as pd
+
+        container = {}
+        df = (
+            pd.DataFrame({
+                'i': list('ABCDE'),
+                'a': range(5),
+                'b': range(100, 105),
+                'c': range(200, 205),
+            })
+            .pipe(store) # store the current `df` into global `data` variable
+            .pipe(store, name='test1')
+            .pipe(store, name='test2', container=container)
+            .pipe(store, name='test3', container=container, copy=False)
+            .pipe(lambda df: store({'test': 'value1'}, name='test4') and df) # note: `df` is returned
+            .pipe(lambda df: store(data=df.iloc[:-2], name='test5')) # note: `df.iloc[:-2]` is returned
+        )
+        print('>df\n', df)
+        df.iloc[0, 0] = 'X'
+        print('>data\n', data)
+        print('>container\n', container)
+        print('>test1\n', test1)
+        print('test2' in globals())
+        print('test3' in globals())
+        print('>test4\n', test4)
+        print('>test5\n', test5)
+    """
+
+    if container is None:
+        container = globals()
+    
+    if copy:
+        container[name] = data.copy()
+    else:
+        container[name] = data
+    return data
+
 if __name__ == '__main__':
 
     import pandas as pd
 
-    print(
+    container = {}
+    df = (
         pd.DataFrame({
+            'i': list('ABCDE'),
             'a': range(5),
             'b': range(100, 105),
             'c': range(200, 205),
         })
-        .pipe(is_true, condition=True)
-        .pipe(is_true, True)
-        .pipe(is_true, lambda df: df.b.gt(50).all())
-        .pipe(lambda df: is_true(df, True))
-        .pipe(lambda df: is_true(data=df.iloc[:-2], condition=df.c.ge(200).all()))
-        .pipe(lambda df: is_true(df.iloc[1:], df.a.ge(0).all()))
+        .pipe(store) # store the current `df` into global `data` variable
+        .pipe(store, name='test1')
+        .pipe(store, name='test2', container=container)
+        .pipe(store, name='test3', container=container, copy=False)
+        .pipe(lambda df: store({'test': 'value1'}, name='test4') and df) # note: `df` is returned
+        .pipe(lambda df: store(data=df.iloc[:-2], name='test5')) # note: `df.iloc[:-2]` is returned
     )
+    print('>df\n', df)
+    df.iloc[0, 0] = 'X'
+    print('>data\n', data)
+    print('>container\n', container)
+    print('>test1\n', test1)
+    print('test2' in globals())
+    print('test3' in globals())
+    print('>test4\n', test4)
+    print('>test5\n', test5)
 

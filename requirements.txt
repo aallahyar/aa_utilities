@@ -6,3 +6,4 @@ rpy2>=3.5.15
 numba>=0.59.0
 natsort>=8.4.0
 scikit-learn
+# ipympl # if interactive visualization is needed
