@@ -1,3 +1,7 @@
+## [0.0.23] - 2024-11-20
+### Added:
+- `convenience.Logger` which can restrict logs printed by a logger based on number of logs printed or the time since last print.
+
 ## [0.0.22] - 2024-11-15
 ### Added:
 - When printed, `graphics.InteractiveSelection` object now show some information about what it holds.
