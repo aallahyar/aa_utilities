@@ -1,3 +1,7 @@
+## [0.0.24] - 2025-XX-XX
+### Added:
+- `graphics.add_counts_to_legend` to add counts to the legend of a given ax.
+
 ## [0.0.23] - 2024-11-20
 ### Added:
 - `convenience.Logger` which can restrict logs printed by a logger based on number of logs printed or the time since last print.

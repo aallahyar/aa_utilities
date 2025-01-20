@@ -222,6 +222,18 @@ def forest_plot(
 
     return ax
 
+
+def add_counts_to_legend(ax, counts, text_format='{:s} (n={:d})', **kwargs):
+    handles, labels = ax.get_legend_handles_labels()
+    n_elements = len(labels)
+
+    for ei in range(n_elements):
+        if labels[ei] in counts:
+            labels[ei] = text_format.format(labels[ei], counts[labels[ei]])
+    ax.legend(handles, labels, **kwargs)
+    return (handles, labels)
+
+
 if __name__ == '__main__':
     pass
 
