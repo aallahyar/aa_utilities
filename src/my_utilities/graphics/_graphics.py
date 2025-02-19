@@ -234,28 +234,115 @@ def add_counts_to_legend(ax, counts, text_format='{:s} (n={:d})', **kwargs):
     return (handles, labels)
 
 
+def heatmap(matrix_df, **kwargs):
+    """Plots a heatmap, but also allows:
+        - Allows customized rectangle sizes per element
+        - Allows line borders per element
+
+    Args:
+        matrix_df (pd.DataFrame): Matrix for which a heatmap will be drawn
+    
+    Example:
+            import pandas as pd
+            from matplotlib import pyplot as plt, colors
+
+            # data preparation
+            # rng = np.random.default_rng(seed=42)
+            # corr_df = pd.DataFrame(rng.uniform(-1, 1, size=(15, 15)))
+            corr_df = pd.DataFrame(np.arange(-112, 113).reshape(15, 15) / 224)
+            corr_df.index = corr_df.index.map(lambda i: 'row{:d}'.format(i))
+            corr_df.columns = corr_df.columns.map(lambda c: 'col{:d}'.format(c))
+
+            fig = plt.figure(figsize=(7, 6))
+            ax = fig.gca()
+            cmap = colors.LinearSegmentedColormap.from_list('BlueWhiteRed', ['blue', 'white', 'red'], N=8, gamma=1.0)
+            heatmap(corr_df, cmap=cmap, ax=ax, box_kws={'mesh_alpha': 0.7})
+
+            # another test:
+            # sns.heatmap(corr_df, cmap=cmap, ax=ax)
+
+            plt.show()
+    """
+    from matplotlib import (
+        # pyplot as plt, 
+        patches,
+        # colors,
+    )
+    from matplotlib.collections import PatchCollection
+    import seaborn as sns
+    
+    # initialize default parameters
+    box_kws = kwargs.pop('box_kws', {})
+    # cmap = sns.color_palette('vlag', n_colors=4, as_cmap=True)
+    # cmap = colors.LinearSegmentedColormap.from_list('BlueWhiteRed', ['blue', 'white', 'red'], N=20, gamma=1.0)
+    
+    ax = sns.heatmap(
+        data=matrix_df,
+        # mask=corr_df.abs() < 0.5, # hide elements
+        # annot=True,
+        # annot_kws={'fontsize': 6},
+        # fmt='.1f',
+        # cmap=cmap,
+        # vmin=-1,
+        # vmax=+1,
+        **kwargs,
+    )
+
+    if box_kws is not None:
+        
+        # infer properties
+        # cmap = ax.collections[0].cmap
+        # vmin = ax.collections[0].colorbar.vmin
+        # vmax = ax.collections[0].colorbar.vmax
+        # color_idxs = (matrix_df.values - vmin) / (vmax - vmin)
+        # face_colors = cmap(color_idxs)
+        face_colors = ax.collections[0]._facecolors
+        edge_colors = box_kws.get('edge_colors', np.empty_like(matrix_df, dtype=object))
+        sizes = box_kws.get('sizes', np.ones_like(matrix_df) * 0.8)
+        line_width = box_kws.get('line_width', 3)
+        mesh_alpha = box_kws.get('mesh_alpha', 0.05)
+    
+        # draw boxes
+        rectangles = []
+        for ri, row in enumerate(matrix_df.index):
+            for ci, col in enumerate(matrix_df.columns):
+                rectangles.append(
+                    patches.Rectangle(
+                        (ci + 0.5 - sizes[ri, ci] / 2, ri + 0.5 - sizes[ri, ci] / 2),
+                        width=sizes[ri, ci],
+                        height=sizes[ri, ci],
+                        facecolor=face_colors[ri, ci],
+                        edgecolor=edge_colors[ri, ci],
+                        linewidth=line_width,
+                    )
+                )
+        ax.add_collection(PatchCollection(rectangles, match_original=True))
+
+        # final adjustments
+        ax.collections[0].set_alpha(mesh_alpha)
+        # ax.xaxis.tick_top()
+
+
 if __name__ == '__main__':
     pass
 
     import pandas as pd
-    fig = plt.figure(figsize=(2, 3 / 1.7))
-    ax = fig.gca()
+    from matplotlib import pyplot as plt, colors
 
-    estimates = pd.DataFrame({
-        'estimate': [0.5, 0.60, 0.7, 0.8],
-        'conf.low': [0.45, 0.50, 0.65, 0.79],
-        'conf.high': [0.55, 0.70, 0.80, 0.91],
-    })
-    ax = forest_plot(
-        estimates=estimates,
-        origin=1,
-        line_ys = np.array([1, 0, 3, 2]) + 0.5,
-        line_labels=[f'row{i}' for i in range(4)],
-        line_sublabels=[f'n={n}' for n in [0, 1, 2, 3]],
-        p_values=np.linspace(0, 0.1, 4),
-        estimate_labels=estimates.estimate.map(str),
-        ax=ax,
-    )
-    ax.set_xlim([0.3, 2])
+    # data preparation
+    # rng = np.random.default_rng(seed=42)
+    # corr_df = pd.DataFrame(rng.uniform(-1, 1, size=(15, 15)))
+    corr_df = pd.DataFrame(np.arange(-112, 113).reshape(15, 15) / 224)
+    corr_df.index = corr_df.index.map(lambda i: 'row{:d}'.format(i))
+    corr_df.columns = corr_df.columns.map(lambda c: 'col{:d}'.format(c))
+
+    fig = plt.figure(figsize=(7, 6))
+    ax = fig.gca()
+    cmap = colors.LinearSegmentedColormap.from_list('BlueWhiteRed', ['blue', 'white', 'red'], N=8, gamma=1.0)
+    heatmap(corr_df, cmap=cmap, ax=ax, box_kws={'mesh_alpha': 0.7})
+
+    # another test:
+    # sns.heatmap(corr_df, cmap=cmap, ax=ax)
+
     plt.show()
 

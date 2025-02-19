@@ -1,6 +1,7 @@
-## [0.0.24] - 2025-XX-XX
+## [0.0.24] - 2025-02-19
 ### Added:
 - `graphics.add_counts_to_legend` to add counts to the legend of a given ax.
+- `graphics.heatmap` to add heatmaps that are further annotated with smaller colored boxes
 
 ## [0.0.23] - 2024-11-20
 ### Added:
