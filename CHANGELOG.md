@@ -1,3 +1,7 @@
+## [0.0.25] - 2025-02-24
+### Changed:
+- `forest_plot` now has a `x_scale` argument to determine the scale of x-axis. By default the scale will be `linear`.
+
 ## [0.0.24] - 2025-02-19
 ### Added:
 - `graphics.add_counts_to_legend` to add counts to the legend of a given ax.

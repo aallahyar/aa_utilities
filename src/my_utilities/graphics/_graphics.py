@@ -93,6 +93,7 @@ def forest_plot(
         line_sublabels=None, 
         line_colors=None, 
         marker_colors=None,
+        x_scale=None,
         ax=None,
     ):
     """Generates a ForestPlot that is often used in Treatment-effect presentations
@@ -132,6 +133,7 @@ def forest_plot(
             line_sublabels=[f'n={n}' for n in [0, 1, 2, 3]],
             p_values=np.linspace(0, 0.1, 4),
             estimate_labels=estimates.estimate.map(str),
+            x_scale=dict(value='log', base=2),
             ax=ax,
         )
         ax.set_xlim([0.3, 2])
@@ -196,7 +198,8 @@ def forest_plot(
     # add line labels
     if line_labels is not None:
         ax.set_yticks(line_ys, line_labels)
-    ax.set_xscale('log', base=2)
+    if x_scale is not None:
+        ax.set_xscale(**x_scale)
     ax.xaxis.set_major_formatter(ScalarFormatter())
 
     # add line sub-labels
@@ -327,22 +330,25 @@ if __name__ == '__main__':
     pass
 
     import pandas as pd
-    from matplotlib import pyplot as plt, colors
-
-    # data preparation
-    # rng = np.random.default_rng(seed=42)
-    # corr_df = pd.DataFrame(rng.uniform(-1, 1, size=(15, 15)))
-    corr_df = pd.DataFrame(np.arange(-112, 113).reshape(15, 15) / 224)
-    corr_df.index = corr_df.index.map(lambda i: 'row{:d}'.format(i))
-    corr_df.columns = corr_df.columns.map(lambda c: 'col{:d}'.format(c))
-
-    fig = plt.figure(figsize=(7, 6))
+    fig = plt.figure(figsize=(2, 3 / 1.7))
     ax = fig.gca()
-    cmap = colors.LinearSegmentedColormap.from_list('BlueWhiteRed', ['blue', 'white', 'red'], N=8, gamma=1.0)
-    heatmap(corr_df, cmap=cmap, ax=ax, box_kws={'mesh_alpha': 0.7})
 
-    # another test:
-    # sns.heatmap(corr_df, cmap=cmap, ax=ax)
-
+    estimates = pd.DataFrame({
+        'estimate': [0.5, 0.60, 0.7, 0.8, -2],
+        'conf.low': [0.45, 0.50, 0.65, 0.79, -2.3],
+        'conf.high': [0.55, 0.70, 0.80, 0.91, -1.9],
+    })
+    ax = forest_plot(
+        estimates=estimates,
+        origin=0,
+        # line_ys = np.array([1, 0, 3, 2]) + 0.5,
+        line_labels=[f'row{i}' for i in range(5)],
+        # line_sublabels=[f'n={n}' for n in [0, 1, 2, 3]],
+        # p_values=np.linspace(0, 0.1, 4),
+        # estimate_labels=estimates.estimate.map(str),
+        # x_scale=dict(value='log', base=2),
+        ax=ax,
+    )
+    # ax.set_xlim([0.3, 2])
     plt.show()
 
