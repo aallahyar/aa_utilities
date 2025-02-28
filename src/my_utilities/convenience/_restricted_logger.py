@@ -1,3 +1,4 @@
+import re
 import sys
 import logging
 import threading
@@ -36,7 +37,7 @@ class Logger(logging.Logger):
             self.addFilter(self.loggable)
 
             # define stdout logger
-            self.to_stdout = logging.getLogger(name=f'{name}_stdout')
+            self.to_stdout = logging.getLogger(name=f'{name}_STDOUT')
             handler_stdout = logging.StreamHandler(stream=sys.stdout)
             formatter_stdout = logging.Formatter(
                 fmt=f'%(asctime)s {name}: %(message)s',
@@ -56,7 +57,10 @@ class Logger(logging.Logger):
         self._lock.acquire()
         loggable_time = True
         loggable_count = True
-        name = record.levelname # or logging.getLevelName(10)
+        if self.name == record.name: # its the main logger
+            name = record.levelname # or logging.getLevelName(10)
+        else:  # its the sub-logger
+            name = re.sub(f'^{self.name}_', '', record.name)
         stats = self._stats[name]
 
         # check count limit

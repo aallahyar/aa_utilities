@@ -221,7 +221,7 @@ def forest_plot(
         p_values = np.array(p_values)
         for ri, y_pos in enumerate(line_ys):
            pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
-           ax.text(1, y_pos, f'p={p_values[ri]:0.2g}', va='center', ha='left', color=pval_color, fontsize=8, transform=pval_offset)
+           ax.text(1, y_pos, f'p={p_values[ri]:0.1g}', va='center', ha='left', color=pval_color, fontsize=8, transform=pval_offset)
 
     return ax
 

@@ -1,3 +1,8 @@
+## [0.0.26] - 2025-XX-XX
+### Fixed:
+- `Logger` bug where `stdout` logs where counted as `info`.
+- P-values in `forest_plot` is now represented with a single digit precision.
+
 ## [0.0.25] - 2025-02-24
 ### Changed:
 - `forest_plot` now has a `x_scale` argument to determine the scale of x-axis. By default the scale will be `linear`.
