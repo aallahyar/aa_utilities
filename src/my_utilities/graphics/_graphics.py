@@ -239,8 +239,8 @@ def add_counts_to_legend(ax, counts, text_format='{:s} (n={:d})', **kwargs):
 
 def heatmap(matrix_df, **kwargs):
     """Plots a heatmap, but also allows:
-        - Allows customized rectangle sizes per element
-        - Allows line borders per element
+        - Customized rectangle sizes per element
+        - Line borders per element
 
     Args:
         matrix_df (pd.DataFrame): Matrix for which a heatmap will be drawn
@@ -259,9 +259,19 @@ def heatmap(matrix_df, **kwargs):
             fig = plt.figure(figsize=(7, 6))
             ax = fig.gca()
             cmap = colors.LinearSegmentedColormap.from_list('BlueWhiteRed', ['blue', 'white', 'red'], N=8, gamma=1.0)
-            heatmap(corr_df, cmap=cmap, ax=ax, box_kws={'mesh_alpha': 0.7})
+            heatmap(
+                corr_df, 
+                cmap=cmap, 
+                ax=ax, 
+                box_kws={
+                    'mesh_alpha': 0.7, # determines the background color of the heatmap (which is the same as facecolor)
+                    'sizes': corr_df.abs().values * 0.98 / corr_df.values.max(), 
+                    'line_width': 0.9, 
+                    'edge_colors': np.where(corr_df.le(0), '#000000', None)
+                },
+            )
 
-            # another test:
+            # sanity check:
             # sns.heatmap(corr_df, cmap=cmap, ax=ax)
 
             plt.show()
@@ -324,6 +334,10 @@ def heatmap(matrix_df, **kwargs):
         # final adjustments
         ax.collections[0].set_alpha(mesh_alpha)
         # ax.xaxis.tick_top()
+    
+    return ax
+
+
 
 
 if __name__ == '__main__':

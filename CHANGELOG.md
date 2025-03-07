@@ -1,7 +1,9 @@
-## [0.0.26] - 2025-XX-XX
+## [0.0.26] - 2025-03-07
 ### Fixed:
 - `Logger` bug where `stdout` logs where counted as `info`.
 - P-values in `forest_plot` is now represented with a single digit precision.
+### Added:
+- `convenience.Container` to hold data and represent them in a human-friendly manner.
 
 ## [0.0.25] - 2025-02-24
 ### Changed:

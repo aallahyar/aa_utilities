@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "my_utilities"
-version = "0.0.25"
+version = "0.0.26"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -17,7 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = ["utilities", "personal"]
-requires-python = ">=3.7"
+requires-python = ">=3.12"
 dynamic = ["dependencies"]
 
 [project.urls]
