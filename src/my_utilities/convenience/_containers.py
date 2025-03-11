@@ -35,7 +35,7 @@ class Container(pd.Series):
 
     """
     
-    def __init__(self, data=None, repr_max_rows=20, repr_max_cols=80, series_kws=None, **kwargs):
+    def __init__(self, data=None, series_kws=None, repr_max_n_elements=200, repr_max_cols=80, prev_max_rows=20, **kwargs):
         assert kwargs == {} # NOT IMPLEMENTED
 
         if series_kws is None:
@@ -47,7 +47,8 @@ class Container(pd.Series):
             **series_kws,
         )
         self.repr_max_cols = repr_max_cols
-        self.repr_max_rows = repr_max_rows
+        self.repr_max_n_elements = repr_max_n_elements
+        self.prev_max_rows = prev_max_rows
         
 
     def __repr__(self):
@@ -57,10 +58,10 @@ class Container(pd.Series):
             match value:
                 case pd.Series():
                     meta = f'<pd.Series> ({len(value)})'
-                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.repr_max_rows])
+                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.prev_max_rows])
                 case pd.DataFrame():
                     meta = f'<pd.DataFrame> {value.shape}'
-                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.repr_max_rows])
+                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.prev_max_rows])
                 case int(): #  | float()
                     meta = f'<int>'
                     preview = f'{tab}{str(value)[:self.repr_max_cols]}'
@@ -72,13 +73,13 @@ class Container(pd.Series):
                     preview = f'{tab}{str(value)[:self.repr_max_cols]}'
                 case _:
                     meta = f'<{type(value)}>'
-                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.repr_max_rows])
+                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.prev_max_rows])
             output += (
                 f'{index}: {meta}\n'
                 f'{preview}\n'
             )
-            if row_num >= self.repr_max_rows:
-                output += '... MAXIMUM # ROWS REACHED ...\n'
+            if row_num >= self.repr_max_n_elements:
+                output += '... ...\n'
                 break
         
         # last row details
@@ -91,26 +92,28 @@ class Container(pd.Series):
 
 if __name__ == '__main__':
     container = Container(
-        data=dict(A=1000, B=10000), 
+        data=dict(A1=1000, B2=10000), 
         series_kws=dict(name='NAMEEEE'), 
-        repr_max_rows=14,
+        prev_max_rows=20,
+        repr_max_n_elements=11,
     )
 
-    container['a'] = 2
-    container.loc['b'] = 20.234
+    container['a3'] = 2
+    container.loc['b4'] = 20.234
 
-    container.c = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
-    print(container.c)
+    container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
+    print(container.c5miss)
 
-    container['d'] = pd.Series(dict(X=10, Y=1000))
-    container['f'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
-    container['Z'] = pd.DataFrame(np.random.rand(50, 50))
+    container['c5show'] = 300
 
-    container['e'] = 'MISTAKE1'
-    container.e = 'CORRECT1'
-    container['e1000'] = 'MISTAKE2'
-    container['e1000'] = 'CORRECT2'
-    container['e100'] = 'LAST ELEMENT'
-    container['e100000'] = 'MISSING'
+    container['d6'] = pd.Series(dict(X=10, Y=1000))
+    container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
+    container['f8'] = pd.DataFrame(np.random.rand(50, 50))
+
+    container['g9'] = 'test1'
+    container['i10'] = 'MISTAKE2'
+    container.i10 = 'Corrected2'
+    container['k11'] = 'LAST ELEMENT'
+    container['l12'] = 'Not shown'
 
     print(container)
