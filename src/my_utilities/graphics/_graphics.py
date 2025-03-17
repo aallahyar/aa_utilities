@@ -1,6 +1,9 @@
 # import pandas as pd
 import numpy as np
-from matplotlib import pyplot as plt
+from matplotlib import (
+    pyplot as plt,
+    transforms as mpl_transforms,
+)
 # import seaborn as sns
 
 def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, line_kw=None, text_kw=None):
@@ -36,7 +39,6 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, line_kw=None,
     """
     
     # __version__ = '0.0.1'
-    import matplotlib.transforms as mpl_transforms
 
     if ax is None:
         ax = plt.gca()
@@ -142,7 +144,6 @@ def forest_plot(
             
     """
     from matplotlib.ticker import ScalarFormatter
-    import matplotlib.transforms as mpl_transforms
 
     expected = np.array(estimates['estimate'])
     n_line = len(expected)
@@ -338,6 +339,42 @@ def heatmap(matrix_df, **kwargs):
     return ax
 
 
+def add_text_offset(x, y, text, offsets=(0, 0.02), types=('data', 'ax'), units='points', ax=None, **kwargs):
+    """Adds a text using a give offset
+    
+    Example:
+    df4plt = (
+        pd.DataFrame()
+        .assign(
+            x=np.arange(11),
+            y=np.linspace(0, 1, num=11),
+            color=lambda df: np.where(df.x < 5, 'blue', 'green'),
+        )
+    )
+
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.gca()
+    for i, row in df4plt.iterrows():
+        add_text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
+
+    ax.set_xlim([0, 10])
+    ax.set_ylim([0, 100])
+    ax.grid()
+    """
+    if ax is None:
+        ax = plt.gca()
+
+    # define transform
+    transforms = {'data': ax.transData, 'ax': ax.transAxes}
+    transformer = mpl_transforms.blended_transform_factory(transforms[types[0]], transforms[types[1]])
+    trans_offset = mpl_transforms.offset_copy(transformer, x=offsets[0], y=offsets[1], units=units, fig=ax.get_figure())
+
+    # set default text params
+    kwargs = dict(va='top', ha='center', fontsize=8, color='black', transform=trans_offset) | kwargs
+
+    # draw the text
+    text_hndl = ax.text(x, y, text, **kwargs)
+    return text_hndl
 
 
 if __name__ == '__main__':

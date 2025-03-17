@@ -1,3 +1,7 @@
+## [0.0.27] - 2025-XX-XX
+### Added:
+- `add_text_offset` to add a text using an offset.
+
 ## [0.0.26] - 2025-03-07
 ### Fixed:
 - `Logger` bug where `stdout` logs where counted as `info`.
