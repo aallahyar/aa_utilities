@@ -339,7 +339,7 @@ def heatmap(matrix_df, **kwargs):
     return ax
 
 
-def add_text_offset(x, y, text, offsets=(0, 0.02), types=('data', 'ax'), units='points', ax=None, **kwargs):
+def add_text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='points', ax=None, **kwargs):
     """Adds a text using a give offset
     
     Example:
@@ -360,17 +360,18 @@ def add_text_offset(x, y, text, offsets=(0, 0.02), types=('data', 'ax'), units='
     ax.set_xlim([0, 10])
     ax.set_ylim([0, 100])
     ax.grid()
+    plt.show()
     """
     if ax is None:
         ax = plt.gca()
 
     # define transform
-    transforms = {'data': ax.transData, 'ax': ax.transAxes}
-    transformer = mpl_transforms.blended_transform_factory(transforms[types[0]], transforms[types[1]])
+    transform_factory = {'data': ax.transData, 'ax': ax.transAxes}
+    transformer = mpl_transforms.blended_transform_factory(transform_factory[types[0]], transform_factory[types[1]])
     trans_offset = mpl_transforms.offset_copy(transformer, x=offsets[0], y=offsets[1], units=units, fig=ax.get_figure())
 
     # set default text params
-    kwargs = dict(va='top', ha='center', fontsize=8, color='black', transform=trans_offset) | kwargs
+    kwargs = dict(va='top', ha='center', transform=trans_offset) | kwargs # fontsize=8, color='black', 
 
     # draw the text
     text_hndl = ax.text(x, y, text, **kwargs)
@@ -381,25 +382,23 @@ if __name__ == '__main__':
     pass
 
     import pandas as pd
-    fig = plt.figure(figsize=(2, 3 / 1.7))
-    ax = fig.gca()
 
-    estimates = pd.DataFrame({
-        'estimate': [0.5, 0.60, 0.7, 0.8, -2],
-        'conf.low': [0.45, 0.50, 0.65, 0.79, -2.3],
-        'conf.high': [0.55, 0.70, 0.80, 0.91, -1.9],
-    })
-    ax = forest_plot(
-        estimates=estimates,
-        origin=0,
-        # line_ys = np.array([1, 0, 3, 2]) + 0.5,
-        line_labels=[f'row{i}' for i in range(5)],
-        # line_sublabels=[f'n={n}' for n in [0, 1, 2, 3]],
-        # p_values=np.linspace(0, 0.1, 4),
-        # estimate_labels=estimates.estimate.map(str),
-        # x_scale=dict(value='log', base=2),
-        ax=ax,
+    df4plt = (
+        pd.DataFrame()
+        .assign(
+            x=np.arange(11),
+            y=np.linspace(0, 1, num=11),
+            color=lambda df: np.where(df.x < 5, 'blue', 'green'),
+        )
     )
-    # ax.set_xlim([0.3, 2])
+
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.gca()
+    for i, row in df4plt.iterrows():
+        add_text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
+
+    ax.set_xlim([0, 10])
+    ax.set_ylim([0, 100])
+    ax.grid()
     plt.show()
 

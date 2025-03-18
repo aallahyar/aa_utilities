@@ -1,4 +1,4 @@
-## [0.0.27] - 2025-XX-XX
+## [0.0.27] - 2025-03-18
 ### Added:
 - `add_text_offset` to add a text using an offset.
 
