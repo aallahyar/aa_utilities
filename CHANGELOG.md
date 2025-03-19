@@ -1,6 +1,6 @@
-## [0.0.27] - 2025-03-18
+## [0.0.27] - 2025-03-19
 ### Added:
-- `add_text_offset` to add a text using an offset.
+- `text_offset` to add a text using an offset.
 
 ## [0.0.26] - 2025-03-07
 ### Fixed:

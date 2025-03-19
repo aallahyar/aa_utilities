@@ -339,7 +339,7 @@ def heatmap(matrix_df, **kwargs):
     return ax
 
 
-def add_text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='points', ax=None, **kwargs):
+def text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='points', ax=None, **kwargs):
     """Adds a text using a give offset
     
     Example:
@@ -355,7 +355,7 @@ def add_text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units=
     fig = plt.figure(figsize=(6, 6))
     ax = fig.gca()
     for i, row in df4plt.iterrows():
-        add_text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
+        text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
 
     ax.set_xlim([0, 10])
     ax.set_ylim([0, 100])
@@ -395,7 +395,7 @@ if __name__ == '__main__':
     fig = plt.figure(figsize=(6, 6))
     ax = fig.gca()
     for i, row in df4plt.iterrows():
-        add_text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
+        text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
 
     ax.set_xlim([0, 10])
     ax.set_ylim([0, 100])
