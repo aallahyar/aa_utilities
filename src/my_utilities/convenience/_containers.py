@@ -110,11 +110,14 @@ class Container(pd.Series):
 
     
     def _str_clipped(self, obj, indent):
-        output = []
+        outputs = []
         lines = str(obj).split('\n')
         for line in lines[:self._params['prev_max_rows']]:
-            output.append(line[:self._params['repr_max_cols']])
-        return indent + f'\n{indent}'.join(output)
+            output = line[:self._params['repr_max_cols']]
+            if len(line) > self._params['repr_max_cols']:
+                output += ' ...'
+            outputs.append(output)
+        return indent + f'\n{indent}'.join(outputs)
 
     def __repr__(self):
         tab = ' ' * 4
@@ -128,6 +131,9 @@ class Container(pd.Series):
         # add element details
         for row_num, (index, value) in enumerate(self.items(), start=1):
             match value:
+                case Container():
+                    meta = f'<Container> ({len(value)})'
+                    preview = self._str_clipped(value, indent=tab)
                 case pd.Series():
                     meta = f'<pd.Series> ({len(value)})'
                     preview = self._str_clipped(value, indent=tab)
@@ -189,7 +195,10 @@ if __name__ == '__main__':
     container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
     container['f8'] = pd.DataFrame(np.random.rand(50, 50))
 
-    container['g9'] = 'test1'
+    container['g9'] = Container(
+        g9a=[12, 100],
+        g9b=list('abcdefghijklmopqrstuvwxyz'),
+    )
     container['i10'] = 'MISTAKE2'
     container.i10 = 'Corrected2'
     container['k11'] = 'LAST ELEMENT'
