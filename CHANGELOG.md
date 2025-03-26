@@ -2,6 +2,9 @@
 ### Added:
 - `Container.include` adds all given arguments as new elements in the container
 
+### Changed:
+- `Container` signature is now simplifed. It noq only receives elements using its constructor.
+
 ## [0.0.27] - 2025-03-19
 ### Added:
 - `text_offset` to add a text using an offset.

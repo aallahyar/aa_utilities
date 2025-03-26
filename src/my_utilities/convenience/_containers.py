@@ -9,8 +9,10 @@ class Container(pd.Series):
     
     Example:
         container = Container(
-            data=dict(A1=1000, B2=10000), 
-            series_kws=dict(name='NAMEEEE'), 
+            A1=1000, 
+            B2=10000,
+        )
+        container.set_params(
             prev_max_rows=20,
             repr_max_n_elements=11,
         )
@@ -22,26 +24,7 @@ class Container(pd.Series):
         container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
         print(container.c5miss)
 
-        container['c5show'] = 300
-
-        container['d6'] = pd.Series(dict(X=10, Y=1000))
-        container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
-        container['f8'] = pd.DataFrame(np.random.rand(50, 50))
-
-        container['g9'] = 'test1'
-        container['i10'] = 'MISTAKE2'
-        container.i10 = 'Corrected2'
-        container['k11'] = 'LAST ELEMENT'
-        container['l12'] = 'Not shown'
-
-        print(container)
-        c1 = pd.Series(container).copy()
-        print(container == c1)
-        c1['g9'] = 'not test1 anymore'
-        print(str(c1)[:300])
-        print(c1.g9)
-        print(container == c1)
-        print(container == {})
+        container['c5show'] = [300, 200.3]
 
         # 30
         # Name: NAMEEEE | #elements: 12 | dtype: object
@@ -109,23 +92,29 @@ class Container(pd.Series):
 
     """
     
-    def __init__(self, data=None, series_kws=None, repr_max_n_elements=200, repr_max_cols=80, prev_max_rows=20, **kwargs):
-        assert kwargs == {} # NOT IMPLEMENTED
-
-        if series_kws is None:
-            series_kws = {}
-        series_kws = {'dtype': object} | series_kws # this avoids automatic conversion of all values if a when Series is <int> and gets converted to <float>
-
+    def __init__(self, **kwargs):
         super().__init__(
-            data=data,
-            **series_kws,
+            data=kwargs,
+            dtype=object,
         )
-        self.repr_max_cols = repr_max_cols
-        self.repr_max_n_elements = repr_max_n_elements
-        self.prev_max_rows = prev_max_rows
+        self._params = dict(
+            repr_max_cols=80,
+            repr_max_n_elements=200,
+            prev_max_rows=20,
+        )
+    
+    def set_params(self, **kwargs):
+        for key, value in kwargs.items():
+            assert key in self._params, 'Unknown parameter'
+            self._params[key] = value
+
     
     def _str_clipped(self, obj, indent):
-        return indent + f'\n{indent}'.join(line[:self.repr_max_cols] for line in str(obj).split('\n')[:self.prev_max_rows])
+        output = []
+        lines = str(obj).split('\n')
+        for line in lines[:self._params['prev_max_rows']]:
+            output.append(line[:self._params['repr_max_cols']])
+        return indent + f'\n{indent}'.join(output)
 
     def __repr__(self):
         tab = ' ' * 4
@@ -147,21 +136,21 @@ class Container(pd.Series):
                     preview = self._str_clipped(value, indent=tab)
                 case int(): #  | float()
                     meta = f'<int>'
-                    preview = f'{tab}{str(value)[:self.repr_max_cols]}'
+                    preview = self._str_clipped(value, indent=tab)
                 case float():
                     meta = f'<float>'
-                    preview = f'{tab}{str(value)[:self.repr_max_cols]}'
+                    preview = self._str_clipped(value, indent=tab)
                 case str():
                     meta = f'<str>'
-                    preview = f'{tab}{str(value)[:self.repr_max_cols]}'
+                    preview = self._str_clipped(value, indent=tab)
                 case _:
-                    meta = f'<{type(value)}>'
+                    meta = f'{type(value)}'
                     preview = self._str_clipped(value, indent=tab)
             output += (
                 f'{index}: {meta}\n'
                 f'{preview}\n'
             )
-            if row_num >= self.repr_max_n_elements:
+            if row_num >= self._params['repr_max_n_elements']:
                 output += '... ...\n'
                 break
 
@@ -179,8 +168,10 @@ class Container(pd.Series):
 
 if __name__ == '__main__':
     container = Container(
-        data=dict(A1=1000, B2=10000), 
-        series_kws=dict(name='NAMEEEE'), 
+        A1=1000, 
+        B2=10000,
+    )
+    container.set_params(
         prev_max_rows=20,
         repr_max_n_elements=11,
     )
@@ -192,7 +183,7 @@ if __name__ == '__main__':
     container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
     print(container.c5miss)
 
-    container['c5show'] = 300
+    container['c5show'] = [300, 200.3]
 
     container['d6'] = pd.Series(dict(X=10, Y=1000))
     container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
