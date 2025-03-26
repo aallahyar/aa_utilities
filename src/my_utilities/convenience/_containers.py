@@ -9,34 +9,37 @@ class Container(pd.Series):
     
     Example:
         container = Container(
-            data=dict(A=1000, B=10000), 
+            data=dict(A1=1000, B2=10000), 
             series_kws=dict(name='NAMEEEE'), 
-            repr_max_rows=14,
+            prev_max_rows=20,
+            repr_max_n_elements=11,
         )
 
-        container['a'] = 2
-        container.loc['b'] = 20.234
+        container['a3'] = 20
+        container.loc['b4'] = 20.234
+        container.include(a3=21, b4=21.234)
 
-        container.c = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
-        print(container.c)
+        container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
+        print(container.c5miss)
 
-        container['d'] = pd.Series(dict(X=10, Y=1000))
-        container['f'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
-        container['Z'] = pd.DataFrame(np.random.rand(50, 50))
+        container['c5show'] = 300
 
-        container['e'] = 'MISTAKE1'
-        container.e = 'CORRECT1'
-        container['e1000'] = 'MISTAKE2'
-        container['e1000'] = 'CORRECT2'
-        container['e100'] = 'LAST ELEMENT'
-        container['e100000'] = 'MISSING'
+        container['d6'] = pd.Series(dict(X=10, Y=1000))
+        container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
+        container['f8'] = pd.DataFrame(np.random.rand(50, 50))
+
+        container['g9'] = 'test1'
+        container['i10'] = 'MISTAKE2'
+        container.i10 = 'Corrected2'
+        container['k11'] = 'LAST ELEMENT'
+        container['l12'] = 'Not shown'
 
         print(container)
-
-        # comparing containers
-        c1 = container.copy()
+        c1 = pd.Series(container).copy()
         print(container == c1)
-        c1['g9'] = 'teasdf'
+        c1['g9'] = 'not test1 anymore'
+        print(str(c1)[:300])
+        print(c1.g9)
         print(container == c1)
         print(container == {})
 
@@ -47,9 +50,9 @@ class Container(pd.Series):
         # B2: <int>
         #     10000
         # a3: <int>
-        #     2
+        #     21
         # b4: <float>
-        #     20.234
+        #     21.234
         # c5show: <int>
         #     300
         # d6: <pd.Series> (2)
@@ -62,25 +65,25 @@ class Container(pd.Series):
         #     1  1000  asdaaaf
         # f8: <pd.DataFrame> (50, 50)
         #             0         1         2         3         4         5         6   ...   
-        #     0   0.997509  0.912642  0.772244  0.952102  0.887265  0.163814  0.394557  ...  0
-        #     1   0.353464  0.606520  0.867093  0.041485  0.955350  0.644399  0.467551  ...  0
-        #     2   0.643037  0.225938  0.962445  0.897610  0.726765  0.330237  0.819648  ...  0
-        #     3   0.247031  0.275309  0.146851  0.243915  0.528953  0.499110  0.663551  ...  0
-        #     4   0.759634  0.849217  0.633940  0.328621  0.466124  0.803929  0.011944  ...  0
-        #     5   0.097385  0.904525  0.532073  0.157808  0.166286  0.956699  0.607373  ...  0
-        #     6   0.070963  0.400034  0.529811  0.212139  0.260430  0.196273  0.440619  ...  0
-        #     7   0.805794  0.748254  0.489292  0.853960  0.550034  0.685125  0.997672  ...  0
-        #     8   0.209074  0.932858  0.396076  0.033766  0.522982  0.173776  0.553461  ...  0
-        #     9   0.756171  0.000294  0.070033  0.353588  0.052346  0.190776  0.719303  ...  0
-        #     10  0.705756  0.869959  0.080893  0.615639  0.162093  0.644244  0.916912  ...  0
-        #     11  0.010183  0.624911  0.743288  0.351793  0.184802  0.480907  0.305374  ...  0
-        #     12  0.189890  0.470661  0.686508  0.993452  0.043443  0.105803  0.858113  ...  0
-        #     13  0.830304  0.445530  0.189642  0.589793  0.828023  0.517355  0.455617  ...  0
-        #     14  0.331153  0.122731  0.719543  0.845514  0.503989  0.042748  0.771945  ...  0
-        #     15  0.523536  0.433391  0.288636  0.638947  0.641904  0.379454  0.090701  ...  0
-        #     16  0.308179  0.746568  0.304162  0.555527  0.993880  0.659259  0.340334  ...  0
-        #     17  0.378564  0.635957  0.323096  0.332257  0.109309  0.567347  0.806181  ...  0
-        #     18  0.488180  0.120617  0.439384  0.604643  0.765385  0.847203  0.005361  ...  0
+        #     0   0.002107  0.338896  0.690741  0.812407  0.963908  0.973091  0.471101  ...  0
+        #     1   0.770973  0.562469  0.126399  0.598199  0.434090  0.809549  0.218046  ...  0
+        #     2   0.878720  0.822819  0.687376  0.363813  0.437782  0.578828  0.903076  ...  0
+        #     3   0.627770  0.751263  0.136631  0.160570  0.763360  0.316500  0.683757  ...  0
+        #     4   0.006530  0.251790  0.511888  0.739777  0.290485  0.790197  0.425332  ...  0
+        #     5   0.370521  0.655337  0.990668  0.816418  0.446793  0.346782  0.950491  ...  0
+        #     6   0.730079  0.058572  0.793605  0.102819  0.539840  0.589176  0.828790  ...  0
+        #     7   0.023172  0.823954  0.094029  0.113598  0.766048  0.989696  0.249909  ...  0
+        #     8   0.446134  0.654500  0.636310  0.014290  0.357877  0.331157  0.750483  ...  0
+        #     9   0.188808  0.316420  0.009136  0.431169  0.893057  0.930005  0.677143  ...  0
+        #     10  0.832135  0.357086  0.803372  0.502375  0.101918  0.157935  0.001590  ...  0
+        #     11  0.488486  0.300547  0.073376  0.052409  0.262669  0.369836  0.215307  ...  0
+        #     12  0.092946  0.165360  0.534842  0.009376  0.629057  0.717681  0.861316  ...  0
+        #     13  0.800748  0.781123  0.397608  0.698807  0.616372  0.016152  0.476463  ...  0
+        #     14  0.925485  0.824469  0.552669  0.393818  0.692628  0.903807  0.564311  ...  0
+        #     15  0.454299  0.507266  0.958788  0.754197  0.929267  0.561252  0.988922  ...  0
+        #     16  0.212193  0.319385  0.698605  0.045540  0.798270  0.931568  0.515912  ...  0
+        #     17  0.471345  0.783311  0.961724  0.220723  0.323423  0.255226  0.046600  ...  0
+        #     18  0.826631  0.409814  0.503957  0.001145  0.922952  0.231114  0.054092  ...  0
         # g9: <str>
         #     test1
         # i10: <str>
@@ -88,6 +91,19 @@ class Container(pd.Series):
         # k11: <str>
         #     LAST ELEMENT
         # ... ...
+
+        # True
+        # A1                                                     1000
+        # B2                                                    10000
+        # a3                                                       21
+        # b4                                                   21.234
+        # c5show                                                  300
+
+        # not test1 anymore
+        # False
+        # Traceback (most recent call last):
+        # ....
+        # ValueError: Can only compare `Container` or `pd.Series()` instances.
 
         
 
@@ -107,7 +123,9 @@ class Container(pd.Series):
         self.repr_max_cols = repr_max_cols
         self.repr_max_n_elements = repr_max_n_elements
         self.prev_max_rows = prev_max_rows
-        
+    
+    def _str_clipped(self, obj, indent):
+        return indent + f'\n{indent}'.join(line[:self.repr_max_cols] for line in str(obj).split('\n')[:self.prev_max_rows])
 
     def __repr__(self):
         tab = ' ' * 4
@@ -123,10 +141,10 @@ class Container(pd.Series):
             match value:
                 case pd.Series():
                     meta = f'<pd.Series> ({len(value)})'
-                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.prev_max_rows])
+                    preview = self._str_clipped(value, indent=tab)
                 case pd.DataFrame():
                     meta = f'<pd.DataFrame> {value.shape}'
-                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.prev_max_rows])
+                    preview = self._str_clipped(value, indent=tab)
                 case int(): #  | float()
                     meta = f'<int>'
                     preview = f'{tab}{str(value)[:self.repr_max_cols]}'
@@ -138,7 +156,7 @@ class Container(pd.Series):
                     preview = f'{tab}{str(value)[:self.repr_max_cols]}'
                 case _:
                     meta = f'<{type(value)}>'
-                    preview = tab + f'\n{tab}'.join(line[:self.repr_max_cols] for line in str(value).split('\n')[:self.prev_max_rows])
+                    preview = self._str_clipped(value, indent=tab)
             output += (
                 f'{index}: {meta}\n'
                 f'{preview}\n'
@@ -154,6 +172,10 @@ class Container(pd.Series):
             raise ValueError('Can only compare `Container` or `pd.Series()` instances.')
         return self.equals(other)
         
+    def include(self, **kwargs):
+        for key, value in kwargs.items():
+            self.loc[key] = value
+
 
 if __name__ == '__main__':
     container = Container(
@@ -163,8 +185,9 @@ if __name__ == '__main__':
         repr_max_n_elements=11,
     )
 
-    container['a3'] = 2
+    container['a3'] = 20
     container.loc['b4'] = 20.234
+    container.include(a3=21, b4=21.234)
 
     container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
     print(container.c5miss)
@@ -182,9 +205,11 @@ if __name__ == '__main__':
     container['l12'] = 'Not shown'
 
     print(container)
-    c1 = container.copy()
+    c1 = pd.Series(container).copy()
     print(container == c1)
-    c1['g9'] = 'teasdf'
+    c1['g9'] = 'not test1 anymore'
+    print(str(c1)[:300])
+    print(c1.g9)
     print(container == c1)
     print(container == {})
 
