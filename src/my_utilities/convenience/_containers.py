@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-class Container(pd.Series):
+class Container(dict):
     """_summary_
 
     Args:
@@ -93,21 +93,18 @@ class Container(pd.Series):
     """
     
     def __init__(self, **kwargs):
-        super().__init__(
-            data=kwargs,
-            dtype=object,
-        )
+        # self._attributes = list(kwargs) # not needed
+        super().__init__(kwargs)
         self._params = dict(
             repr_max_cols=80,
             repr_max_n_elements=200,
             prev_max_rows=20,
-        )
+        )    
     
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
             assert key in self._params, 'Unknown parameter'
             self._params[key] = value
-
     
     def _str_clipped(self, obj, indent):
         outputs = []
@@ -117,16 +114,27 @@ class Container(pd.Series):
             if len(line) > self._params['repr_max_cols']:
                 output += ' ...'
             outputs.append(output)
+        if len(lines) > self._params['prev_max_rows']:
+                outputs.append('...')
         return indent + f'\n{indent}'.join(outputs)
+    
+    def __getattribute__(self, name):
+        if name in self:
+            return self[name]
+        return super().__getattribute__(name)
+    
+    def __setattr__(self, name, value):
+        if name.startswith('_'):
+            super().__setattr__(name, value)
+        else:
+            self[name] = value
 
     def __repr__(self):
         tab = ' ' * 4
         output = ''
 
         # add details in the first row 
-        if self.name is not None:
-            output += f'Name: {self.name} | '
-        output += f'#elements: {len(self):,d} | dtype: {self.dtype}\n'
+        output += f'#elements: {len(self):,d}'
         
         # add element details
         for row_num, (index, value) in enumerate(self.items(), start=1):
@@ -153,43 +161,40 @@ class Container(pd.Series):
                     meta = f'{type(value)}'
                     preview = self._str_clipped(value, indent=tab)
             output += (
-                f'{index}: {meta}\n'
-                f'{preview}\n'
+                f'\n{index}: {meta}\n'
+                f'{preview}'
             )
             if row_num >= self._params['repr_max_n_elements']:
-                output += '... ...\n'
+                output += '\n... ...'
                 break
 
         return output
     
     def __eq__(self, other):
-        if not isinstance(other, pd.Series):
-            raise ValueError('Can only compare `Container` or `pd.Series()` instances.')
-        return self.equals(other)
-        
-    def include(self, **kwargs):
-        for key, value in kwargs.items():
-            self.loc[key] = value
+        if not isinstance(other, (pd.Series, dict, Container)):
+            return NotImplemented# ('Can only compare `Container` or `pd.Series()` instances.')
+        return dict(self) == dict(other)
+
 
 
 if __name__ == '__main__':
     container = Container(
         A1=1000, 
-        B2=10000,
+        get=[10000, 10],
+        # values=['test', 'test1'], # with this, conversion with pd.Series() fails
     )
     container.set_params(
-        prev_max_rows=20,
+        prev_max_rows=10,
         repr_max_n_elements=11,
     )
+    print(container.A1)
+    print(container.values)
 
     container['a3'] = 20
-    container.loc['b4'] = 20.234
-    container.include(a3=21, b4=21.234)
-
-    container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
-    print(container.c5miss)
-
-    container['c5show'] = [300, 200.3]
+    container.get[0] = 20.234
+    container.update(A1=21, b4=21.234)
+    container.c5 = [300, 200.3]
+    print(container)
 
     container['d6'] = pd.Series(dict(X=10, Y=1000))
     container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
@@ -198,18 +203,25 @@ if __name__ == '__main__':
     container['g9'] = Container(
         g9a=[12, 100],
         g9b=list('abcdefghijklmopqrstuvwxyz'),
+        g9c=12,
     )
-    container['i10'] = 'MISTAKE2'
-    container.i10 = 'Corrected2'
+
+    container['i10'] = 'MISTAKE'
+    container.i10 = 'Corrected'
+
+    container._hidden = 'this is hidden'
+    print(container._hidden)
+
     container['k11'] = 'LAST ELEMENT'
     container['l12'] = 'Not shown'
 
     print(container)
+    
     c1 = pd.Series(container).copy()
     print(container == c1)
-    c1['g9'] = 'not test1 anymore'
-    print(str(c1)[:300])
-    print(c1.g9)
+    c1.g9 = 'not test1 anymore'
+    print(c1['g9'])
     print(container == c1)
+    print(container == c1.to_dict())
     print(container == {})
-
+    

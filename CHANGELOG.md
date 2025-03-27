@@ -4,6 +4,7 @@
 
 ### Changed:
 - `Container` signature is now simplifed. It noq only receives elements using its constructor.
+- `Container` now inherits from `dict` to simplify its operations
 
 ## [0.0.27] - 2025-03-19
 ### Added:
