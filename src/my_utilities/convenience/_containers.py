@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import numpy as np
 import pandas as pd
 
@@ -25,6 +27,10 @@ class Container(dict):
         print(container.c5miss)
 
         container['c5show'] = [300, 200.3]
+
+        container.drop(regex=r'[4-9]$')
+
+        container.filter(regex=r'[1-3]$')
 
         # 30
         # Name: NAMEEEE | #elements: 12 | dtype: object
@@ -106,6 +112,36 @@ class Container(dict):
             assert key in self._params, 'Unknown parameter'
             self._params[key] = value
     
+    def copy(self, deep=True):
+        if deep:
+            # Do not use pd.Series.copy(): 
+            # When copying an object containing Python objects, a deep copy will copy the data, 
+            # but will not do so recursively. Updating a nested data object will be reflected in the deep copy.
+            # https://pandas.pydata.org/docs/reference/api/pandas.Series.copy.html
+            return deepcopy(self)
+        else:
+            return self.copy()
+    
+    @classmethod
+    def from_series(cls, series):
+        # or equally: Container(**series)
+        return cls(**series)
+    
+    def to_series(self):
+        return pd.Series(self)
+
+    def drop(self, regex=None, **kwargs):
+        srs = self.to_series()
+        if regex is None:
+            result = srs.drop(**kwargs)
+        else:
+            labels = srs.filter(regex=regex).keys()
+            result = srs.drop(labels=labels, **kwargs)
+        return Container.from_series(result)
+
+    def filter(self, **kwargs):
+        return Container.from_series(self.to_series().filter(**kwargs))
+    
     def _str_clipped(self, obj, indent):
         outputs = []
         lines = str(obj).split('\n')
@@ -178,6 +214,8 @@ class Container(dict):
 
 
 if __name__ == '__main__':
+    s = pd.Series(dict(X=10, Y=1000))
+    
     container = Container(
         A1=1000, 
         get=[10000, 10],
@@ -224,4 +262,16 @@ if __name__ == '__main__':
     print(container == c1)
     print(container == c1.to_dict())
     print(container == {})
+
+(
+    pd.Series(container)
+    .filter(items=['g9'])
+    .pipe(Container)
+    # .copy()
+)
+
+(
+    container
+    .drop(index=['A1', 'get', 'a3'])
+)
     

@@ -1,6 +1,7 @@
 ## [0.0.28] - 2025-03-26
 ### Added:
-- `Container.include` adds all given arguments as new elements in the container
+- `Container.update` adds/updates all given arguments as new elements in the container
+- `filter`, `drop`, `copy`, `to_series` and `from_series` are also added.
 
 ### Changed:
 - `Container` signature is now simplifed. It noq only receives elements using its constructor.
