@@ -14,6 +14,7 @@ class RSpace():
 
     from rpy2 import robjects as ro
     from rpy2.robjects import pandas2ri
+    import rpy2.rlike.container as rlc
 
     def __init__(self, ipython=False):
         """Initiates an `R` environment.
@@ -32,6 +33,9 @@ class RSpace():
             ipython_shell.run_line_magic("load_ext", "rpy2.ipython")
 
     def __setitem__(self, name, value):
+        if isinstance(value, (dict, )):
+            value = RSpace.rlc.TaggedList(value.values(), tags=value.keys())
+
         with (RSpace.ro.default_converter + RSpace.pandas2ri.converter).context():
             value_r = RSpace.ro.conversion.get_conversion().py2rpy(value)
             RSpace.ro.r.assign(name, value_r)
