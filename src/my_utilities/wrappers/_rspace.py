@@ -65,7 +65,7 @@ class RSpace():
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
         if self(f'dim({name})') == self.ro.rinterface.NULL:
             value_pd = pd.Series(
-                data=value_py,
+                data=dict(value_py),
             )
             if self(f'names({name})') != self.ro.rinterface.NULL:
                 value_pd.index = list(self(f'names({name})'))
