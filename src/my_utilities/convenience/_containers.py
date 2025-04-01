@@ -263,15 +263,15 @@ if __name__ == '__main__':
     print(container == c1.to_dict())
     print(container == {})
 
-(
-    pd.Series(container)
-    .filter(items=['g9'])
-    .pipe(Container)
-    # .copy()
-)
+    (
+        pd.Series(container)
+        .filter(items=['g9'])
+        .pipe(Container)
+        # .copy()
+    )
 
-(
-    container
-    .drop(index=['A1', 'get', 'a3'])
-)
+    (
+        container
+        .drop(index=['A1', 'get', 'a3'])
+    )
     
