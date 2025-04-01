@@ -166,7 +166,6 @@ class Container(dict):
             self[name] = value
 
     def __repr__(self):
-        tab = ' ' * 4
         output = ''
 
         # add details in the first row 
@@ -174,6 +173,19 @@ class Container(dict):
         
         # add element details
         for row_num, (index, value) in enumerate(self.items(), start=1):
+            
+            # define connector
+            is_tail = False
+            if row_num == len(self) or row_num >= self._params['repr_max_n_elements']:
+                is_tail = True
+            if is_tail:
+                connector = '└─'
+                tab = ' ' + ' ' * 6
+            else:
+                connector = '├─'
+                tab = '|' + ' ' * 6
+
+            # define representation
             match value:
                 case Container():
                     meta = f'<Container> ({len(value)})'
@@ -196,8 +208,9 @@ class Container(dict):
                 case _:
                     meta = f'{type(value)}'
                     preview = self._str_clipped(value, indent=tab)
+
             output += (
-                f'\n{index}: {meta}\n'
+                f'\n{connector} {index}: {meta}\n'
                 f'{preview}'
             )
             if row_num >= self._params['repr_max_n_elements']:
@@ -266,7 +279,7 @@ if __name__ == '__main__':
     (
         pd.Series(container)
         .filter(items=['g9'])
-        .pipe(Container)
+        .pipe(Container.from_series)
         # .copy()
     )
 

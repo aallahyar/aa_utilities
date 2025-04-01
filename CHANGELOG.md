@@ -1,3 +1,7 @@
+## [0.0.29] - 2025-04-01
+### Changed:
+- `Container` now represent its content in a `tree` like output
+
 ## [0.0.28] - 2025-03-26
 ### Added:
 - `Container.update` adds/updates all given arguments as new elements in the container
