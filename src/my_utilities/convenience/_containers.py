@@ -161,7 +161,7 @@ class Container(dict):
     
     def __setattr__(self, name, value):
         if name.startswith('_'):
-            super().__setattr__(name, value)
+            super().__setattr__(name, value) # would not appear in .items(); TODO: not very useful it seems
         else:
             self[name] = value
 
@@ -187,15 +187,6 @@ class Container(dict):
 
             # define representation
             match value:
-                case Container():
-                    meta = f'<Container> ({len(value)})'
-                    preview = self._str_clipped(value, indent=tab)
-                case pd.Series():
-                    meta = f'<pd.Series> ({len(value)})'
-                    preview = self._str_clipped(value, indent=tab)
-                case pd.DataFrame():
-                    meta = f'<pd.DataFrame> {value.shape}'
-                    preview = self._str_clipped(value, indent=tab)
                 case int(): #  | float()
                     meta = f'<int>'
                     preview = self._str_clipped(value, indent=tab)
@@ -205,10 +196,21 @@ class Container(dict):
                 case str():
                     meta = f'<str>'
                     preview = self._str_clipped(value, indent=tab)
+                case Container():
+                    meta = f'<Container> ({len(value)})'
+                    preview = self._str_clipped(value, indent=tab)
+                case list():
+                    meta = f'<list> ({len(value)})'
+                    preview = self._str_clipped(value, indent=tab)
+                case pd.Series():
+                    meta = f'<pd.Series> ({len(value)})'
+                    preview = self._str_clipped(value, indent=tab)
+                case pd.DataFrame():
+                    meta = f'<pd.DataFrame> {value.shape}'
+                    preview = self._str_clipped(value, indent=tab)
                 case _:
                     meta = f'{type(value)}'
                     preview = self._str_clipped(value, indent=tab)
-
             output += (
                 f'\n{connector} {index}: {meta}\n'
                 f'{preview}'
@@ -244,8 +246,9 @@ if __name__ == '__main__':
     container['a3'] = 20
     container.get[0] = 20.234
     container.update(A1=21, b4=21.234)
-    container.c5 = [300, 200.3]
+    container.c5 = [300, 200.3, 'dot notation works!']
     print(container)
+    print(container.keys())
 
     container['d6'] = pd.Series(dict(X=10, Y=1000))
     container['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
@@ -260,10 +263,10 @@ if __name__ == '__main__':
     container['i10'] = 'MISTAKE'
     container.i10 = 'Corrected'
 
-    container._hidden = 'this is hidden'
+    container._hidden = 'this is available, but stays hidden'
     print(container._hidden)
 
-    container['k11'] = 'LAST ELEMENT'
+    container.k11 = 'LAST ELEMENT'
     container['l12'] = 'Not shown'
 
     print(container)
