@@ -179,11 +179,11 @@ class Container(dict):
             if row_num == len(self) or row_num >= self._params['repr_max_n_elements']:
                 is_tail = True
             if is_tail:
-                connector = '└─'
+                connector = '└──'
                 tab = ' ' + ' ' * 6
             else:
-                connector = '├─'
-                tab = '|' + ' ' * 6
+                connector = '├──'
+                tab = '│' + ' ' * 6
 
             # define representation
             match value:
