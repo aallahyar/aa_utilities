@@ -137,10 +137,10 @@ class Container(dict):
         else:
             labels = srs.filter(regex=regex).keys()
             result = srs.drop(labels=labels, **kwargs)
-        return Container.from_series(result)
+        return self.from_series(result)
 
     def filter(self, **kwargs):
-        return Container.from_series(self.to_series().filter(**kwargs))
+        return self.from_series(self.to_series().filter(**kwargs))
     
     def _str_clipped(self, obj, indent):
         outputs = []
@@ -233,14 +233,14 @@ if __name__ == '__main__':
     
     container = Container(
         A1=1000, 
-        get=[10000, 10],
+        get=[10000, 'dict.get() is no longer accessible'],
         # values=['test', 'test1'], # with this, conversion with pd.Series() fails
     )
     container.set_params(
         prev_max_rows=10,
         repr_max_n_elements=11,
     )
-    print(container.A1)
+    print(container.get)
     print(container.values)
 
     container['a3'] = 20
@@ -290,4 +290,5 @@ if __name__ == '__main__':
         container
         .drop(index=['A1', 'get', 'a3'])
     )
+
     
