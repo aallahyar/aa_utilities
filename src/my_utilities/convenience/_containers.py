@@ -154,6 +154,13 @@ class Container(dict):
                 outputs.append('...')
         return indent + f'\n{indent}'.join(outputs)
     
+    @staticmethod
+    def _str_dict(dct):
+        outputs = []
+        for key, value in dct.items():
+            outputs.append(f'{key!r}: {value!r},')
+        return '\n'.join(outputs)
+    
     def __getattribute__(self, name):
         if name in self:
             return self[name]
@@ -161,7 +168,7 @@ class Container(dict):
     
     def __setattr__(self, name, value):
         if name.startswith('_'):
-            super().__setattr__(name, value) # would not appear in .items(); TODO: not very useful it seems
+            super().__setattr__(name, value) # would not appear in .items(); TODO: not very useful it seems. Need more time to figure out if this is useful
         else:
             self[name] = value
 
@@ -202,6 +209,10 @@ class Container(dict):
                 case list():
                     meta = f'<list> ({len(value)})'
                     preview = self._str_clipped(value, indent=tab)
+                case dict():
+                    meta = f'<dict> ({len(value)})'
+                    value_str = self._str_dict(value)
+                    preview = self._str_clipped(value_str, indent=tab)
                 case pd.Series():
                     meta = f'<pd.Series> ({len(value)})'
                     preview = self._str_clipped(value, indent=tab)
@@ -243,7 +254,8 @@ if __name__ == '__main__':
     print(container.get)
     print(container.values)
 
-    container['a3'] = 20
+    container['a3'] = {'list': ['a', 'b', 1, 2], 'dict': {'a': 1, 2: 'b'}, 'tuple': (
+        'a', 'b', 1, 2), 'function': lambda x: x, 'unicode': u'\xa7', ("tuple", "key"): "valid-"*20}
     container.get[0] = 20.234
     container.update(A1=21, b4=21.234)
     container.c5 = [300, 200.3, 'dot notation works!']
