@@ -1,3 +1,4 @@
+import pprint
 from copy import deepcopy
 
 import numpy as np
@@ -105,7 +106,8 @@ class Container(dict):
             repr_max_cols=80,
             repr_max_n_elements=200,
             prev_max_rows=20,
-        )    
+        )
+        self._pp = pprint.PrettyPrinter(indent=1)
     
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
@@ -154,12 +156,12 @@ class Container(dict):
                 outputs.append('...')
         return indent + f'\n{indent}'.join(outputs)
     
-    @staticmethod
-    def _str_dict(dct):
-        outputs = []
-        for key, value in dct.items():
-            outputs.append(f'{key!r}: {value!r},')
-        return '\n'.join(outputs)
+    # @staticmethod
+    # def _str_dict(dct):
+    #     outputs = []
+    #     for key, value in dct.items():
+    #         outputs.append(f'{key!r}: {value!r},')
+    #     return '\n'.join(outputs)
     
     def __getattribute__(self, name):
         if name in self:
@@ -208,10 +210,12 @@ class Container(dict):
                     preview = self._str_clipped(value, indent=tab)
                 case list():
                     meta = f'<list> ({len(value)})'
-                    preview = self._str_clipped(value, indent=tab)
+                    value_str = self._pp.pformat(value)
+                    preview = self._str_clipped(value_str, indent=tab)
                 case dict():
                     meta = f'<dict> ({len(value)})'
-                    value_str = self._str_dict(value)
+                    value_str = self._pp.pformat(value)
+                    # value_str = self._str_dict(value)
                     preview = self._str_clipped(value_str, indent=tab)
                 case pd.Series():
                     meta = f'<pd.Series> ({len(value)})'
