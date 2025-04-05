@@ -1,4 +1,4 @@
-import sys
+# import sys
 from copy import deepcopy
 
 import numpy as np
@@ -106,9 +106,9 @@ class Container(dict):
     def __init__(self, **kwargs):
         super().__init__(kwargs)
         self._params = dict(
-            repr_max_cols=80,
+            # repr_max_cols=80,
             repr_max_n_elements=200,
-            prev_max_rows=20,
+            # prev_max_rows=20,
         )
         self._pp = PrettyPrinter()
     
@@ -158,29 +158,24 @@ class Container(dict):
         else:
             self[name] = value
 
-    def __repr__(self):
-        output = ''
-
-        # add details in the first row 
-        output += f'<Container> ({len(self):d})'
+    def __repr__(self):        
         
-        # add element details
+        # add details for each element
+        output = f'<Container> ({len(self):d})'
         for row_num, (index, value) in enumerate(self.items(), start=1):
             
             # define connector
-            is_tail = False
             if row_num == len(self) or row_num >= self._params['repr_max_n_elements']:
-                is_tail = True
-            if is_tail:
                 connector = '└─■'
-                tab = ' ' + ' ' * 3
+                indent = ' ' + ' ' * 3
             else:
                 connector = '├─■'
-                tab = '│' + ' ' * 3
+                indent = '│' + ' ' * 3
 
             # prepare preview
-            preview = self._pp.clip(self._pp.pformat(value), indent=tab)
+            preview = self._pp.clip(self._pp.pformat(value), indent=indent)
             output += f'\n{connector} {index}: {preview}'
+
             if row_num >= self._params['repr_max_n_elements']:
                 output += '\n... ...'
                 break
@@ -204,7 +199,7 @@ if __name__ == '__main__':
     )
     print(container)
     container.set_params(
-        prev_max_rows=30,
+        # prev_max_rows=30,
         repr_max_n_elements=11,
     )
     print(container.get)
@@ -225,7 +220,7 @@ if __name__ == '__main__':
     container['g9'] = Container(
         g9a=[12, 100],
         g9b=list('abcdefghijklmopqrstuvwxyz'),
-        g9c=12,
+        g9c={f'key{k}': f'value={k}' for k in 'abcdefghijklmopqrstuvwxyz'},
     )
 
     container['i10'] = 'MISTAKE'

@@ -4,7 +4,6 @@ import pprint
 import numpy as np
 import pandas as pd
 
-# from _containers import Container
 
 class PrettyPrinter():
     def __init__(
@@ -61,7 +60,7 @@ class PrettyPrinter():
                         outputs.append(f'■ {key_repr}: {value_repr},')
                     else:
                         value_repr = self.clip(self.pformat(item))
-                        outputs.append(f'{value_repr},')
+                        outputs.append(f'■ {value_repr},')
                 # outputs.append(f'{bnds[1]}')
                 preview = f'{meta} ' + f'\n{self.indent}'.join(outputs) + f'\n{bnds[1]}'
             # case Container():
