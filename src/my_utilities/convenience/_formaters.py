@@ -57,10 +57,10 @@ class PrettyPrinter():
                     if isinstance(obj, (dict, )):
                         key_repr = self.clip(self.pformat(item))
                         value_repr = self.clip(self.pformat(obj[item]))
-                        outputs.append(f'■ {key_repr}: {value_repr},')
+                        outputs.append(f'{key_repr}: {value_repr},')
                     else:
                         value_repr = self.clip(self.pformat(item))
-                        outputs.append(f'■ {value_repr},')
+                        outputs.append(f'{value_repr},')
                 # outputs.append(f'{bnds[1]}')
                 preview = f'{meta} ' + f'\n{self.indent}'.join(outputs) + f'\n{bnds[1]}'
             # case Container():
