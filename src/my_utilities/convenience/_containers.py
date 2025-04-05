@@ -1,4 +1,5 @@
-import pprint
+# import pprint
+import sys
 from copy import deepcopy
 
 import numpy as np
@@ -100,14 +101,13 @@ class Container(dict):
     """
     
     def __init__(self, **kwargs):
-        # self._attributes = list(kwargs) # not needed
         super().__init__(kwargs)
         self._params = dict(
             repr_max_cols=80,
             repr_max_n_elements=200,
             prev_max_rows=20,
         )
-        self._pp = pprint.PrettyPrinter(indent=1)
+        self._pp = PrettyPrinter()
     
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
@@ -144,9 +144,39 @@ class Container(dict):
     def filter(self, **kwargs):
         return self.from_series(self.to_series().filter(**kwargs))
     
+    def _pretty_format(self, obj, indent):
+            
+        # define representation
+        match obj:
+            case Container():
+                preview = f'{obj}'
+            case dict() | list() | tuple():
+
+                # define boundaries
+                if isinstance(obj, (dict, )):
+                    bnds = '{}'
+                if isinstance(obj, (list, )):
+                    bnds = '[]'
+                if isinstance(obj, (tuple, )):
+                    bnds = '()'
+
+                outputs = [f'{bnds[0]}']
+                for item in obj:
+                    if isinstance(obj, (dict, )):
+                        outputs.append(f'{item!r}:')
+                        outputs.append(f'{self._str_clipped(obj[item], indent)},')
+                    else:
+                        outputs.append(f'{self._str_clipped(item, indent)},')
+                # outputs.append(f'{bnds[1]}')
+                preview = f'\n{indent}'.join(outputs) + f'\n{bnds[1]}'
+            case _:
+                preview = f'{obj!r}'
+        
+        return preview
+    
     def _str_clipped(self, obj, indent):
         outputs = []
-        lines = str(obj).split('\n')
+        lines = self._pretty_format(obj, '   ').split('\n')
         for line in lines[:self._params['prev_max_rows']]:
             output = line[:self._params['repr_max_cols']]
             if len(line) > self._params['repr_max_cols']:
@@ -178,7 +208,7 @@ class Container(dict):
         output = ''
 
         # add details in the first row 
-        output += f'#elements: {len(self):,d}'
+        output += f'<Container> ({len(self):d})'
         
         # add element details
         for row_num, (index, value) in enumerate(self.items(), start=1):
@@ -188,48 +218,55 @@ class Container(dict):
             if row_num == len(self) or row_num >= self._params['repr_max_n_elements']:
                 is_tail = True
             if is_tail:
-                connector = '└──'
-                tab = ' ' + ' ' * 6
+                connector = '└─■'
+                tab = ' ' + ' ' * 3
             else:
-                connector = '├──'
-                tab = '│' + ' ' * 6
+                connector = '├─■'
+                tab = '│' + ' ' * 3
 
             # define representation
             match value:
-                case int(): #  | float()
-                    meta = f'<int>'
-                    preview = self._str_clipped(value, indent=tab)
-                case float():
-                    meta = f'<float>'
-                    preview = self._str_clipped(value, indent=tab)
-                case str():
-                    meta = f'<str>'
-                    preview = self._str_clipped(value, indent=tab)
-                case Container():
-                    meta = f'<Container> ({len(value)})'
-                    preview = self._str_clipped(value, indent=tab)
-                case list():
-                    meta = f'<list> ({len(value)})'
-                    value_str = self._pp.pformat(value)
-                    preview = self._str_clipped(value_str, indent=tab)
-                case dict():
-                    meta = f'<dict> ({len(value)})'
-                    value_str = self._pp.pformat(value)
-                    # value_str = self._str_dict(value)
-                    preview = self._str_clipped(value_str, indent=tab)
-                case pd.Series():
-                    meta = f'<pd.Series> ({len(value)})'
-                    preview = self._str_clipped(value, indent=tab)
-                case pd.DataFrame():
-                    meta = f'<pd.DataFrame> {value.shape}'
-                    preview = self._str_clipped(value, indent=tab)
+                # case Container():
+                #     output = f'<Container> ({len(value)})'
+                #     output += self._str_clipped(value, indent=tab)
                 case _:
-                    meta = f'{type(value)}'
-                    preview = self._str_clipped(value, indent=tab)
-            output += (
-                f'\n{connector} {index}: {meta}\n'
-                f'{preview}'
-            )
+                    preview = self._pp.clip(self._pp.pformat(value), indent=tab)
+
+
+            # # define representation
+            # match value:
+            #     case int(): #  | float()
+            #         meta = f'<int>'
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case float():
+            #         meta = f'<float>'
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case str():
+            #         meta = f'<str>'
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case Container():
+            #         meta = f'<Container> ({len(value)})'
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case list():
+            #         meta = f'<list> ({len(value)})'
+            #         # value_str = self._pp.pformat(value)
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case dict():
+            #         meta = f'<dict> ({len(value)})'
+            #         # value_str = self._pp.pformat(value)
+            #         # value_str = self._str_dict(value)
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case pd.Series():
+            #         meta = f'<pd.Series> ({len(value)})'
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case pd.DataFrame():
+            #         meta = f'<pd.DataFrame> {value.shape}'
+            #         preview = self._str_clipped(value, indent=tab)
+            #     case _:
+            #         meta = f'{type(value)}'
+            #         preview = self._str_clipped(value, indent=tab)
+            output += f'\n{connector} {index}: {preview}'
+
             if row_num >= self._params['repr_max_n_elements']:
                 output += '\n... ...'
                 break
@@ -244,21 +281,25 @@ class Container(dict):
 
 
 if __name__ == '__main__':
+    if sys.path[0] != './':
+        sys.path.insert(0, './')
     s = pd.Series(dict(X=10, Y=1000))
+    from _formaters import PrettyPrinter
     
     container = Container(
         A1=1000, 
         get=[10000, 'dict.get() is no longer accessible'],
         # values=['test', 'test1'], # with this, conversion with pd.Series() fails
     )
+    print(container)
     container.set_params(
-        prev_max_rows=10,
+        prev_max_rows=30,
         repr_max_n_elements=11,
     )
     print(container.get)
     print(container.values)
 
-    container['a3'] = {'list': ['a', 'b', 1, 2], 'dict': {'a': 1, 2: 'b'}, 'tuple': (
+    container['a3'] = {0: 1, 'str': 'string', 'list': ['a', 'b', 1, 2], 'dict': {'a': 1, 2: 'b'}, 'tuple': (
         'a', 'b', 1, 2), 'function': lambda x: x, 'unicode': u'\xa7', ("tuple", "key"): "valid-"*20}
     container.get[0] = 20.234
     container.update(A1=21, b4=21.234)
