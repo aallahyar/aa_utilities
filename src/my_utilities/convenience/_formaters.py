@@ -1,9 +1,11 @@
 import sys
-import pprint
+# import pprint
 
 import numpy as np
 import pandas as pd
 
+# can no do: circular imports
+# from my_utilities.convenience import Container
 
 class PrettyPrinter():
     def __init__(
@@ -14,7 +16,7 @@ class PrettyPrinter():
             max_n_elements=20,
         ):
         self.indent = indent
-        self.pp = pprint.PrettyPrinter()
+        # self.pp = pprint.PrettyPrinter()
         self.display_width = display_width
         self.max_n_rows = max_n_rows
         self.max_n_elements = max_n_elements
@@ -92,17 +94,18 @@ if __name__ == '__main__':
     if sys.path[0] != './':
         sys.path.insert(0, './')
 
+    from _containers import Container
     pp = PrettyPrinter()
 
     obj = {f'key{v}': v for v in range(10)}
     obj[1] = {'a': 1, 2: 'b'}
     obj['a3'] = {0: 1, 'str': 'string', 'list': ['a', 'b', 1, 2], 'dict': {'a': 1, 2: 'b'}, 'tuple': (
         'a', 'b', 1, 2), 'function': lambda x: x, 'unicode': u'\xa7', ("tuple", "key"): "valid-"*20}
-    # obj['g9'] = Container(
-    #     g9a=[12, 100],
-    #     g9b=list('abcdefghijklmopqrstuvwxyz'),
-    #     g9c=12,
-    # )
+    obj['g9'] = Container(
+        g9a=[12, 100],
+        g9b=list('abcdefghijklmopqrstuvwxyz'),
+        g9c=12,
+    )
     obj['d6'] = pd.Series(dict(X=10, Y=1000))
     obj['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
     obj['f8'] = pd.DataFrame(np.random.rand(50, 50))

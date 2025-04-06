@@ -4,8 +4,6 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-# if sys.path[0] != './':
-        # sys.path.insert(0, './')
 from my_utilities.convenience import PrettyPrinter
 
 class Container(dict):
