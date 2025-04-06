@@ -1,4 +1,4 @@
-# import sys
+import sys
 from copy import deepcopy
 
 import numpy as np
@@ -105,17 +105,23 @@ class Container(dict):
     
     def __init__(self, **kwargs):
         super().__init__(kwargs)
+        self._pp = PrettyPrinter()
+        
+        # depricated: use self._pp.set_params
         self._params = dict(
-            # repr_max_cols=80,
-            repr_max_n_elements=200,
+            # repr_max_cols=80, 
+            # repr_max_n_elements=200,
             # prev_max_rows=20,
         )
-        self._pp = PrettyPrinter()
     
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
-            assert key in self._params, 'Unknown parameter'
-            self._params[key] = value
+            if key.startswith('repr_'):
+                key = key[5:]
+                self._pp.set_params(**{key: value})
+            else:
+                assert key in self._params, 'Unknown parameter'
+                self._params[key] = value
     
     def copy(self, deep=True):
         if deep:
@@ -165,7 +171,7 @@ class Container(dict):
         for row_num, (index, value) in enumerate(self.items(), start=1):
             
             # define connector
-            if row_num == len(self) or row_num >= self._params['repr_max_n_elements']:
+            if row_num == len(self) or row_num >= self._pp.max_n_elements:
                 connector = '└─■'
                 indent = ' ' + ' ' * 3
             else:
@@ -176,7 +182,7 @@ class Container(dict):
             preview = self._pp.clip(self._pp.pformat(value), indent=indent)
             output += f'\n{connector} {index}: {preview}'
 
-            if row_num >= self._params['repr_max_n_elements']:
+            if row_num >= self._pp.max_n_elements:
                 output += '\n... ...'
                 break
 
@@ -190,6 +196,10 @@ class Container(dict):
 
 
 if __name__ == '__main__':
+    if sys.path[0] != './':
+        sys.path.insert(0, './')
+    from _formaters import PrettyPrinter
+
     s = pd.Series(dict(X=10, Y=1000))
     
     container = Container(
@@ -198,10 +208,10 @@ if __name__ == '__main__':
         # values=['test', 'test1'], # with this, conversion with pd.Series() fails
     )
     print(container)
-    container.set_params(
-        # prev_max_rows=30,
-        repr_max_n_elements=11,
-    )
+    # container.set_params(
+    #     # prev_max_rows=30,
+    #     repr_max_n_elements=11,
+    # )
     print(container.get)
     print(container.values)
 
@@ -221,7 +231,9 @@ if __name__ == '__main__':
         g9a=[12, 100],
         g9b=list('abcdefghijklmopqrstuvwxyz'),
         g9c={f'key{k}': f'value={k}' for k in 'abcdefghijklmopqrstuvwxyz'},
+        g9d=set('abcdefghijklmopqrstuvwxyz'),
     )
+    container.g9._pp.set_params(max_n_elements=11)
 
     container['i10'] = 'MISTAKE'
     container.i10 = 'Corrected'
