@@ -6,7 +6,7 @@ from matplotlib import (
 )
 # import seaborn as sns
 
-def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, line_kw=None, text_kw=None):
+def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, offset=+12, line_kw=None, text_kw=None):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
     
     Parameters:
@@ -44,7 +44,7 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, line_kw=None,
         ax = plt.gca()
 
     # setup coordinate offsets
-    y_offset = mpl_transforms.offset_copy(ax.transData, y=+12, units='dots')
+    y_offset = mpl_transforms.offset_copy(ax.transData, y=offset, units='dots')
     dsp2dt = ax.transData.inverted()
 
     # setting defaults

@@ -1,3 +1,8 @@
+## [0.0.30] - 2025-XX-XX
+### Added:
+- `stats.IterativeStats` to calculate `mean`, `var` and `std` of a list of numbers that 
+are provided iteratively.
+
 ## [0.0.29] - 2025-04-01
 ### Changed:
 - `Container` now represent its content in a `tree` like output
