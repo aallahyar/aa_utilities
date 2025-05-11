@@ -3,6 +3,9 @@
 - `stats.IterativeStats` to calculate `mean`, `var` and `std` of a list of numbers that 
 are provided iteratively.
 
+### Changed:
+- `is_true` can also receive a callable for `message` argument.
+
 ## [0.0.29] - 2025-04-01
 ### Changed:
 - `Container` now represent its content in a `tree` like output

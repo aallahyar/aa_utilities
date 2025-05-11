@@ -1,5 +1,5 @@
 
-from typing import Any, Union
+from typing import Any, Callable, Union
 
 import numpy as np
 import pandas as pd
@@ -80,7 +80,7 @@ def get_logger(name=None, level=None):
     return logger
 
 
-def is_true(data: Any, condition, message='The `condition` argument is False!'):
+def is_true(data: Any, condition: Union[Callable, bool], message: Union[Callable, str] = 'The `condition` argument is False!'):
     """Returns the data, if `condition` is True
     This is useful as a convenience function during Pandas chainig operations and 
     data manupulation to check if a condision is True.
@@ -88,7 +88,7 @@ def is_true(data: Any, condition, message='The `condition` argument is False!'):
     Args:
         data (any): The object to be returned, if the condition is True.
         condition (bool): The condition to be tested
-        message (str, optional): Messsage to be shown
+        message (str, func, optional): Messsage to be shown
             if the condition is False. Defaults to 'Condition is False!'.
 
     Returns:
@@ -116,10 +116,20 @@ def is_true(data: Any, condition, message='The `condition` argument is False!'):
 
     """
 
+    # perform the test
     if callable(condition):
-        assert condition(data), message
+        result = condition(data)
     else:
-        assert condition, message
+        result = condition
+    
+    # check the result
+    if not result:
+        if callable(message):
+            message_str = message(data)
+        else:
+            message_str = message
+        raise ValueError(message_str)
+    
     return data
 
 def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='query'):
