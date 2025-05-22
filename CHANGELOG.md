@@ -2,6 +2,8 @@
 ### Added:
 - `stats.IterativeStats` to calculate `mean`, `var` and `std` of a list of numbers that 
 are provided iteratively.
+- `convenience.TextWrap` which is similar to the standard `textwrap` library, but it also 
+allows preserving `newline` charachters.
 
 ### Changed:
 - `is_true` can also receive a callable for `message` argument.

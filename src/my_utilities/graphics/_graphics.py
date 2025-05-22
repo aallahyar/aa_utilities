@@ -242,6 +242,7 @@ def heatmap(matrix_df, **kwargs):
     """Plots a heatmap, but also allows:
         - Customized rectangle sizes per element
         - Line borders per element
+        Note: Colorbar handle is located at: ax.collections[0].colorbar.cmap
 
     Args:
         matrix_df (pd.DataFrame): Matrix for which a heatmap will be drawn
@@ -263,7 +264,8 @@ def heatmap(matrix_df, **kwargs):
             heatmap(
                 corr_df, 
                 cmap=cmap, 
-                ax=ax, 
+                ax=ax,
+                cbar_kws={'label': 'Label of the colorbar', 'extend': 'max'},
                 box_kws={
                     'mesh_alpha': 0.7, # determines the background color of the heatmap (which is the same as facecolor)
                     'sizes': corr_df.abs().values * 0.98 / corr_df.values.max(), 

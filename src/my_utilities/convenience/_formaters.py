@@ -1,5 +1,6 @@
 import sys
 # import pprint
+import textwrap
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,27 @@ import pandas as pd
 # from my_utilities.convenience import Container
 
 class PrettyPrinter():
+    """
+    Example: 
+        if sys.path[0] != './':
+        sys.path.insert(0, './')
+        from _containers import Container
+        pp = PrettyPrinter()
+
+        obj = {f'key{v}': v for v in range(10)}
+        obj[1] = {'a': 1, 2: 'b'}
+        obj['a3'] = {0: 1, 'str': 'string', 'list': ['a', 'b', 1, 2], 'dict': {'a': 1, 2: 'b'}, 'tuple': (
+            'a', 'b', 1, 2), 'function': lambda x: x, 'unicode': u'\xa7', ("tuple", "key"): "valid-"*20}
+        obj['g9'] = Container(
+            g9a=[12, 100],
+            g9b=list('abcdefghijklmopqrstuvwxyz'),
+            g9c=12,
+        )
+        obj['d6'] = pd.Series(dict(X=10, Y=1000))
+        obj['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
+        obj['f8'] = pd.DataFrame(np.random.rand(50, 50))
+        print(pp.pformat(obj))
+    """
     def __init__(
             self, 
             indent=' ' * 4, 
@@ -90,24 +112,31 @@ class PrettyPrinter():
 
         return preview
 
+
+class TextWrap(textwrap.TextWrapper):
+    def __init__(self, keep_newlines=True, **kwargs):
+        super().__init__(**kwargs)
+        self.keep_newlines = keep_newlines
+
+    def __call__(self, text, width=None):
+        if width is not None:
+            self.width = width
+
+        if self.keep_newlines:
+            paragraphs = text.split('\n')
+            output = '\n'.join(self.fill(prg) for prg in paragraphs)
+        else:
+            output = self.fill(text)
+        return output
+
+
 if __name__ == '__main__':
-    if sys.path[0] != './':
-        sys.path.insert(0, './')
+    text = "short      line,\n\n\nlong line LONG\nWORDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    wrapper = textwrap.TextWrapper(width=20)
+    print(wrapper.fill(text))
 
-    from _containers import Container
-    pp = PrettyPrinter()
+    wrapper = textwrap.TextWrapper(width=20, replace_whitespace=False)
+    print(wrapper.fill(text))
 
-    obj = {f'key{v}': v for v in range(10)}
-    obj[1] = {'a': 1, 2: 'b'}
-    obj['a3'] = {0: 1, 'str': 'string', 'list': ['a', 'b', 1, 2], 'dict': {'a': 1, 2: 'b'}, 'tuple': (
-        'a', 'b', 1, 2), 'function': lambda x: x, 'unicode': u'\xa7', ("tuple", "key"): "valid-"*20}
-    obj['g9'] = Container(
-        g9a=[12, 100],
-        g9b=list('abcdefghijklmopqrstuvwxyz'),
-        g9c=12,
-    )
-    obj['d6'] = pd.Series(dict(X=10, Y=1000))
-    obj['e7'] = pd.DataFrame(dict(X=[10, 1000], Y=['asdf', 'asdaaaf']))
-    obj['f8'] = pd.DataFrame(np.random.rand(50, 50))
-    print(pp.pformat(obj))
-
+    wrapper = TextWrap(width=20, keep_newlines=True)
+    print(wrapper(text))
