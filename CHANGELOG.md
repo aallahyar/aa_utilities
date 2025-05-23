@@ -1,4 +1,8 @@
-## [0.0.30] - 2025-XX-XX
+## [0.0.31] - 2025-05-23
+### Added:
+- `convenience.sort_by` to sort `pd.Series` or `pd.DataFrame` according to a given order.
+
+## [0.0.30] - 2025-05-22
 ### Added:
 - `stats.IterativeStats` to calculate `mean`, `var` and `std` of a list of numbers that 
 are provided iteratively.

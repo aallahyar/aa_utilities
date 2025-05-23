@@ -1,5 +1,10 @@
 
-from typing import Any, Callable, Union
+from typing import (
+    Any, 
+    Callable, 
+    Union, 
+    Literal,
+)
 
 import numpy as np
 import pandas as pd
@@ -173,10 +178,10 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
 
     return merged
 
-def store(data: Any, name='data', container=None, copy=True) -> Any:
+def store(data: Any, name='data', container=globals(), copy=True) -> Any:
     """Stores the data into a (dict) container.
     If container is not given, stores the data in the global name space.
-    This function is useful as during Pandas chainig operations to store an
+    This function is useful during Pandas chainig operations to store an
     intermediate dataframe in the middle of the chain.
     The original provided `data` is returned.
 
@@ -204,8 +209,12 @@ def store(data: Any, name='data', container=None, copy=True) -> Any:
             .pipe(store, name='test1')
             .pipe(store, name='test2', container=container)
             .pipe(store, name='test3', container=container, copy=False)
-            .pipe(lambda df: store({'test': 'value1'}, name='test4') and df) # note: `df` is returned
-            .pipe(lambda df: store(data=df.iloc[:-2], name='test5')) # note: `df.iloc[:-2]` is returned
+
+            # store a different variable, but still return the originally given `df`
+            .pipe(lambda df: store({'test': 'value1'}, name='test4') and df)
+
+            # modify the given `df`, store it, return the modified `df`
+            .pipe(lambda df: store(data=df.iloc[:-2], name='test5'))
         )
         print('>df\n', df)
         df.iloc[0, 0] = 'X'
@@ -217,9 +226,6 @@ def store(data: Any, name='data', container=None, copy=True) -> Any:
         print('>test4\n', test4)
         print('>test5\n', test5)
     """
-
-    if container is None:
-        container = globals()
     
     if copy:
         container[name] = data.copy()
@@ -227,32 +233,138 @@ def store(data: Any, name='data', container=None, copy=True) -> Any:
         container[name] = data
     return data
 
+def sort_by(
+        data: Union[pd.Series, pd.DataFrame],
+        orders: Union[list, dict, pd.Series, pd.DataFrame],
+        ascending=True,
+        method='mergesort',
+        na_position: Literal['first', 'last'] = 'last',
+        validate=True,
+    ) -> Union[pd.DataFrame, pd.Series]:
+    """\
+    Sorts the given data according to provided orders. Any undefined value will be assumed
+    as NaN and placed at the `na_position`. The undefined orders are preserved.
+
+    Args:
+        data (Union[pd.Series, pd.DataFrame]): Source data that is going to be sorted
+        orders (Union[dict, pd.Series, pd.DataFrame]): the requested order. All columns defined 
+        in `orders` will be used for sorting.
+        ascending (bool, optional): Order of the sort. Defaults to True.
+        na_position: Where to place undefined enties, can be 'first', or 'last'.
+
+    Returns:
+        Union[pd.Series, pd.DataFrame]: Sorted data
+    
+    Notes: 
+        * If sorting a `pd.Series`, then `orders` can be any `Iterable`. Note that in 
+            this case, if `orders` is a `pd.Series`, its `.values` will be used and not 
+            its `.index`.
+        * The order of repeated values is kept untouched (i.e., stable sort)
+        * The order of undefined values is kept untouched (i.e., stable sort)
+
+    Examples:
+        # pd.Series or pd.DataFrames can be sorted, 
+        print(sort_by(df.i, orders=['C', 'A', 'D']))
+        print(sort_by(df, orders={'i': ['C', 'A', 'D']}))
+
+        # orders defined by unknown values are allowed
+        print(sort_by(df.i, orders=['c', 'B', 'a', 'A']))
+
+        # Error: at least one value needs to be defined
+        # print(sort_by(df.i, orders=['c', 'a']))
+
+        # the orders can be defined in multiple partially-overlapping columns
+        print(sort_by(df, orders={'a': [3, 2], 'b': [104, 102, 105, 100]}))
+        
+        # the priorities can also be a pd.Series 
+        print(sort_by(df, orders=df.i.loc[[1, 0, 3]]))
+
+        # the priorities can also be a dataframe (values will be used, not the index)
+        print(sort_by(df, orders=df.loc[[1, 0, 3], ['a', 'c']]))
+    """
+
+    # prepare orders
+    if isinstance(orders, (pd.Series, )):
+        orders = {orders.name: orders.values.tolist()}
+    elif isinstance(orders, (pd.DataFrame, )):
+        col_orders = {}
+        for col in list(orders.keys()):
+            col_orders[col] = list(orders[col].unique())
+        orders = col_orders
+    
+    # prepare data
+    data_ordered = data.copy()
+
+    # if data is `pd.Series`
+    if isinstance(data, (pd.Series, )):
+        orders = list(dict.fromkeys(orders).keys()) # only unique values, preserves order
+        cat_dtype = pd.CategoricalDtype(categories=orders, ordered=True)
+        data_ordered = (
+            data
+            .astype(cat_dtype)
+            .sort_values(ascending=ascending, na_position=na_position)
+        )
+        if validate and data_ordered.isna().all():
+            raise ValueError(f'Every value the series is now undefined!')
+        return data.loc[data_ordered.index].copy()
+    
+    # if data is `pd.DataFrame`
+    elif isinstance(data, (pd.DataFrame, )):
+
+        # assign orders and sort, per column
+        assert isinstance(orders, (dict, )), 'For a `pd.DataFrame`, `orders` must be defined per column'
+        for col in orders.keys():
+            data_ordered[col] = pd.Categorical(data[col], categories=orders[col], ordered=True)
+            if validate and data_ordered[col].isna().all():
+                raise ValueError(f'Every value in column "{col}" is now undefined!')
+        data_ordered = (
+            data_ordered
+            .sort_values(by=list(orders.keys()), ascending=ascending, kind=method, na_position=na_position)
+        )
+        return data.loc[data_ordered.index, :].copy()
+
+    # otherwise
+    else:
+        raise ValueError('Data must be either a `pd.Series` or a `pd.DataFrame`')
+
 if __name__ == '__main__':
 
     import pandas as pd
 
-    container = {}
     df = (
         pd.DataFrame({
-            'i': list('ABCDE'),
-            'a': range(5),
-            'b': range(100, 105),
-            'c': range(200, 205),
+            'i': list('ABCDCE'),
+            'a': range(6),
+            'b': range(100, 106),
+            'c': range(200, 206),
         })
-        .pipe(store) # store the current `df` into global `data` variable
-        .pipe(store, name='test1')
-        .pipe(store, name='test2', container=container)
-        .pipe(store, name='test3', container=container, copy=False)
-        .pipe(lambda df: store({'test': 'value1'}, name='test4') and df) # note: `df` is returned
-        .pipe(lambda df: store(data=df.iloc[:-2], name='test5')) # note: `df.iloc[:-2]` is returned
     )
-    print('>df\n', df)
-    df.iloc[0, 0] = 'X'
-    print('>data\n', data)
-    print('>container\n', container)
-    print('>test1\n', test1)
-    print('test2' in globals())
-    print('test3' in globals())
-    print('>test4\n', test4)
-    print('>test5\n', test5)
+
+    # pd.Series or pd.DataFrames can be sorted, 
+    # notes: 
+    #   * if sorting pd.Series:
+    #       - `by` should be `None`.
+    #       - `orders` can be any `Iterable`. If `orders` is a `pd.Series`, 
+    #               its `.values()` will be used, not its `.index()`.
+    #   * the order of repeated values is kept untouched (i.e., stable sort)
+    #   * the order of undefined values is kept untouched (i.e., stable sort)
+    print(sort_by(df.i, orders=['C', 'A', 'D']))
+    print(sort_by(df, orders={'i': ['C', 'A', 'D']}))
+
+    # orders defined by unknown values are allowed
+    print(sort_by(df.i, orders=['c', 'B', 'a', 'A']))
+
+    # Error: at least one value needs to be defined
+    # print(sort_by(df.i, orders=['c', 'a']))
+
+    # the orders can be defined in multiple partially-overlapping columns
+    print(sort_by(df, orders={'a': [3, 2], 'b': [104, 102, 105, 100]}))
+    
+    # the priorities can also be a pd.Series 
+    print(sort_by(df, orders=df.i.loc[[1, 0, 3]]))
+
+    # the priorities can also be a dataframe (values will be used, not the index)
+    print(sort_by(df, orders=df.loc[[1, 0, 3], ['a', 'c']]))
+
+
 
