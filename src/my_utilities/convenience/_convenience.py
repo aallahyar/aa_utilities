@@ -178,18 +178,23 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
 
     return merged
 
-def store(data: Any, name='data', container=globals(), copy=True) -> Any:
-    """Stores the data into a (dict) container.
-    If container is not given, stores the data in the global name space.
-    This function is useful during Pandas chainig operations to store an
+def store(data: Any, namespace: dict, name: str='stored_data', copy=True) -> Any:
+    """Stores the data into a provided (dict) namespace.
+    This function is useful during Pandas chaining operations to store an
     intermediate dataframe in the middle of the chain.
     The original provided `data` is returned.
 
+    Note: globals() is referring to the current modules namespace, and not the global in 
+        which the `main` function is operating: https://stackoverflow.com/a/60359384/1397843
+        Therefore, the `namespace` argument can not have a default value of `globals()`. 
+        Otherwise, it will store the variable into the current module's (i.e., `convenience`) global 
+        name space.
+
     Args:
         data (any): The object to be stored.
-        name (bool): Name of the stored data
-        message (str, optional): Messsage to be shown
-            if the condition is False. Defaults to 'Condition is False!'.
+        namespace (dict): The container objects in which the data will be stored in.
+        name (str): Name of the variable that will hold the stored data.
+        copy (bool): Whether or not copy the data, or store the reference to the data.
 
     Returns:
         any: The `data` as it is provided (i.e., no modification).
@@ -205,22 +210,23 @@ def store(data: Any, name='data', container=globals(), copy=True) -> Any:
                 'b': range(100, 105),
                 'c': range(200, 205),
             })
-            .pipe(store) # store the current `df` into global `data` variable
-            .pipe(store, name='test1')
-            .pipe(store, name='test2', container=container)
-            .pipe(store, name='test3', container=container, copy=False)
+            .pipe(store, namespace=globals()) # store the current `df` into global `stored_data` variable
+            .pipe(store, namespace=globals(), name='test1')
+            .pipe(store, namespace=container, name='test2')
+            .pipe(store, namespace=container, name='test3', copy=False)
 
             # store a different variable, but still return the originally given `df`
-            .pipe(lambda df: store({'test': 'value1'}, name='test4') and df)
+            .pipe(lambda df: store({'test': 'value1'}, namespace=globals(), name='test4') and df)
 
             # modify the given `df`, store it, return the modified `df`
-            .pipe(lambda df: store(data=df.iloc[:-2], name='test5'))
+            .pipe(lambda df: store(df.iloc[:-2], namespace=globals(), name='test5'))
         )
-        print('>df\n', df)
+        print('>df\n', df) # df with the last two rows removed
         df.iloc[0, 0] = 'X'
-        print('>data\n', data)
+        print('>stored_data\n', stored_data)
         print('>container\n', container)
         print('>test1\n', test1)
+        print('>test3\n', test3)
         print('test2' in globals())
         print('test3' in globals())
         print('>test4\n', test4)
@@ -228,9 +234,9 @@ def store(data: Any, name='data', container=globals(), copy=True) -> Any:
     """
     
     if copy:
-        container[name] = data.copy()
+        namespace[name] = data.copy()
     else:
-        container[name] = data
+        namespace[name] = data
     return data
 
 def sort_by(
@@ -331,40 +337,7 @@ if __name__ == '__main__':
 
     import pandas as pd
 
-    df = (
-        pd.DataFrame({
-            'i': list('ABCDCE'),
-            'a': range(6),
-            'b': range(100, 106),
-            'c': range(200, 206),
-        })
-    )
-
-    # pd.Series or pd.DataFrames can be sorted, 
-    # notes: 
-    #   * if sorting pd.Series:
-    #       - `by` should be `None`.
-    #       - `orders` can be any `Iterable`. If `orders` is a `pd.Series`, 
-    #               its `.values()` will be used, not its `.index()`.
-    #   * the order of repeated values is kept untouched (i.e., stable sort)
-    #   * the order of undefined values is kept untouched (i.e., stable sort)
-    print(sort_by(df.i, orders=['C', 'A', 'D']))
-    print(sort_by(df, orders={'i': ['C', 'A', 'D']}))
-
-    # orders defined by unknown values are allowed
-    print(sort_by(df.i, orders=['c', 'B', 'a', 'A']))
-
-    # Error: at least one value needs to be defined
-    # print(sort_by(df.i, orders=['c', 'a']))
-
-    # the orders can be defined in multiple partially-overlapping columns
-    print(sort_by(df, orders={'a': [3, 2], 'b': [104, 102, 105, 100]}))
-    
-    # the priorities can also be a pd.Series 
-    print(sort_by(df, orders=df.i.loc[[1, 0, 3]]))
-
-    # the priorities can also be a dataframe (values will be used, not the index)
-    print(sort_by(df, orders=df.loc[[1, 0, 3], ['a', 'c']]))
+    container = {}
 
 
 
