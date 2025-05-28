@@ -114,6 +114,48 @@ class PrettyPrinter():
 
 
 class TextWrap(textwrap.TextWrapper):
+    """_summary_
+
+    Args:
+        textwrap (_type_): _description_
+    
+    Example:
+        text = "line with   space,\n\n\n2nd paragraph with text\n3rd paragraph with a LOOOOOOOOOngWorddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        text_wrapper = textwrap.TextWrapper(width=25)
+        print(text_wrapper.fill(text))
+
+        text_wrapper = textwrap.TextWrapper(width=25, replace_whitespace=False)
+        print(text_wrapper.fill(text))
+
+        text_wrapper = TextWrap(width=25, keep_newlines=True)
+        print(text_wrapper(text))
+
+        # output
+        line with   space,   2nd
+        paragraph with text 3rd
+        paragraph with a LOOOOOOO
+        OOngWordddddddddddddddddd
+        ddddddddddddddddddddddddd
+        dddddddddddddd
+        line with   space,
+
+
+        2nd
+        paragraph with text
+        3rd
+        paragraph with a LOOOOOOO
+        OOngWordddddddddddddddddd
+        ddddddddddddddddddddddddd
+        dddddddddddddd
+        line with   space,
+
+
+        2nd paragraph with text
+        3rd paragraph with a LOOO
+        OOOOOOngWordddddddddddddd
+        ddddddddddddddddddddddddd
+        dddddddddddddddddd
+    """
     def __init__(self, keep_newlines=True, **kwargs):
         super().__init__(**kwargs)
         self.keep_newlines = keep_newlines
@@ -131,12 +173,12 @@ class TextWrap(textwrap.TextWrapper):
 
 
 if __name__ == '__main__':
-    text = "short      line,\n\n\nlong line LONG\nWORDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    wrapper = textwrap.TextWrapper(width=20)
-    print(wrapper.fill(text))
+    text = "line with   space,\n\n\n2nd paragraph with text\n3rd paragraph with a LOOOOOOOOOngWorddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    text_wrapper = textwrap.TextWrapper(width=25)
+    print(text_wrapper.fill(text))
 
-    wrapper = textwrap.TextWrapper(width=20, replace_whitespace=False)
-    print(wrapper.fill(text))
+    text_wrapper = textwrap.TextWrapper(width=25, replace_whitespace=False)
+    print(text_wrapper.fill(text))
 
-    wrapper = TextWrap(width=20, keep_newlines=True)
-    print(wrapper(text))
+    text_wrapper = TextWrap(width=25, keep_newlines=True)
+    print(text_wrapper(text))
