@@ -5,8 +5,8 @@ from matplotlib import (
     transforms as mpl_transforms,
 )
 # import seaborn as sns
-
-def link(x_ticks, text, y_left, y_top=None, y_right=None, height=+10, element_offset=+10, top_offset=20, ax=None, line_kw=None, text_kw=None):
+#%%
+def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_space=10, ax=None, line_kw=None, text_kw=None):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
     
     Parameters:
@@ -31,33 +31,41 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=+10, element_of
         fig = plt.figure()
         ax = fig.gca()
         ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
-        # ax.set_yscale('log', base=10)
-        ax.set_ylim([1, 100])
-        link([0, 1], text='test p-value = string', y_left=100, y_right=140, ax=ax)
+        ax.set_yscale('log', base=10)
+        # ax.set_ylim(top=1e10)
+
+        y = 100
+        for i in range(10):
+            link_h = link([0, 1], text='test p-value = string', y_left=y, y_right=y + 40, ax=ax)
+
+            coords_disp = link_h.text.get_window_extent()
+            coords_disp.y1 += 0 # offset +10 points to the last p-value text, in display coordinates
+            coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
+            # ax.plot([0, 4], coords_data[1, [1, 1]])
+            y = coords_data[1, 1]
         plt.show()
     ```
     """
     
-    # __version__ = '0.0.1'
-
     if ax is None:
         ax = plt.gca()
 
     # setup coordinate offsets
-    transform_element = mpl_transforms.offset_copy(ax.transData, y=element_offset, units='dots')
-    transform_height = mpl_transforms.offset_copy(transform_element, y=height, units='dots')
+    transform_pad = mpl_transforms.offset_copy(ax.transData, y=pad, units='dots')
+    transform_height = mpl_transforms.offset_copy(ax.transData, y=height, units='dots')
 
     # setting defaults
     if line_kw is None:
         line_kw = {
             'linestyle': '-',
-            'color': 'k',
+            'color': '#555555',
             'linewidth': 0.5,
         }
     
     # setting text defaults
     if text_kw is None:
         text_kw = {
+            'color': '#555555',
         }
     
     # setting y defaults
@@ -70,18 +78,19 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=+10, element_of
     # draw the lines
     line_x = [x_ticks[0], x_ticks[0], x_ticks[1], x_ticks[1]]
     line_y = [y_left, y_top, y_top, y_right]
-    link = ax.plot(line_x, line_y, transform=transform_element, **line_kw)[0]
+    link = ax.plot(line_x, line_y, transform=transform_pad, **line_kw)[0]
 
     # adding text
-    link.text = ax.text(sum(x_ticks) / 2, y_top, text, transform=transform_element, va='bottom', ha='center', **text_kw)
+    link.text = ax.text(sum(x_ticks) / 2, y_top, text, transform=transform_pad, va='bottom', ha='center', **text_kw)
 
     # adjust y-lim if needed
-    coords_disp = link.text.get_window_extent()
-    coords_disp.y1 += top_offset # go higher from the text, in display coordinates
-    coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
-    y_max = coords_data[1, 1]
-    if y_max > ax.get_ylim()[1]:
-        ax.set_ylim(top=y_max)
+    if top_space is not None:
+        coords_disp = link.text.get_window_extent()
+        coords_disp.y1 += top_space # go higher from the text, in display coordinates
+        coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
+        y_max = coords_data[1, 1]
+        if y_max > ax.get_ylim()[1]:
+            ax.set_ylim(top=y_max)
     
     return link
 
@@ -379,17 +388,28 @@ def text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='poi
     text_hndl = ax.text(x, y, text, **kwargs)
     return text_hndl
 
-
+#%%
 if __name__ == '__main__':
     pass
-
-    import pandas as pd
 
     fig = plt.figure()
     ax = fig.gca()
     ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
-    # ax.set_yscale('log', base=10)
-    ax.set_ylim([1, 100])
-    link([0, 1], text='test p-value = string', y_left=100, y_right=140, ax=ax)
+    ax.set_yscale('log', base=10)
+    # ax.set_ylim(top=1e10)
+
+    y = 100
+    for i in range(10):
+        link_h = link([0, 1], text='test p-value = string', y_left=y, y_right=y + 40, ax=ax)
+
+        coords_disp = link_h.text.get_window_extent()
+        coords_disp.y1 += 0 # offset +10 points to the last p-value text, in display coordinates
+        coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
+        # ax.plot([0, 4], coords_data[1, [1, 1]])
+        y = coords_data[1, 1]
     plt.show()
 
+
+# %%
+
+# %%
