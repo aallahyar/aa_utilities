@@ -1,6 +1,8 @@
-## [0.0.31] - 2025-05-23
+## [0.0.31] - 2025-06-04
 ### Added:
 - `convenience.sort_by` to sort `pd.Series` or `pd.DataFrame` according to a given order.
+### Changed:
+- A minor update to `link` function to better adjust the `y-axis` after drawing the link, if needed.
 
 ## [0.0.30] - 2025-05-22
 ### Added:

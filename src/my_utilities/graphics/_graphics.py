@@ -78,7 +78,10 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, offset=+12, l
     link.text = ax.text(sum(x_ticks) / 2, y_top_adj, text, transform=y_offset, va='bottom', ha='center', **text_kw)
 
     # adjust y-lim if needed
-    y_max = y_top_adj + (y_top_adj - y_top) * 5
+    coords_disp = link.text.get_window_extent()
+    coords_disp.y1 += 20 # go higher +20 points from the text, in display coordinates
+    coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
+    y_max = coords_data[1, 1]
     y_lim = list(ax.get_ylim())
     if y_max > y_lim[1]:
         ax.set_ylim(top=y_max)
@@ -227,13 +230,13 @@ def forest_plot(
     return ax
 
 
-def add_counts_to_legend(ax, counts, text_format='{:s} (n={:d})', **kwargs):
+def add_counts_to_legend(ax, counts, text_format='{label:s} (n={count:d})', **kwargs):
     handles, labels = ax.get_legend_handles_labels()
     n_elements = len(labels)
 
     for ei in range(n_elements):
         if labels[ei] in counts:
-            labels[ei] = text_format.format(labels[ei], counts[labels[ei]])
+            labels[ei] = text_format.format(label=labels[ei], count=counts[labels[ei]])
     ax.legend(handles, labels, **kwargs)
     return (handles, labels)
 
@@ -385,22 +388,11 @@ if __name__ == '__main__':
 
     import pandas as pd
 
-    df4plt = (
-        pd.DataFrame()
-        .assign(
-            x=np.arange(11),
-            y=np.linspace(0, 1, num=11),
-            color=lambda df: np.where(df.x < 5, 'blue', 'green'),
-        )
-    )
-
-    fig = plt.figure(figsize=(6, 6))
+    fig = plt.figure()
     ax = fig.gca()
-    for i, row in df4plt.iterrows():
-        text_offset(row.x, row.y, f'{row.x:3d}, {row.y:3.1f}', color=row.color, offsets=(0, -0.05), ax=ax)
-
-    ax.set_xlim([0, 10])
-    ax.set_ylim([0, 100])
-    ax.grid()
+    ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
+    # ax.set_yscale('log', base=10)
+    ax.set_ylim([1, 100])
+    link([0, 1], text='test p-value = string', y_left=100, y_right=140, ax=ax)
     plt.show()
 
