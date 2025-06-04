@@ -6,7 +6,7 @@ from matplotlib import (
 )
 # import seaborn as sns
 
-def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, offset=+12, line_kw=None, text_kw=None):
+def link(x_ticks, text, y_left, y_top=None, y_right=None, height=+10, element_offset=+10, top_offset=20, ax=None, line_kw=None, text_kw=None):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
     
     Parameters:
@@ -44,8 +44,8 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, offset=+12, l
         ax = plt.gca()
 
     # setup coordinate offsets
-    y_offset = mpl_transforms.offset_copy(ax.transData, y=offset, units='dots')
-    dsp2dt = ax.transData.inverted()
+    transform_element = mpl_transforms.offset_copy(ax.transData, y=element_offset, units='dots')
+    transform_height = mpl_transforms.offset_copy(transform_element, y=height, units='dots')
 
     # setting defaults
     if line_kw is None:
@@ -64,26 +64,23 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, ax=None, offset=+12, l
     if y_right is None:
         y_right = y_left
     if y_top is None:
-        y_top = max(y_left, y_right)
-    
-    # bring top coordinate one step up
-    y_top_adj = dsp2dt.transform(y_offset.transform((1, y_top)))[1]
+        y_max = max(y_left, y_right)
+        y_top = ax.transData.inverted().transform(transform_height.transform((1, y_max)))[1]
     
     # draw the lines
     line_x = [x_ticks[0], x_ticks[0], x_ticks[1], x_ticks[1]]
-    line_y = [y_left, y_top_adj, y_top_adj, y_right]
-    link = ax.plot(line_x, line_y, transform=y_offset, **line_kw)[0]
+    line_y = [y_left, y_top, y_top, y_right]
+    link = ax.plot(line_x, line_y, transform=transform_element, **line_kw)[0]
 
     # adding text
-    link.text = ax.text(sum(x_ticks) / 2, y_top_adj, text, transform=y_offset, va='bottom', ha='center', **text_kw)
+    link.text = ax.text(sum(x_ticks) / 2, y_top, text, transform=transform_element, va='bottom', ha='center', **text_kw)
 
     # adjust y-lim if needed
     coords_disp = link.text.get_window_extent()
-    coords_disp.y1 += 20 # go higher +20 points from the text, in display coordinates
+    coords_disp.y1 += top_offset # go higher from the text, in display coordinates
     coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
     y_max = coords_data[1, 1]
-    y_lim = list(ax.get_ylim())
-    if y_max > y_lim[1]:
+    if y_max > ax.get_ylim()[1]:
         ax.set_ylim(top=y_max)
     
     return link
