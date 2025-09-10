@@ -6,7 +6,7 @@ from matplotlib import (
 )
 # import seaborn as sns
 #%%
-def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_space=10, ax=None, line_kw=None, text_kw=None):
+def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_space=10, ax=None, line_kws=None, text_kws=None):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
     
     Parameters:
@@ -18,6 +18,10 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     x_ticks: list
         a 2-element list of x-tick indices that needs to be annotated.
         e.g.: [1,2] links column index 1 to 2
+    pad: int
+        Space between given y_left and link's lines
+    top_space: int
+        Space between link's top and the top of the axes
 
     Returns:
     -------
@@ -55,16 +59,16 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     transform_height = mpl_transforms.offset_copy(ax.transData, y=height, units='dots')
 
     # setting defaults
-    if line_kw is None:
-        line_kw = {
+    if line_kws is None:
+        line_kws = {
             'linestyle': '-',
             'color': '#555555',
             'linewidth': 0.5,
         }
     
     # setting text defaults
-    if text_kw is None:
-        text_kw = {
+    if text_kws is None:
+        text_kws = {
             'color': '#555555',
         }
     
@@ -78,10 +82,10 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     # draw the lines
     line_x = [x_ticks[0], x_ticks[0], x_ticks[1], x_ticks[1]]
     line_y = [y_left, y_top, y_top, y_right]
-    link = ax.plot(line_x, line_y, transform=transform_pad, **line_kw)[0]
+    link = ax.plot(line_x, line_y, transform=transform_pad, **line_kws)[0]
 
     # adding text
-    link.text = ax.text(sum(x_ticks) / 2, y_top, text, transform=transform_pad, va='bottom', ha='center', **text_kw)
+    link.text = ax.text(sum(x_ticks) / 2, y_top, text, transform=transform_pad, va='bottom', ha='center', **text_kws)
 
     # adjust y-lim if needed
     if top_space is not None:

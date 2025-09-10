@@ -138,7 +138,7 @@ def is_true(data: Any, condition: Union[Callable, bool], message: Union[Callable
     return data
 
 def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='query'):
-    """Selects subsets of rows from a given DataFrame according to dictionary of queries
+    """Selects subsets of rows from a given DataFrame according to a dictionary of queries
     The resulting rows from each query is indicated in `indicator` column.
 
     Example:
@@ -152,7 +152,7 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
         (
             df
             .pipe(select, 'id in ["A"] and day1 >= 25') # this is equivalent to .query()
-            .pipe(select, ['id in ["A"]', 'day1 >= 25'])
+            .pipe(select, ['id in ["A"]', 'day1 >= 25']) # two queries, results are indicated by 0, 1
             .pipe(select, {'set1': 'id in ["A"]', 'set2': 'day1 >= 25'})
         )
     """
@@ -294,21 +294,21 @@ def sort_by(
         orders = {orders.name: orders.values.tolist()}
     elif isinstance(orders, (pd.DataFrame, )):
         col_orders = {}
-        for col in list(orders.keys()):
-            col_orders[col] = list(orders[col].unique())
+        for col_name in list(orders.keys()):
+            col_orders[col_name] = list(orders[col_name].unique())
         orders = col_orders
     
-    # prepare data
-    data_ordered = data.copy()
-
-    # if data is `pd.Series`
+    # if data is `pd.Series`, only orders.keys() are used
     if isinstance(data, (pd.Series, )):
-        orders = list(dict.fromkeys(orders).keys()) # only unique values, preserves order
+        # keep unique values only, preserves order
+        orders = list(dict.fromkeys(orders).keys()) # dict with values == `None`
+        
         cat_dtype = pd.CategoricalDtype(categories=orders, ordered=True)
         data_ordered = (
             data
             .astype(cat_dtype)
             .sort_values(ascending=ascending, na_position=na_position)
+            .copy()
         )
         if validate and data_ordered.isna().all():
             raise ValueError(f'Every value the series is now undefined!')
@@ -319,10 +319,11 @@ def sort_by(
 
         # assign orders and sort, per column
         assert isinstance(orders, (dict, )), 'For a `pd.DataFrame`, `orders` must be defined per column'
+        data_ordered = data.copy()
         for col in orders.keys():
             data_ordered[col] = pd.Categorical(data[col], categories=orders[col], ordered=True)
             if validate and data_ordered[col].isna().all():
-                raise ValueError(f'Every value in column "{col}" is now undefined!')
+                raise ValueError(f'Every value in column "{col}" is now NaN! Have you defined the ordered properly?')
         data_ordered = (
             data_ordered
             .sort_values(by=list(orders.keys()), ascending=ascending, kind=method, na_position=na_position)
