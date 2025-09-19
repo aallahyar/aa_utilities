@@ -1,6 +1,6 @@
 tomli; python_version < "3.11"
-numpy#>=1.26.4
-pandas#>=2.2.0
+numpy #>=1.26.4
+pandas #>=2.2.0
 matplotlib>=3.8.2
 seaborn
 rpy2>=3.5.15
