@@ -1,3 +1,11 @@
+## [0.0.33] - 2025-09-19
+### Changed:
+- `TextWrapp` is now called `TextWrapper`.
+
+## [0.0.32] - 2025-09-10
+### Changed:
+- Update on the codes to avoid importing many redundant dependencies until needed.
+
 ## [0.0.31] - 2025-06-04
 ### Added:
 - `convenience.sort_by` to sort `pd.Series` or `pd.DataFrame` according to a given order.

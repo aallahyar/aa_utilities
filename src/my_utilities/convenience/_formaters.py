@@ -113,7 +113,7 @@ class PrettyPrinter():
         return preview
 
 
-class TextWrap(textwrap.TextWrapper):
+class TextWrapper(textwrap.TextWrapper):
     """_summary_
 
     Args:
@@ -180,5 +180,5 @@ if __name__ == '__main__':
     text_wrapper = textwrap.TextWrapper(width=25, replace_whitespace=False)
     print(text_wrapper.fill(text))
 
-    text_wrapper = TextWrap(width=25, keep_newlines=True)
+    text_wrapper = TextWrapper(width=25, keep_newlines=True)
     print(text_wrapper(text))

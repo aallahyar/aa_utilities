@@ -1,7 +1,7 @@
 from ._convenience import *
 from ._formaters import (
     PrettyPrinter, 
-    TextWrap,
+    TextWrapper,
 )
 from ._containers import *
 from ._linkage_tree_parser import LinkageTreeParser
