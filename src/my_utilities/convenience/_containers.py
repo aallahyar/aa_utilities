@@ -104,14 +104,15 @@ class Container(dict):
     
     def __init__(self, **kwargs):
 
-        # Set RESERVED_TERMS and logger before calling super().__init__ to avoid recursion in __setattr__
+        # Set _RESERVED_TERMS and logger before calling super().__init__ to avoid recursion in __setattr__
         # specifically, it directly calls the parent class’s version of __setattr__.
         # and skips any custom logic implemented in Container.__setattr__.
         # The attribute is stored in the instance’s __dict__ as usual.
         ## Get all public attributes/methods (exclude dunder and private by convention)
         super().__setattr__('_pp', PrettyPrinter())
+        super().__setattr__('_params', PrettyPrinter())
         super().__setattr__('_logger', setup_logger(name=__name__))
-        super().__setattr__('RESERVED_TERMS', {
+        super().__setattr__('_RESERVED_TERMS', {
             key for key in dir(type(self))
             if not key.startswith('__') and not key.startswith('_')
         })
@@ -137,7 +138,7 @@ class Container(dict):
             # https://pandas.pydata.org/docs/reference/api/pandas.Series.copy.html
             return deepcopy(self)
         else:
-            return self.copy()
+            return Container(**self)
     
     @classmethod
     def from_series(cls, series):
@@ -166,7 +167,7 @@ class Container(dict):
         return super().__getattribute__(name)
     
     def __setattr__(self, name, value):
-        if name in self.RESERVED_TERMS:
+        if name in self._RESERVED_TERMS:
             self._logger.warning(
                 f'Setting "{name}" will shadow the existing attribute (or method) with the same name'
                 f'that exists in this <{type(self).__name__}>.'
