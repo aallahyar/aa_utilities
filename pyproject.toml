@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "my_utilities"
-version = "0.0.33"
+version = "0.0.34"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -28,8 +28,17 @@ documentation = "https://github.com/aallahyar/my_utilities/blob/main/README.md"
 dependencies = {file = ["requirements.txt"]}
 
 
-# [project.optional-dependencies]
-# build = ["build", "twine"]
+[project.optional-dependencies]
+# install with extras:
+# pip3 install my_utilities[extras]
+
+extras = [
+    "colorama", 
+    "ipympl", # if interactive visualization is needed
+]
+r_wrapper = [
+    "rpy2>=3.5.15", # for R integration
+]
 # dev   = ["black", "bumpver", "isort", "mypy", "pytest"]
 
 # [project.scripts]

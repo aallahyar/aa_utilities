@@ -1,3 +1,15 @@
+## [0.0.34] - 2025-09-XX
+### Added:
+- `logger.get_logger()` to conveniently produce a logger with proper formatting and coloring.
+
+### Changed:
+- An overhaul of the `configurations` setup.
+- `rpy2` is no longer in core require packages. Install with `
+
+### Deprecited:
+- `Container._params` is now depricated. Use `Container._pp.set_params` for setting printing
+properties.
+
 ## [0.0.33] - 2025-09-19
 ### Changed:
 - `TextWrapp` is now called `TextWrapper`.

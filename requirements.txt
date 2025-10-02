@@ -3,8 +3,6 @@ numpy #>=1.26.4
 pandas #>=2.2.0
 matplotlib>=3.8.2
 seaborn
-rpy2>=3.5.15
 numba>=0.59.0
 natsort>=8.4.0
 scikit-learn
-# ipympl # if interactive visualization is needed

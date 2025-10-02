@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from my_utilities.convenience import PrettyPrinter
+from logger import setup_logger
 
 class Container(dict):
     """_summary_
@@ -102,15 +103,22 @@ class Container(dict):
     """
     
     def __init__(self, **kwargs):
-        super().__init__(kwargs)
-        self._pp = PrettyPrinter()
-        
-        # depricated: use self._pp.set_params
-        self._params = dict(
-            # repr_max_cols=80, 
-            # repr_max_n_elements=200,
-            # prev_max_rows=20,
-        )
+
+        # Set RESERVED_TERMS and logger before calling super().__init__ to avoid recursion in __setattr__
+        # specifically, it directly calls the parent class’s version of __setattr__.
+        # and skips any custom logic implemented in Container.__setattr__.
+        # The attribute is stored in the instance’s __dict__ as usual.
+        ## Get all public attributes/methods (exclude dunder and private by convention)
+        super().__setattr__('_pp', PrettyPrinter())
+        super().__setattr__('_logger', setup_logger(name=__name__))
+        super().__setattr__('RESERVED_TERMS', {
+            key for key in dir(type(self))
+            if not key.startswith('__') and not key.startswith('_')
+        })
+
+        # add provided key-value pairs
+        for key, value in kwargs.items():
+            self.__setattr__(key, value)
     
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
@@ -134,6 +142,7 @@ class Container(dict):
     @classmethod
     def from_series(cls, series):
         # or equally: Container(**series)
+        # or equally: Container(**{'A': [1,2,3]})
         return cls(**series)
     
     def to_series(self):
@@ -157,6 +166,11 @@ class Container(dict):
         return super().__getattribute__(name)
     
     def __setattr__(self, name, value):
+        if name in self.RESERVED_TERMS:
+            self._logger.warning(
+                f'Setting "{name}" will shadow the existing attribute (or method) with the same name'
+                f'that exists in this <{type(self).__name__}>.'
+            )
         if name.startswith('_'):
             super().__setattr__(name, value) # would not appear in .items(); TODO: not very useful it seems. Need more time to figure out if this is useful
         else:

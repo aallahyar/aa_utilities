@@ -8,7 +8,7 @@ except ModuleNotFoundError:
 __version__ = _metadata.version("my_utilities")
 
 # Read URL of the Real Python feed from config file
-from ._configuration import _configurations
+from ._configurations import configs
 
 
 # making modules visible to user

@@ -14,6 +14,7 @@ except ImportError:
     COLOR_ENABLED = False
 
 try:
+    # works when imported as a module
     from ._configurations import configs
 except (ImportError, SystemError, ValueError):
     # Fallback for running as __main__ (direct script execution)
