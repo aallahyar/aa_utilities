@@ -43,13 +43,14 @@ LOG_FORMAT = r'[%(asctime)s] [%(levelname)s] %(name)s: %(message)s'
 DATE_FORMAT = r'%Y-%m-%d %H:%M:%S'
 
 class ColoredFormatter(logging.Formatter):
-    COLORS = {
-        logging.DEBUG: Fore.LIGHTBLACK_EX,
-        logging.INFO: Fore.GREEN,
-        logging.WARNING: Fore.YELLOW,
-        logging.CRITICAL: Fore.MAGENTA,
-        logging.ERROR: Fore.RED,
-    }
+    if COLOR_ENABLED:
+        COLORS = {
+            logging.DEBUG: Fore.LIGHTBLACK_EX,
+            logging.INFO: Fore.GREEN,
+            logging.WARNING: Fore.YELLOW,
+            logging.CRITICAL: Fore.MAGENTA,
+            logging.ERROR: Fore.RED,
+        }
 
     def format(self, record):
 
