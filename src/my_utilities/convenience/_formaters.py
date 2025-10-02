@@ -100,7 +100,11 @@ class PrettyPrinter():
                         outputs.append('...')
                         break
                 # outputs.append(f'{bnds[1]}')
-                preview = f'{meta} ' + f'\n{self.indent}'.join(outputs) + f'\n{bnds[1]}'
+                preview = (
+                    f'{meta} '
+                    + f'\n{self.indent}'.join(outputs)
+                    + f'\n{bnds[1]}'
+                )
             # case Container():
             #     preview = self.clip(f'{meta}\n{obj}')
             case pd.Series():

@@ -23,6 +23,7 @@ class RSpace():
             ipython (bool, optional): It enables the `%R` magics command. See 
                 https://rpy2.github.io/doc/latest/html/interactive.html for details
         """
+        self.ipython_loaded = ipython
         self.ro = RSpace.ro
         
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
@@ -31,6 +32,12 @@ class RSpace():
             from IPython import get_ipython
             ipython_shell = get_ipython()
             ipython_shell.run_line_magic("load_ext", "rpy2.ipython")
+            self.ipython_loaded = True
+
+    def close(self):
+        if self.ipython_loaded:
+            self.ipython_shell.run_line_magic("unload_ext", "rpy2.ipython")
+            self.ipython_loaded = False
 
     def __setitem__(self, name, value):
         if isinstance(value, (dict, )):
@@ -84,9 +91,9 @@ class RSpace():
         return self.ro.r(r_script)
 
     def __repr__(self):
-        return f'''
+        return f"""
         R space holds {len(self.ro.globalenv)} variables: {list(self.ro.globalenv)}
-        '''
+        """
 
     @classmethod
     def obj2cat(cls, dataframe: pd.DataFrame):

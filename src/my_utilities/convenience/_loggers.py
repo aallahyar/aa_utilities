@@ -155,12 +155,13 @@ class RestrictedLogger(logging.Logger):
         stats = self._stats[name]
 
         # check count limit
-        if self._count_limit:
-            if (stats['n_printed'] + stats['n_ignored']) % self._count_limit != 0:
+        if self._count_limit is not None:
+            total_attempted = stats['n_printed'] + stats['n_ignored']
+            if total_attempted % self._count_limit != 0:
                 loggable_count = False
 
         # check time limit
-        if self._time_limit:
+        if self._time_limit is not None:
             if time.time() < stats['last_print'] + self._time_limit:
                 loggable_time = False
         

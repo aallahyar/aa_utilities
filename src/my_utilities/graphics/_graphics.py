@@ -5,6 +5,8 @@ from matplotlib import (
     transforms as mpl_transforms,
 )
 # import seaborn as sns
+
+
 #%%
 def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_space=10, ax=None, line_kws=None, text_kws=None):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
@@ -27,7 +29,7 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     -------
     ax: matplotlib ax
         ax with the added annotation
-    '''
+    """
 
     Example:
     -------

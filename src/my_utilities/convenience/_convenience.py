@@ -40,18 +40,19 @@ def pvalue_to_asterisks(p_value):
 def generate_dataframe(n=100, seed=42):
     import datetime
 
+    # initializations
     rng = np.random.default_rng(seed=seed)
     
     df = pd.DataFrame({
-        'A' : rng.normal(loc=0, scale=1, size=n),
-        'B' : rng.uniform(low=0, high=1, size=n),
-        'C' : rng.integers(low=0, high=100, size=n),
-        'D' : rng.exponential(scale=1, size=n),
-        'E' : rng.choice(['flour', 'egg', 'oil', 'milk', 'water', 'salt', 'suger'], size=n),
-        'F' : rng.choice([f'str_{i}' for i in range(10)], size=n),
-        'G' : rng.choice(pd.date_range(
-            datetime.datetime(2023,1,1),
-            datetime.datetime(2024,1,1)
+        'A': rng.normal(loc=0, scale=1, size=n),
+        'B': rng.uniform(low=0, high=1, size=n),
+        'C': rng.integers(low=0, high=100, size=n),
+        'D': rng.exponential(scale=1, size=n),
+        'E': rng.choice(['flour', 'egg', 'oil', 'milk', 'water', 'salt', 'suger'], size=n),
+        'F': rng.choice([f'str_{i}' for i in range(10)], size=n),
+        'G': rng.choice(pd.date_range(
+            datetime.datetime(2023, 1, 1),
+            datetime.datetime(2024, 1, 1)
         ), size=n),
     })
     return df
@@ -156,6 +157,12 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
             .pipe(select, {'set1': 'id in ["A"]', 'set2': 'day1 >= 25'})
         )
     """
+
+    # sanity checks
+    assert isinstance(dataframe, pd.DataFrame), '`dataframe` must be a `pd.DataFrame` instance'
+    assert isinstance(queries, (str, dict, list)), '`queries` must be either a `str`, `list`, or `dict`'
+    assert isinstance(indicator, str), '`indicator` must be a `str`'
+    assert indicator not in dataframe.columns, f'`indicator` column "{indicator}" already exists in the dataframe!'
 
     if isinstance(queries, str):
         queries = {'': queries}
@@ -288,6 +295,9 @@ def sort_by(
         # the priorities can also be a dataframe (values will be used, not the index)
         print(sort_by(df, orders=df.loc[[1, 0, 3], ['a', 'c']]))
     """
+
+    # sanity checks
+    assert isinstance(data, (pd.DataFrame, pd.Series)), '`data` must be either a `pd.DataFrame` or `pd.Series` instance'
 
     # prepare orders
     if isinstance(orders, (pd.Series, )):

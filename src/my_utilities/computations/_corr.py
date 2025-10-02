@@ -30,7 +30,7 @@ def rank(mat):
 
 @_jit(nopython=True)
 def _pearson_numba(A, B, low_memory=False):
-    ''' Pearson's correlation '''
+    """ Pearson's correlation """
     
     n, k = A.shape
     m, k = B.shape
@@ -61,9 +61,9 @@ def _pearson_numpy(A, B):
 
 def spearman(A, B=None, low_memory=False):
     if B is None:
-        return pearson(rank(A), rank(A), low_memory=low_memory)
+        return _pearson_numba(rank(A), rank(A), low_memory=low_memory)
     else:
-        return pearson(rank(A), rank(B), low_memory=low_memory)
+        return _pearson_numba(rank(A), rank(B), low_memory=low_memory)
         
 
 if __name__ == '__main__':

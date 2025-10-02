@@ -105,7 +105,7 @@ class Container(dict):
     """
     
     def __init__(self, **kwargs):
-
+        # initialization: Set up base infrastructure (private attributes, not user data)
         # Set _RESERVED_TERMS and logger before calling super().__init__ to avoid recursion in __setattr__
         # specifically, it directly calls the parent class’s version of __setattr__.
         # and skips any custom logic implemented in Container.__setattr__.
@@ -119,7 +119,11 @@ class Container(dict):
             if not key.startswith('__') and not key.startswith('_')
         })
 
-        # add provided key-value pairs
+        # configuration: handle user data logic in `_configure`
+        self._configure(**kwargs)
+
+    def _configure(self, **kwargs):
+        """Separation of instantiation from configuration; add user data here."""
         for key, value in kwargs.items():
             self.__setattr__(key, value)
     
@@ -150,6 +154,9 @@ class Container(dict):
     
     def to_series(self):
         return pd.Series(self)
+
+    def to_dict(self):
+        return dict(self)
 
     def drop(self, regex=None, **kwargs):
         srs = self.to_series()
@@ -204,9 +211,15 @@ class Container(dict):
         return output
     
     def __eq__(self, other):
-        if not isinstance(other, (pd.Series, dict, Container)):
-            return NotImplemented# ('Can only compare `Container` or `pd.Series()` instances.')
-        return dict(self) == dict(other)
+        if isinstance(other, (pd.Series, dict, Container)):
+            return dict(self) == dict(other)
+        else:
+            return False
+            # raise NotImplementedError(
+            #     'Can only compare `Container`, `pd.Series()` instance.'
+            #     f' Got {type(other)} instead.'
+            #     )
+
 
 
 
