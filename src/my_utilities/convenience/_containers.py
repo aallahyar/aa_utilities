@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from my_utilities.convenience import PrettyPrinter
-from logger import setup_logger
+from my_utilities.convenience.logger import setup_logger
 
 class Container(dict):
     """_summary_
