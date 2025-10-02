@@ -1,6 +1,6 @@
 
 from importlib.util import find_spec as _find_spec
-from .._configurations import setup_logger
+from ..convenience.loggers import setup_logger
 
 
 from ._entimice import EntimICE
