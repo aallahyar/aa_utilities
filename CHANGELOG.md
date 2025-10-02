@@ -1,4 +1,4 @@
-## [0.0.34] - 2025-09-XX
+## [0.0.34] - 2025-10-02
 ### Added:
 - `logger.get_logger()` to conveniently produce a logger with proper formatting and coloring.
 
