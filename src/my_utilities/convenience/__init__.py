@@ -5,7 +5,7 @@ from ._formaters import (
 )
 from ._containers import *
 from ._linkage_tree_parser import LinkageTreeParser
-# from .loggers import (
-#     RestrictedLogger, 
-#     setup_logger,
-# )
+from ._loggers import (
+    RestrictedLogger, 
+    setup_logger,
+)
