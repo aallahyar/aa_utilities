@@ -9,7 +9,6 @@ import json
 # from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-
 # Optional: colorized logs in terminal (requires 'colorama')
 try:
     from colorama import Fore, Style, init
@@ -18,21 +17,7 @@ try:
 except ImportError:
     COLOR_ENABLED = False
 
-try:
-    # works when imported as a module
-    from ._configurations import configs
-except (ImportError, SystemError, ValueError):
-    # Fallback for running as __main__ (direct script execution)
-    package_dir = (
-        Path(os.path.abspath(__file__))
-        .parent
-        .parent  # go up one level to 'my_utilities' directory
-    )
-    sys.path.insert(0, str(package_dir))
-    try:
-        from _configurations import configs
-    finally:
-        sys.path.pop(0)
+from .._configurations import configs
 
 # initializations
 # Global dictionary to hold loggers
@@ -81,7 +66,7 @@ def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
     logger.propagate = False
     _loggers[name] = logger
 
-    if not logger.handlers:
+    if len(logger.handlers) == 0:
         # Console handler
         ch = logging.StreamHandler()
         ch.setLevel(level)
@@ -93,7 +78,7 @@ def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
 
 class RestrictedLogger(logging.Logger):
 
-    def __init__(self, name, level=logging.NOTSET, time=None, count=None):
+    def __init__(self, name, level=configs.log.level, time=None, count=None):
         super().__init__(name, level)
 
         # state storage
@@ -117,7 +102,10 @@ class RestrictedLogger(logging.Logger):
                 datefmt=r'%Y-%m-%d %H:%M:%S',
             )
             handler = logging.StreamHandler(stream=sys.stderr)
-            handler.setFormatter(self.formatter)
+            if COLOR_ENABLED:
+                handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))
+            else:
+                handler.setFormatter(self.formatter)
             handler.setLevel(level)
             self.addHandler(handler)
             self.addFilter(self.loggable)
@@ -125,10 +113,27 @@ class RestrictedLogger(logging.Logger):
             # define stdout logger
             self.to_stdout = logging.getLogger(name=f'{name}_STDOUT')
             handler_stdout = logging.StreamHandler(stream=sys.stdout)
-            formatter_stdout = logging.Formatter(
-                fmt=f'%(asctime)s {name}: %(message)s',
-                datefmt=r'%Y-%m-%d %H:%M:%S',
-            )
+            if COLOR_ENABLED:
+                handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))
+            else:
+                handler.setFormatter(self.formatter)
+            handler.setLevel(level)
+            self.addHandler(handler)
+            self.addFilter(self.loggable)
+
+            # define stdout logger: it prints to stdout regardless of the level (with an added timestamp)
+            self.to_stdout = logging.getLogger(name=f'{name}_STDOUT')
+            handler_stdout = logging.StreamHandler(stream=sys.stdout)
+            if COLOR_ENABLED:
+                formatter_stdout = ColoredFormatter(
+                    f'[%(asctime)s] {name}: %(message)s', 
+                    datefmt=DATE_FORMAT,
+                )
+            else:
+                formatter_stdout = logging.Formatter(
+                    fmt=f'[%(asctime)s] {name}: %(message)s',
+                    datefmt=DATE_FORMAT,
+                )
             handler_stdout.setFormatter(formatter_stdout)
             handler_stdout.setLevel(logging.INFO)
             self.to_stdout.addHandler(handler_stdout)
@@ -184,50 +189,3 @@ class RestrictedLogger(logging.Logger):
     def stats(self):
         return self._stats
 
-if __name__ == '__main__':
-    # an example of logger instance
-    lgr = setup_logger(name='test_logger', level=logging.DEBUG)
-    lgr.debug('Parsed production page.')
-    lgr.info('utility started.')
-    lgr.warning('We are seeing warnings!')
-    lgr.critical('This is a critical event!')
-    lgr.error('Failed to send the package, error!')
-
-    # an example of restricted logger instance
-    rlgr = RestrictedLogger(name='my_logger', level=logging.WARNING, count=10)
-    for i in range(30):
-        rlgr.stdout(f'stdout at {i}')
-        rlgr.info(f'info at {i}') # stays hidden from stats as the level=WARNING
-        rlgr.error(f'error at {i}')
-        time.sleep(0.01)
-    print(rlgr)
-
-    ## output:
-    # 2024-11-20 09:26:26 my_logger: stdout at 0
-    # 2024-11-20 09:26:26 my_logger [ERROR]: error at 0
-    # 2024-11-20 09:26:26 my_logger: stdout at 10
-    # 2024-11-20 09:26:26 my_logger [ERROR]: error at 10
-    # 2024-11-20 09:26:26 my_logger: stdout at 20
-    # 2024-11-20 09:26:26 my_logger [ERROR]: error at 20
-    # {
-    #   "STDOUT": {
-    #     "n_printed": 0,
-    #     "n_ignored": 0,
-    #     "last_print": 0
-    #   },
-    #   "INFO": {
-    #     "n_printed": 3,
-    #     "n_ignored": 27,
-    #     "last_print": 1732091186.505549
-    #   },
-    #   "WARNING": {
-    #     "n_printed": 0,
-    #     "n_ignored": 0,
-    #     "last_print": 0
-    #   },
-    #   "ERROR": {
-    #     "n_printed": 3,
-    #     "n_ignored": 27,
-    #     "last_print": 1732091186.50576
-    #   }
-    # }

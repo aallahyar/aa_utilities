@@ -3,7 +3,9 @@ from ._formaters import (
     PrettyPrinter, 
     TextWrapper,
 )
-from ._containers import *
+from ._containers import (
+    Container, 
+)
 from ._linkage_tree_parser import LinkageTreeParser
 from ._loggers import (
     RestrictedLogger, 
