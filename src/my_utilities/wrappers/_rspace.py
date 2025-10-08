@@ -55,11 +55,11 @@ class RSpace():
         
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
         if ro.r['is.atomic'](r_obj)[0] and ro.r['length'](r_obj)[0] == 1:
-            if isinstance(value_rpy, (list, tuple, np.ndarray, )):
-                assert len(value_rpy) == 1, f'Unexpected length for a scalar variable: {value_rpy}'
+            if isinstance(value_rpy, (list, tuple, np.ndarray, )) and len(value_rpy) == 1:
+                # assert len(value_rpy) == 1, f'Unexpected length for a scalar variable: {value_rpy}'
                 return value_rpy[0]
             else:
-                return value_rpy
+                return np.array(value_rpy)
 
         # check if the variable is already typed properly
         if isinstance(value_rpy, (pd.DataFrame, )):
