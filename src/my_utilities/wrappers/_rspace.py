@@ -21,6 +21,7 @@ class RSpace():
             ipython (bool, optional): It enables the `%R` magics command. See 
                 https://rpy2.github.io/doc/latest/html/interactive.html for details
         """
+        self.ro = ro
         self.ipython_loaded = ipython
         
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
