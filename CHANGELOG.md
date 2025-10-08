@@ -1,3 +1,7 @@
+## [0.0.35] - 2025-10-08
+### Changed:
+- `rpy2` implementation is now updated to remove bugs, enhance functionality, and improve its performance.
+
 ## [0.0.34] - 2025-10-02
 ### Added:
 - `logger.get_logger()` to conveniently produce a logger with proper formatting and coloring.

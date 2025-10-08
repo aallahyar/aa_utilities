@@ -29,7 +29,7 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     -------
     ax: matplotlib ax
         ax with the added annotation
-    """
+    
 
     Example:
     -------
@@ -155,8 +155,7 @@ def forest_plot(
         )
         ax.set_xlim([0.3, 2])
         plt.show()
-        ```
-            
+        ```    
     """
     from matplotlib.ticker import ScalarFormatter
 
@@ -415,7 +414,3 @@ if __name__ == '__main__':
         y = coords_data[1, 1]
     plt.show()
 
-
-# %%
-
-# %%
