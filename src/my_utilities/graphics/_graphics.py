@@ -393,6 +393,26 @@ def text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='poi
     text_hndl = ax.text(x, y, text, **kwargs)
     return text_hndl
 
+
+def adjust_brightness(color, rate=1.0):
+    # source: https://stackoverflow.com/a/49601444/1397843
+    import matplotlib.colors as mpl_colors
+    import colorsys
+    
+    # convert color name to RGB hex code, if needed
+    if color in mpl_colors.cnames:
+        color = mpl_colors.cnames[color]
+
+    # convert to HLS (hue, lightness, saturation)
+    color_hls = colorsys.rgb_to_hls(*mpl_colors.to_rgb(color))
+
+    # adjust lightness according to rate (while clipping between 0 and 1), and convert back to RGB
+    return colorsys.hls_to_rgb(
+        color_hls[0],
+        max(0, min(1, rate * color_hls[1])),
+        color_hls[2]
+    )
+
 #%%
 if __name__ == '__main__':
     pass

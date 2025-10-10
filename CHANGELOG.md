@@ -1,3 +1,8 @@
+## [0.0.36] - 2025-10-XX
+### Added:
+- `storage.Checkpoint` to conveniently store Python objects in a time-annotated folder.
+- `graphics.adjust_brightness` to lighten/darken a given color according to a given ratio.
+
 ## [0.0.35] - 2025-10-08
 ### Changed:
 - `rpy2` implementation is now updated to remove bugs, enhance functionality, and improve its performance.
