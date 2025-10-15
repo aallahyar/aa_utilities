@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from my_utilities.helpers import Container
+from my_utilities.storage import Container
 
 s = pd.Series(dict(X=10, Y=1000))
 
