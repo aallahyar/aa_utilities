@@ -4,8 +4,8 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-from ..convenience import PrettyPrinter
-from ._loggers import setup_logger
+from ..helpers import PrettyPrinter
+from ..helpers._loggers import setup_logger
 from .._configurations import configs
 
 
