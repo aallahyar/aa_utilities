@@ -25,7 +25,7 @@ class Checkpoint:
             else:
                 if self.verbose:
                     print(f'Warning, destination file is overwritten: {fpath}')
-        with gzip.open(fpath, 'wb') as file:
+        with gzip.open(fpath, mode='wb', compresslevel=5) as file:
             pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
         
         # Get size after write

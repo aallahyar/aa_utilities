@@ -49,6 +49,31 @@ class ColoredFormatter(logging.Formatter):
 
         return message
 
+# Example of a logger that stores in a file
+# file_handler = logging.FileHandler("app.log", mode="a", encoding="utf-8")
+# file_handler.setLevel(logging.INFO)
+
+# Example of file handler with rotation
+# handler = TimedRotatingFileHandler(
+#     filename=log_path,
+#     when="W0",   # time-based rotation trigger. roll over at the specified weekday, 0=Monday
+#     interval=1,        # rotate every 1 'when' unit. e.g. when="H", interval=6 rotates every 6 hours.
+#     backupCount=7,     # keep 7 old log files. Older files beyond this count are deleted.
+#     encoding="utf-8",
+#     utc=False          # use local time for rotation
+# )
+# handler = RotatingFileHandler(
+#     filename=log_path, 
+#     mode='a', # adds new logs to the end and preserves existing content.
+#     # maxBytes=2_000_000, # Size threshold that triggers rotation. Max 2MB per file.
+#     # backupCount=3, # If maxBytes is zero, rollover never occurs. 
+#     # Rollover occurs whenever the current log file is nearly maxBytes in length. 
+#     # If backupCount is >= 1, the system will successively create new files with the same pathname 
+#     # as the base file, but with extensions ".1", ".2" etc. Existing backups are shifted up in the sequence
+#     delay=True, # If True, the file is not opened until the first log message is emitted.
+#     encoding='utf-8',
+# )
+
 
 def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
     global _loggers

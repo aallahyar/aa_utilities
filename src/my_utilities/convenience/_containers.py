@@ -20,7 +20,8 @@ class Container(dict):
             A1=1000, 
             B2=10000,
         )
-        container.set_params(
+        container._pp.set_params(
+            display_width=120,
             prev_max_rows=20,
             repr_max_n_elements=11,
         )
@@ -129,12 +130,8 @@ class Container(dict):
     
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
-            if key.startswith('repr_'):
-                key = key[5:]
-                self._pp.set_params(**{key: value})
-            else:
-                assert key in self._params, 'Unknown parameter'
-                self._params[key] = value
+            assert key in self._params, 'Unknown parameter'
+            self._params[key] = value
     
     def copy(self, deep=True):
         if deep:
