@@ -113,7 +113,7 @@ class Container(dict):
         # The attribute is stored in the instance’s __dict__ as usual.
         ## Get all public attributes/methods (exclude dunder and private by convention)
         super().__setattr__('_pp', PrettyPrinter())
-        super().__setattr__('_params', PrettyPrinter())
+        super().__setattr__('_params', {})
         super().__setattr__('_logger', setup_logger(name=__name__, level=configs.log.level))
         super().__setattr__('_RESERVED_TERMS', {
             key for key in dir(type(self))

@@ -101,7 +101,10 @@ class RSpace():
         return value_py
 
     def __call__(self, r_script):
-        return ro.r(r_script)
+        try:
+            return ro.r(r_script)
+        except Exception as e:
+            raise RuntimeError(f"R execution failed: {e}")
 
     def __repr__(self):
         var_infos = []

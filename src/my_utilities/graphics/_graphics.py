@@ -1,4 +1,4 @@
-# import pandas as pd
+import pandas as pd
 import numpy as np
 from matplotlib import (
     pyplot as plt,
@@ -412,6 +412,32 @@ def adjust_brightness(color, rate=1.0):
         max(0, min(1, rate * color_hls[1])),
         color_hls[2]
     )
+
+def jitter(values, n_bins=10, max_spread=0.9, seed=None):
+    if seed is None:
+        seed = 42
+    rng = np.random.default_rng(seed=seed)
+    
+    # categorize values into bins
+    bin_membership = pd.cut(values, bins=n_bins, duplicates='drop') # duplicate bins should be merged to properly count their members
+    bin_n_member = bin_membership.value_counts(sort=False)
+    if bin_n_member.empty or bin_n_member.max() == 0:
+        # fallback to uniform small jitter
+        return rng.uniform(- max_spread / 10.0, max_spread / 10.0, size=len(values))
+    
+    # normalize to max_spread (largest bin interval will have `max_spread` space)
+    spreads = (bin_n_member / bin_n_member.max()) * max_spread
+    
+    # assign per-value offsets based on its bin’s spread
+    offsets = np.zeros(len(values), dtype=float)
+    for bin_interval in bin_n_member.index:
+        idx = (bin_membership == bin_interval).to_numpy()
+        if idx.sum() <= 1:
+            continue
+        space = spreads.at[bin_interval]
+        offsets[idx] = rng.uniform(- space / 2.0, space / 2.0, size=idx.sum())
+    return offsets
+
 
 #%%
 if __name__ == '__main__':

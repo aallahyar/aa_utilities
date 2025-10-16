@@ -3,6 +3,7 @@
 - `storage.Checkpoint` to conveniently store Python objects in a time-annotated folder.
 - `graphics.adjust_brightness` to lighten/darken a given color according to a given ratio.
 - `Container` is now located in `storage` to make its location more intuitive.
+- `jitter` to get (x-tick) offsets based on the neighborhood size.
 
 ## [0.0.35] - 2025-10-08
 ### Changed:
