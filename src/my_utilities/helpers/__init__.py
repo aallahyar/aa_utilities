@@ -5,7 +5,7 @@ from ._formaters import (
 )
 
 from ._linkage_tree_parser import LinkageTreeParser
-from ._loggers import (
+from ..loggers._loggers import (
     RestrictedLogger, 
     setup_logger,
 )

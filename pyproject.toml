@@ -35,6 +35,7 @@ dependencies = {file = ["requirements.txt"]}
 extras = [
     "colorama", 
     "ipympl", # if interactive visualization is needed
+    "statsmodels", # for expression level correction
 ]
 r_wrapper = [
     "rpy2>=3.5.15", # for R integration
