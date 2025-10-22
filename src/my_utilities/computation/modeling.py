@@ -23,9 +23,11 @@ def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=No
     model = sm.OLS(y.iloc[:, 0], X)
     fit = model.fit()
     if verbose:
-        logger.debug(formula)
-        print(X)
-        logger.debug(fit.summary())
+        logger.debug(
+            f'formula: {formula}'
+            f'\nDesign matrix:\n{X.head()}'
+            f'\n{fit.summary()}'
+        )
     
     # verify column presence
     missing = set(X.columns) - set(fit.params.index)
