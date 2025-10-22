@@ -12,7 +12,7 @@ from .._configurations import configs
 logger = setup_logger(name=__name__, level=configs.log.level)
 
 
-def adjust_levels(dataframe, response, covs_all, covs_remove=None, covs_keep=None, verbose=False):
+def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=None, verbose=False):
     assert (covs_remove is None) ^ (covs_keep is None), 'Provide either `covs_remove` or `covs_keep`, not both.'
     if covs_remove is not None:
         assert np.isin(covs_remove, covs_all).all(), 'Some covariates are not present in the dataframe.'

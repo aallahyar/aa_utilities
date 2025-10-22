@@ -4,4 +4,4 @@
 # from . import _sort as sort
 
 
-from .modeling import adjust_levels
+from .modeling import remove_effects

@@ -1,3 +1,7 @@
+## [0.0.37] - 2025-10-22
+### Added:
+- `remove_effects`: To remove batch effects from a given gene expression vector.
+
 ## [0.0.36] - 2025-10-15
 ### Added:
 - `storage.Checkpoint` to conveniently store Python objects in a time-annotated folder.
@@ -11,7 +15,7 @@
 
 ## [0.0.34] - 2025-10-02
 ### Added:
-- `logger.get_logger()` to conveniently produce a logger with proper formatting and coloring.
+- `loggers.setup_logger()` to conveniently produce a logger with proper formatting and coloring.
 
 ### Changed:
 - An overhaul of the `configurations` setup.
