@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from my_utilities.computation.modeling import LinearModel
+from my_utilities.wrappers import RSpace
 
 rng = np.random.default_rng(seed=42)
 n = 1000
@@ -23,6 +24,7 @@ data = (
     )
 )
 
+R = RSpace()
 model = LinearModel(space=R)
 model.set_data(data, remove_categories=True, factorize=True)
 model.fit_lm(formula=f'CHG ~ TRT01P * AVISIT', ci=ci)
