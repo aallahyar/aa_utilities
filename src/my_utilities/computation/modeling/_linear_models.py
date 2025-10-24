@@ -10,10 +10,14 @@ class LinearModel:
         
         self.R("""
             library(tidyverse)
-            # # library(mmrm)
-            # # library(MASS) # Modern Applied Statistics with S
             
-            # sets the width of output terminal window
+            # Not needed as we refer to functions with ::
+            # library(broom)
+            # library(emmeans)
+            # library(mmrm)
+            # library(MASS) # Modern Applied Statistics with S
+            
+            # sets the width of the output terminal window
             options(width=180)
 
             # check package availability
@@ -79,7 +83,7 @@ class LinearModel:
 
     # @staticmethod # used when no other methods/variables of the Class are needed
     def factorize(self, columns: list[str] = None):
-        if columns is None:
+        if columns is None: # Factorize all columns of type object (string)
             self.R("""
                 data <- data %>% mutate(across(where(is.character), as.factor))
             """)
@@ -112,10 +116,10 @@ class LinearModel:
             # model_formula <- capture.output(print(formula(fit)))
             model_formula <- deparse(formula(fit))
         """)
-        if isinstance(self.R['model_formula'], (np.ndarray, pd.Series)):
-            formula = ' '.join(line.strip() for line in self.R['model_formula'])
-        else:
+        if isinstance(self.R['model_formula'], (str, )):
             formula = self.R['model_formula']
+        else:
+            formula = ' '.join(line.strip() for line in self.R['model_formula'])
         return formula
 
     def fit_lm(self, formula, ci=0.95):
@@ -177,15 +181,38 @@ class LinearModel:
         self.R(f"""
             n_observations <- mmrm::component(fit)[['n_obs']]
             n_subjects <- mmrm::component(fit)[['n_subjects']]
-            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f})
         """)
+
+        # Extract coefficients, statistics and confidence intervals at specified level
+        self.R(f"""
+        coef_df <- as.data.frame(summary(fit)$coefficients)
+        conf_df <- as.data.frame(confint(fit, level = {ci:0.2f}))
+        """)
+        assert self.R['coef_df'].index.equals(self.R['conf_df'].index), "Mismatch in coefficient indices between coef_df and conf_df."
+        assert self.R['conf_df'].shape[1] == 2, "conf_df should have exactly two columns for confidence intervals."
+        fit_coefs = (
+            self.R['coef_df']
+            .assign(**{
+                'conf.low': self.R['conf_df'].iloc[:, 0],
+                'conf.high': self.R['conf_df'].iloc[:, 1],
+            })
+            .rename(columns={
+                'Estimate': 'estimate',
+                'Std. Error': 'std.error',
+                't value': 'statistic',
+                'Pr(>|t|)': 'p.value',
+            })
+            .rename_axis(index='term')
+            [['estimate', 'std.error', 'df', 'conf.low', 'conf.high', 'statistic', 'p.value']]
+        )
+
         self.results['model_name'] = 'mmrm'
         self.results['formula'] = self.get_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['n_subjects'] = int(self.R['n_subjects'])
-        self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
+        self.results['fit_coefs'] = fit_coefs
 
-    def add_emmeans(self, spec, scale='link', ci=0.95, emm_kws=''):
+    def add_emmeans(self, spec, scale='link', ci=0.95, emm_kws=', rg.limit = 100000'):
         # add estimated marginal means (EMMs), or Least-squares means to `self.results`
         # lm: spec = 'TRT01P'
         # mmrm: spec = 'TRT01P:AVISIT'
@@ -209,9 +236,10 @@ class LinearModel:
         # """
         
         self.R(f"""
-            # type = "response" , type = "link" , 
-            # exponentiate=TRUE
-            LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}, rg.limit = 100000{emm_kws})
+            # type = "response" , # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model).
+            # type = "link" ,  # Estimates are shown on the linear predictor scale. For example, you’d see logits for logistic regression.
+            # exponentiate=TRUE # for logistic regression, exponentiates the log-odds to odds ratios.
+            LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
             LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})
             # print(LSmeans_td)
             
@@ -237,7 +265,11 @@ class LinearModel:
             emm_diff_td <- broom::tidy(emm_diff, conf.int = TRUE, conf.level = {ci:0.2f})
             # print(emm_diff_td, width = Inf, n = Inf)
         """)
+
         if append:
+            if 'contrasts' not in self.results: # initialize an empty DataFrame, if it does not exist
+                self.results['contrasts'] = pd.DataFrame()
+            
             self.results['contrasts'] = pd.concat([
                 self.results['contrasts'],
                 self.R['emm_diff_td'].set_index('contrast'),
@@ -253,9 +285,4 @@ class LinearModel:
         #     r'.*(Week \d+)'
         # )
 
-    def examples():
-        raise NotImplementedError('This part is only for history keeping. It was not meant to be executed!')
-        
-        # pyright: ignore[reportUnreachable]
-        # absolute change from baseline, response scale = linear
-        
+

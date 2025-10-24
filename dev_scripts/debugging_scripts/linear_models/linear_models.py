@@ -11,8 +11,9 @@ ci = 0.95
 data = (
     pd.DataFrame()
     .assign(
-        USUBJID=np.repeat([f'S{si}' for si in range(n // 5)], 5),
-        TRT01P=lambda df: np.where(df.USUBJID.str[-1].astype(int) % 2 == 0, 'Placebo', 'Treatment'),
+        subject_idx=np.repeat(range(n // n_visit), n_visit),
+        USUBJID=lambda df: df.subject_idx.map(lambda i: f'S{i:04d}'),
+        TRT01P=lambda df: np.where(df.subject_idx % 2 == 0, 'Placebo', 'Treatment'),
         VISIT_idx=np.tile(range(n_visit), reps=n // n_visit),
         AVISIT=lambda df: df.VISIT_idx.map(lambda vi: f'Week {vi}'),
         BASE=rng.normal(loc=100, scale=25, size=n).astype(int),
