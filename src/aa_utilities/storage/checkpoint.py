@@ -52,8 +52,8 @@ class Checkpoint:
 
     @staticmethod
     def human_readable_size(size, decimal_places=1):
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if size < 1024.0 or unit == 'TB':
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
+            if size < 1024.0 or unit == 'PB':
                 return f"{size:.{decimal_places}f} {unit}"
             size /= 1024.0
 

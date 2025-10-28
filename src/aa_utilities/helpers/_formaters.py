@@ -1,4 +1,4 @@
-import sys
+# import sys
 # import pprint
 import textwrap
 
@@ -176,13 +176,18 @@ class TextWrapper(textwrap.TextWrapper):
         return output
 
 
-if __name__ == '__main__':
-    text = "line with   space,\n\n\n2nd paragraph with text\n3rd paragraph with a LOOOOOOOOOngWorddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-    text_wrapper = textwrap.TextWrapper(width=25)
-    print(text_wrapper.fill(text))
+def human_readable_size(size, decimal_places=1):
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
+        if size < 1024.0 or unit == 'PB':
+            return f"{size:.{decimal_places}f} {unit}"
+        size /= 1024.0
 
-    text_wrapper = textwrap.TextWrapper(width=25, replace_whitespace=False)
-    print(text_wrapper.fill(text))
 
-    text_wrapper = TextWrapper(width=25, keep_newlines=True)
-    print(text_wrapper(text))
+def human_readable_number(num, decimal_places=1):
+    for unit in ['', 'k', 'M', 'B', 'T']:
+        if abs(num) < 1000.0 or unit == 'T':
+            return f"{num:.{decimal_places}f} {unit}"
+        num /= 1000.0
+
+
+
