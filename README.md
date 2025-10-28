@@ -1,4 +1,4 @@
-# My utilities
+# AA utilities
 A general purpose package that contains series of simple scripts used in my day-to-day work.
 
 The file structure is inspired from [this RealPython tutorial](https://realpython.com/pypi-publish-python-package/).
@@ -8,8 +8,8 @@ The file structure is inspired from [this RealPython tutorial](https://realpytho
 ### 1. Manual download and installation:
 You can download the repository and install the package using:
 ```bash
-git clone https://github.com/aallahyar/my_utilities.git
-cd my_utilities
+git clone https://github.com/aallahyar/aa_utilities.git
+cd aa_utilities
 
 # editable installtion
 python3 -m pip install --editable .
@@ -19,7 +19,7 @@ python3 -m pip install --editable .
 ### 2. Installing via `pip install`:
 You can also install using `pip`, via:
 ```bash
-pip3 install git+https://github.com/aallahyar/my_utilities
+pip3 install git+https://github.com/aallahyar/aa_utilities
 ```
 
 ### 3. Adding the packge to `requirements.txt`:
@@ -27,10 +27,10 @@ Alternatively, you can install it using `pip`s specification in `requirement.txt
 ```
 # in ./requirements.txt
 # 1. For installing the latest commit:
-my_utilities @ git+https://github.com/aallahyar/my_utilities
+aa_utilities @ git+https://github.com/aallahyar/aa_utilities
 
 # 2. For installing a specific version/tag
-my_utilities @ git+https://github.com/aallahyar/my_utilities.git@v0.0.3
+aa_utilities @ git+https://github.com/aallahyar/aa_utilities.git@v0.0.3
 ```
 This installs version `0.0.3` of the package.
 The further details about this is explained [here](https://stackoverflow.com/questions/16584552/how-to-state-in-requirements-txt-a-direct-github-source).
@@ -43,7 +43,7 @@ Adds a link and a string (e.g., p-value) over a given pair of `x_ticks`.
 **Example**:
 ```python
 
-from my_utilities.graphics import add_pvalue
+from aa_utilities.graphics import add_pvalue
 
 fig = plt.figure()
 ax = fig.gca()

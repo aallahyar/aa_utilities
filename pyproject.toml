@@ -5,7 +5,7 @@ requires      = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "my_utilities"
+name = "aa_utilities"
 version = "0.0.37"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
@@ -21,8 +21,8 @@ requires-python = ">=3.12"
 dynamic = ["dependencies"]
 
 [project.urls]
-repository    = "https://github.com/aallahyar/my_utilities.git"
-documentation = "https://github.com/aallahyar/my_utilities/blob/main/README.md"
+repository    = "https://github.com/aallahyar/aa_utilities.git"
+documentation = "https://github.com/aallahyar/aa_utilities/blob/main/README.md"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
@@ -30,7 +30,7 @@ dependencies = {file = ["requirements.txt"]}
 
 [project.optional-dependencies]
 # install with extras:
-# pip3 install my_utilities[extras]
+# pip3 install aa_utilities[extras]
 
 extras = [
     "colorama", 

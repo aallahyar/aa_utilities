@@ -3,8 +3,8 @@
 import numpy as np
 import pandas as pd
 
-from my_utilities.computation.modeling import LinearModel
-from my_utilities.wrappers import RSpace
+from aa_utilities.computation.modeling import LinearModel
+from aa_utilities.wrappers import RSpace
 
 # initializations
 rng = np.random.default_rng(seed=42)

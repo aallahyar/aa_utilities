@@ -7,7 +7,7 @@ class Configs:
     debug = False
 
     repository = SimpleNamespace(
-        url='https://github.com/aallahyar/my_utilities/'
+        url='https://github.com/aallahyar/aa_utilities/'
     )
 
     # NOTSET=0

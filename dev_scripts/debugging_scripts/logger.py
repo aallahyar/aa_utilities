@@ -2,7 +2,7 @@
 import time
 import logging
 
-from my_utilities.loggers import setup_logger, RestrictedLogger
+from aa_utilities.loggers import setup_logger, RestrictedLogger
 
 logger = setup_logger(name='test_logger', level=logging.DEBUG)
 logger.debug('Parsed production page.')

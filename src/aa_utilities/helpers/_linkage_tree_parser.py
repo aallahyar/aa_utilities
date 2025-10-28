@@ -90,7 +90,7 @@ if __name__ == '__main__':
     import pandas as pd
     from sklearn.cluster import AgglomerativeClustering
 
-    import my_utilities
+    import aa_utilities
 
     X = pd.DataFrame(
         data=[
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     ).fit(X)
     print(model)
     
-    parsed = my_utilities.convenience.LinkageTreeParser(model=model)
+    parsed = aa_utilities.convenience.LinkageTreeParser(model=model)
     print(parsed)
     print(parsed[2])
 
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     from scipy.cluster.hierarchy import linkage
     model = linkage(X, optimal_ordering=True, method='single', metric='euclidean')
     print(model)
-    parsed = my_utilities.convenience.LinkageTreeParser(model=model)
+    parsed = aa_utilities.convenience.LinkageTreeParser(model=model)
     print(parsed)
 
     # from matplotlib import pyplot as plt

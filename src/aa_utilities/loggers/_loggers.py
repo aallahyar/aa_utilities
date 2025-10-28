@@ -93,9 +93,15 @@ def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
 
     if len(logger.handlers) == 0:
         # Console handler
-        ch = logging.StreamHandler()
+        ch = logging.StreamHandler(stream=sys.stderr)
         ch.setLevel(level)
-        ch.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))
+
+        if COLOR_ENABLED:
+            formatter = ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT)
+        else:
+            formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
+        ch.setFormatter(formatter)
+        
         logger.addHandler(ch)
 
     return logger

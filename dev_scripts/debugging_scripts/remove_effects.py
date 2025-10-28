@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
-from my_utilities.computation.modeling import remove_effects
+from aa_utilities.computation.modeling import remove_effects
 
 
 # 1) Metadata: 24 samples, 

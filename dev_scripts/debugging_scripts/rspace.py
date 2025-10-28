@@ -1,4 +1,4 @@
-from my_utilities.wrappers import RSpace
+from aa_utilities.wrappers import RSpace
 
 R = RSpace()
 

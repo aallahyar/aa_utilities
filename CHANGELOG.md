@@ -1,3 +1,7 @@
+## [0.0.38] - 2025-10-08
+### Changed:
+- Changed the package name from `my_utilities` to `aa_utilities`
+
 ## [0.0.37] - 2025-10-22
 ### Added:
 - `remove_effects`: To remove batch effects from a given gene expression vector.

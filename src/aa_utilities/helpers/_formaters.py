@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 # can no do: circular imports
-# from my_utilities.convenience import Container
+# from aa_utilities.convenience import Container
 
 class PrettyPrinter():
     """

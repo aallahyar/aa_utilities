@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     import numpy as np
     from matplotlib import pyplot as plt
-    from my_utilities.graphics import InteractiveSelection
+    from aa_utilities.graphics import InteractiveSelection
 
     rng = np.random.default_rng(seed=42)
     data = rng.uniform(low=0, high=1, size=(100, 2))

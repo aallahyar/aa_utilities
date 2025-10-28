@@ -17,7 +17,7 @@ import pandas as pd
 import patsy
 import statsmodels.api as sm
 
-from my_utilities.storage import (
+from aa_utilities.storage import (
     Container,
 )
 
