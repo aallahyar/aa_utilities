@@ -1,6 +1,7 @@
 ## [0.0.39] - 2025-10-30
 ### Added:
-- Added `Modeling.fit_negbin` to model response that follows negative binomial distribution
+- Added `Modeling.fit_negbin` to model response that follows negative binomial distribution.
+- Added `RSpace` tests to confirm the validity of the conversion on both directions.
 
 ## [0.0.38] - 2025-10-08
 ### Changed:

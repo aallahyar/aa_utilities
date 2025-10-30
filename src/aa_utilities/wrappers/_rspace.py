@@ -1,8 +1,14 @@
 from os import name
 import numpy as np
 import pandas as pd
-from rpy2 import robjects as ro
-from rpy2.robjects import pandas2ri
+from rpy2 import (
+    robjects as ro,
+    rinterface as ri,
+)
+from rpy2.robjects import (
+    numpy2ri,
+    pandas2ri,
+)
 import rpy2.rlike.container as rlc
 
 class RSpace():
@@ -42,30 +48,30 @@ class RSpace():
 
     def __setitem__(self, name, value):
         if isinstance(value, (dict, )):
-            value = rlc.TaggedList(value.values(), tags=value.keys())
-
-        with (ro.default_converter + pandas2ri.converter).context():
-            value_r = ro.conversion.get_conversion().py2rpy(value)
-            ro.r.assign(name, value_r)
+            value = rlc.NamedList.from_items(value)
+            ro.r.assign(name, value)
+        else:
+            with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
+                value_r = ro.conversion.get_conversion().py2rpy(value)
+                ro.r.assign(name, value_r)
 
     def __getitem__(self, name):
 
         # fetch raw R object first (no conversion)
-        with ro.default_converter.context():
-            r_obj = ro.globalenv.find(name) # returns an rinterface-level object, no conversion yet
-            # r_obj = ro.globalenv[name]
+        r_obj = ri.globalenv.find(name) # returns an rinterface-level object, no conversion yet
         
         # performing type conversions
-        with (ro.default_converter + pandas2ri.converter).context():
+        with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
             value_rpy = ro.conversion.get_conversion().rpy2py(ro.globalenv[name])
         
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
-        if ro.r['is.atomic'](r_obj)[0] and ro.r['length'](r_obj)[0] == 1:
+        if ri.globalenv.find('is.atomic')(r_obj)[0] and ri.globalenv.find('length')(r_obj)[0] == 1:
             # check in Python side if it is a single-element list/array
-            if isinstance(value_rpy, (list, tuple, np.ndarray, )) and len(value_rpy) == 1:
+            if len(value_rpy) == 1: # isinstance(value_rpy, (list, tuple, np.ndarray, )) and 
                 # assert len(value_rpy) == 1, f'Unexpected length for a scalar variable: {value_rpy}'
-                return value_rpy[0]
-            else:
+                return value_rpy[0].item()
+            else: # pure Python (with identically item types) list/array with length > 1
+                # raise ValueError
                 return np.array(value_rpy)
 
         # check if the variable is already typed properly
@@ -83,26 +89,26 @@ class RSpace():
         # adding column names if present
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if ro.r['dim'](r_obj) == ro.rinterface.NULL:
-            names = ro.r['names'](r_obj)
+        if ri.globalenv.find('dim')(r_obj) == ro.rinterface.NULL or np.array(value_rpy).ndim == 1:
+            names = ri.globalenv.find('names')(r_obj)
             if names == ro.rinterface.NULL:
                 value_py = pd.Series(
-                    data=list(value_rpy),
+                    data=[v.item() for v in value_rpy],
                     index=range(len(value_rpy)),
                 )
             else:
                 value_py = pd.Series(
-                    data=value_rpy,
+                    data=[v.item() for v in value_rpy],
                     index=list(names),
                 )
         else:
             value_py = pd.DataFrame(
                 data=value_rpy,
             )
-            if ro.r['rownames'](r_obj) != ro.rinterface.NULL:
+            if ri.globalenv.find('rownames')(r_obj) != ro.rinterface.NULL:
                 value_py.index = list(ro.r['rownames'](r_obj))
-            if ro.r['colnames'](r_obj) != ro.rinterface.NULL:
-                value_py.columns = list(ro.r['colnames'](r_obj))
+            if ri.globalenv.find('colnames')(r_obj) != ro.rinterface.NULL:
+                value_py.columns = list(ri.globalenv.find('colnames')(r_obj))
 
         return value_py
 
@@ -114,9 +120,9 @@ class RSpace():
 
     def __repr__(self):
         var_infos = []
-        for name in list(ro.globalenv):
+        for name in list(ri.globalenv):
             # value = ro.globalenv[name]
-            value = ro.globalenv.find(name) # returns an rinterface-level object, no conversion yet
+            value = ri.globalenv.find(name) # returns an rinterface-level object, no conversion yet
             
             # Try to determine shape/length, if possible
             try:
@@ -149,5 +155,7 @@ class RSpace():
     @classmethod
     def as_lines(cls, strings: list):
         return '\n'.join(map(str, strings))
+    
+
 
 

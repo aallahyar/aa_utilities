@@ -41,9 +41,10 @@ extras = [
     "rpy2>=3.5.15", # for R integration
 ]
 
-# [project.scripts]
-# realpython = "reader.__main__:main"
-
-
-
-
+# pyproject.toml — pytest defaults (optional but recommended)
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra" # show extra test summary info for skipped, failed, etc.
+markers = [
+    "requires_rspace: mark test as requiring R and rpy2",
+]
