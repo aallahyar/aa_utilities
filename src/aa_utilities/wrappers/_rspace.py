@@ -1,3 +1,4 @@
+from os import name
 import numpy as np
 import pandas as pd
 from rpy2 import robjects as ro
@@ -48,11 +49,14 @@ class RSpace():
             ro.r.assign(name, value_r)
 
     def __getitem__(self, name):
-        with (ro.default_converter + pandas2ri.converter).context():
-            value_rpy = ro.conversion.get_conversion().rpy2py(ro.globalenv[name])
+
+        # fetch raw R object first (no conversion)
+        r_obj = ro.globalenv.find(name) # returns an rinterface-level object, no conversion yet
+        # r_obj = ro.globalenv[name]
         
         # performing type conversions
-        r_obj = ro.globalenv[name]
+        with (ro.default_converter + pandas2ri.converter).context():
+            value_rpy = ro.conversion.get_conversion().rpy2py(ro.globalenv[name])
         
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
         if ro.r['is.atomic'](r_obj)[0] and ro.r['length'](r_obj)[0] == 1:
@@ -110,7 +114,8 @@ class RSpace():
     def __repr__(self):
         var_infos = []
         for name in list(ro.globalenv):
-            value = ro.globalenv[name]
+            # value = ro.globalenv[name]
+            value = ro.globalenv.find(name) # returns an rinterface-level object, no conversion yet
             
             # Try to determine shape/length, if possible
             try:
