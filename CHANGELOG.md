@@ -1,3 +1,7 @@
+## [0.0.39] - 2025-10-30
+### Added:
+- Added `Modeling.fit_negbin` to model response that follows negative binomial distribution
+
 ## [0.0.38] - 2025-10-08
 ### Changed:
 - Changed the package name from `my_utilities` to `aa_utilities`
