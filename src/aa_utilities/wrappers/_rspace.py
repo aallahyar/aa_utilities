@@ -51,8 +51,9 @@ class RSpace():
     def __getitem__(self, name):
 
         # fetch raw R object first (no conversion)
-        r_obj = ro.globalenv.find(name) # returns an rinterface-level object, no conversion yet
-        # r_obj = ro.globalenv[name]
+        with ro.default_converter.context():
+            r_obj = ro.globalenv.find(name) # returns an rinterface-level object, no conversion yet
+            # r_obj = ro.globalenv[name]
         
         # performing type conversions
         with (ro.default_converter + pandas2ri.converter).context():
