@@ -6,6 +6,7 @@ import rpy2.rlike.container as rlc
 
 class RSpace():
     """A wrapper around `rpy2` package to facilitate import/export of variables between R and Python as well as running R commands.
+    Most likely needed R packages are: install.packages(c('tidyverse', 'mmrm', 'MASS', 'emmeans'))
 
     Returns:
         RSpace object: An instance of the RSpace wrapper

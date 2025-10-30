@@ -212,6 +212,40 @@ class LinearModel:
         self.results['n_subjects'] = int(self.R['n_subjects'])
         self.results['fit_coefs'] = fit_coefs
 
+    def fit_negbin(self, formula, exponentiate=True, ci=0.95):
+        # e.g., formula = 'EXACN ~ offset(log(TMEXRISK)) + TRT01P'
+        """Fits a negative binomial regression model using the MASS::glm.nb function in R.
+        The mean-variance relation is Var(Y) = μ + μ²/θ, so larger θ means less overdispersion.
+
+        Parameters:
+            formula (str): The model formula as a string.
+            exponentiate (bool): Whether to exponentiate the coefficients (to get incidence rate ratios).
+            ci (float): Confidence interval level (e.g., 0.95 for 95% CI).
+        """
+
+        self.R['exponentiate'] = exponentiate
+        self.R(f"""
+            fit <- MASS::glm.nb(
+                formula = {formula},
+                data = data,
+                link = log
+            )
+        """)
+
+        # collect result
+        self.R(f"""
+        summary_fit <- summary(fit)
+        fit_theta <- summary_fit$theta
+        # fit_theta_se  <- summary_fit$SE.theta
+        fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f}, exponentiate = exponentiate)
+        n_observations <- nobs(fit)
+        """)
+        self.results['model_name'] = 'negative_binomial'
+        self.results['formula'] = self.get_model_formula()
+        self.results['n_observations'] = int(self.R['n_observations'])
+        self.results['fit_theta'] = float(self.R['fit_theta'])
+        self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
+
     def add_emmeans(self, spec, scale='link', ci=0.95, emm_kws=', rg.limit = 100000'):
         # add estimated marginal means (EMMs), or Least-squares means to `self.results`
         # lm: spec = 'TRT01P'
@@ -236,8 +270,9 @@ class LinearModel:
         # """
         
         self.R(f"""
-            # type = "response" , # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model).
-            # type = "link" ,  # Estimates are shown on the linear predictor scale. For example, you’d see logits for logistic regression.
+            # type:
+            #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model).
+            #   * "link" :    # Estimates are shown on the linear predictor scale. For example, you see logits for logistic regression.
             # exponentiate=TRUE # for logistic regression, exponentiates the log-odds to odds ratios.
             LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
             LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})

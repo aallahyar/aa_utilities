@@ -36,11 +36,10 @@ extras = [
     "colorama", 
     "ipympl", # if interactive visualization is needed
     "statsmodels", # for expression level correction
-]
-r_wrapper = [
+    "patsy", # for expression level correction
+    "statsmodels", # for expression level correction
     "rpy2>=3.5.15", # for R integration
 ]
-# dev   = ["black", "bumpver", "isort", "mypy", "pytest"]
 
 # [project.scripts]
 # realpython = "reader.__main__:main"
