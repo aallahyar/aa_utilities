@@ -320,4 +320,14 @@ class LinearModel:
         #     r'.*(Week \d+)'
         # )
 
+    def __repr__(self):
+        out = f"LinearModel"
+        meta = []
+        if 'model_name' in self.results:
+            meta.append(f"model_name={self.results['model_name']}")
+        if 'formula' in self.results:
+            meta.append(f"formula={self.results['formula']}")
+        if len(meta) != 0:
+            out += "(" + ", ".join(meta) + ")"
+        return out
 

@@ -11,6 +11,12 @@ from rpy2.robjects import (
 )
 import rpy2.rlike.container as rlc
 
+from ..loggers import setup_logger
+from .._configurations import configs
+
+# setting up logger
+logger = setup_logger(name=__name__, level=configs.log.level)
+
 class RSpace():
     """A wrapper around `rpy2` package to facilitate import/export of variables between R and Python as well as running R commands.
     Most likely needed R packages are: install.packages(c('tidyverse', 'mmrm', 'MASS', 'emmeans'))
@@ -65,13 +71,15 @@ class RSpace():
             value_rpy = ro.conversion.get_conversion().rpy2py(ro.globalenv[name])
         
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
+        # pure Python (with identically item types) scalar, but also lists/arrays (with length 1) would be caught here
         if ri.globalenv.find('is.atomic')(r_obj)[0] and ri.globalenv.find('length')(r_obj)[0] == 1:
-            # check in Python side if it is a single-element list/array
+            # check in Python side as well to make sure it is a single-element list/array
             if len(value_rpy) == 1: # isinstance(value_rpy, (list, tuple, np.ndarray, )) and 
                 # assert len(value_rpy) == 1, f'Unexpected length for a scalar variable: {value_rpy}'
                 return value_rpy[0].item()
             else: # pure Python (with identically item types) list/array with length > 1
                 # raise ValueError
+                logger.warning(f'Unexpected length for a scalar variable: {value_rpy}')
                 return np.array(value_rpy)
 
         # check if the variable is already typed properly
