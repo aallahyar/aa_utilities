@@ -58,34 +58,6 @@ def generate_dataframe(n=100, seed=42):
     return df
 
 
-def get_logger(name=None, level=None):
-    """
-    Defines a logger with a specified name, and level.
-    if `name` is None, return the root logger of the hierarchy
-    source: https://docs.python.org/3/library/logging.html#logging.getLogger
-    """
-    # import time
-    import logging
-
-    # initializations
-    if level is None:
-        level = logging.INFO
-
-    logger = logging.getLogger(name=name)
-    if len(logger.handlers) == 0:
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            fmt=r'%(asctime)s %(name)s [%(levelname)-s]: %(message)s', 
-            datefmt=r'%Y-%m-%d %H:%M:%S',
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    
-    logger.setLevel(level)
-    logger.last_print = 0
-    return logger
-
-
 def is_true(data: Any, condition: Union[Callable, bool], message: Union[Callable, str] = 'The `condition` argument is False!'):
     """Returns the data, if `condition` is True
     This is useful as a convenience function during Pandas chainig operations and 
@@ -344,11 +316,96 @@ def sort_by(
     else:
         raise ValueError('Data must be either a `pd.Series` or a `pd.DataFrame`')
 
+
+def quantile_cut(
+        x: Union[pd.Series, np.ndarray, list],
+        q: Union[int, list, np.ndarray],
+        right=False,
+        quantile_kwargs: dict = None,
+        *args,
+        **kwargs,
+    ) -> pd.Categorical:
+    """A convenience wrapper that enhances `pd.qcut` to allow left-inclusive intervals.
+
+    Examples:
+        x = pd.Series([0, 1, 2, 3, 4, np.nan, np.nan])
+        res = quantile_cut(
+            x=x,
+            q=2,
+            labels=['low', 'high'],
+        )
+        print(res)
+    """
+
+    # initializations
+    if quantile_kwargs is None:
+        quantile_kwargs = {}
+    if isinstance(q, int):
+        if q < 1:
+            raise ValueError("`q` must be at least 1")
+        probs = np.linspace(0.0, 1.0, q + 1)
+    else:
+        probs = np.array(q, dtype=float)
+        if (probs < 0).any() or (probs > 1).any():
+            raise ValueError('`q` values must be between 0 and 1')
+
+    # Guard: empty or all-NaN input -> return all NaNs
+    series = pd.Series(x)
+    if series.size == 0 or series.dropna().size == 0:
+        raise ValueError('Input `x` is empty or all-NaN!')
+    
+    # get quantile bins
+    bins = (
+        series
+        .dropna()
+        .quantile(
+            q=probs,
+            **quantile_kwargs,
+        )
+    )
+
+    # adjust bins edges based on `right` argument, similar to what pd.cut does internally: 
+    # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.cut.html
+    range = series.max() - series.min()
+    if right:
+        bins.iat[ 0] -= range * 0.001
+    else:
+        bins.iat[-1] += range * 0.001
+
+    # perform the quantile cut
+    output = pd.cut(
+        series,
+        bins=bins,
+        right=right,
+        *args,
+        **kwargs,
+    )
+
+    return output
+
 if __name__ == '__main__':
+    x = pd.Series([0, 1, 2, 3, 4, np.nan, np.nan])
 
-    import pandas as pd
+    # test sort_by
+    res = quantile_cut(
+        x=x,
+        q=2,
+        # right=False
+        # include_lowest=True,
+        labels=['low', 'high'],
+    )
+    print(res)
 
-    container = {}
+
+    pd.qcut(
+        x=x,
+        q=2,
+        # labels=['low', 'high'],
+    )
+
+    
+
+    # pd.qcut(x=x, q=2)
 
 
 
