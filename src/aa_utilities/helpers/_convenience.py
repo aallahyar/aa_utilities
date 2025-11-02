@@ -332,6 +332,7 @@ def quantile_cut(
         res = quantile_cut(
             x=x,
             q=2,
+            right=False,
             labels=['low', 'high'],
         )
         print(res)
@@ -351,7 +352,7 @@ def quantile_cut(
 
     # Guard: empty or all-NaN input -> return all NaNs
     series = pd.Series(x)
-    if series.size == 0 or series.dropna().size == 0:
+    if series.dropna().size == 0:
         raise ValueError('Input `x` is empty or all-NaN!')
     
     # get quantile bins
@@ -384,28 +385,8 @@ def quantile_cut(
     return output
 
 if __name__ == '__main__':
-    x = pd.Series([0, 1, 2, 3, 4, np.nan, np.nan])
+    pass
 
-    # test sort_by
-    res = quantile_cut(
-        x=x,
-        q=2,
-        # right=False
-        # include_lowest=True,
-        labels=['low', 'high'],
-    )
-    print(res)
-
-
-    pd.qcut(
-        x=x,
-        q=2,
-        # labels=['low', 'high'],
-    )
-
-    
-
-    # pd.qcut(x=x, q=2)
 
 
 
