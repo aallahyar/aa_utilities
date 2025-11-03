@@ -68,13 +68,16 @@ class LinearModel:
         return dummy_df
 
     # @classmethod # used when other methods/variables of the Class are needed
-    def set_data(self, df, remove_categories=True, factorize=True):
+    def set_data(self, df, remove_categories=True, preserve_na=True, factorize=True):
 
         # data adjustments
         df = df.copy() # make a local copy
         if remove_categories:
             for col in df.select_dtypes(include='category').columns:
+                is_na = df[col].isna()
                 df[col] = df[col].astype(str)
+                if preserve_na:
+                    df.loc[is_na, col] = np.nan
         self.R['data'] = df.copy()
         if factorize:
             self.factorize()
