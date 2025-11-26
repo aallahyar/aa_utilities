@@ -342,7 +342,8 @@ def search(
     if is_num:
         selected_cols = [c for c in df.columns if is_numeric_dtype(df[c]) or 'mixed' in infer_dtype(df[c])]
     elif is_str:
-        selected_cols = [c for c in df.columns if is_string_dtype(df[c]) or 'mixed' in infer_dtype(df[c])]
+        # selected_cols = [c for c in df.columns if is_string_dtype(df[c]) or 'mixed' in infer_dtype(df[c])]
+        selected_cols = df.select_dtypes('object').columns.tolist() + df.select_dtypes('string').columns.tolist()
     if len(selected_cols) == 0:
         return pd.DataFrame(columns=out_cols)
     sub = df[selected_cols]
