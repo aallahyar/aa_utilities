@@ -281,7 +281,7 @@ def heatmap(matrix_df, **kwargs):
                 ax=ax,
                 cbar_kws={'label': 'Label of the colorbar', 'extend': 'max'},
                 box_kws={
-                    'mesh_alpha': 0.7, # determines the background color of the heatmap (which is the same as facecolor)
+                    'mesh_alpha': 0.7, # background color of the each element in the heatmap (same as `facecolor`)
                     'sizes': corr_df.abs().values * 0.98 / corr_df.values.max(), 
                     'line_width': 0.9, 
                     'edge_colors': np.where(corr_df.le(0), '#000000', None)
