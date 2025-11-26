@@ -331,7 +331,7 @@ def search(
     -------
     pd.DataFrame
     """
-    out_cols = ['row_name', 'col_name', 'value', 'row_number', 'col_number']
+    out_cols = ['value', 'row_name', 'col_name', 'row_number', 'col_number']
     if df.empty:
         return pd.DataFrame(columns=out_cols)
 
@@ -392,9 +392,9 @@ def search(
         return pd.DataFrame(columns=out_cols)
     
     return pd.DataFrame({
+        'value': list(sub.iat[ri, ci] for ri, ci in zip(row_indices, col_indices)), # to keep the dtype intact
         'row_name': sub.index[row_indices],
         'col_name': sub.columns[col_indices],
-        'value': list(sub.iat[ri, ci] for ri, ci in zip(row_indices, col_indices)), # to keep the dtype intact
         'row_number': row_indices,
         'col_number': col_indices,
     })
