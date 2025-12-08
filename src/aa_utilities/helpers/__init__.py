@@ -2,6 +2,8 @@ from ._convenience import *
 from ._formaters import (
     PrettyPrinter, 
     TextWrapper,
+    interval2str,
+    pvalue_to_asterisks,
     human_readable_number,
     human_readable_size,
 )

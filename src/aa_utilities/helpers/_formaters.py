@@ -8,36 +8,6 @@ import pandas as pd
 # can no do: circular imports
 # from aa_utilities.convenience import Container
 
-def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
-    """converting pd.Interval data type to a more readable string"""
-    
-    # preserve NaNs
-    if pd.isna(interval):
-        return np.nan
-
-    range_str = fmt.format(interval.left, interval.right)
-    if interval.closed == 'both':
-        output_str = '[' + range_str + ']'
-    elif interval.closed == 'left':
-        output_str = '[' + range_str + ')'
-    elif interval.closed == 'right':
-        output_str = '(' + range_str + ']'
-    elif interval.closed == 'neither':
-        output_str = '(' + range_str + ')'
-    else:
-        raise ValueError('Unknown bound')
-    return output_str
-
-def pvalue_to_asterisks(p_value):
-    if p_value <= 0.0001:
-        return '****'
-    if p_value <= 0.001:
-        return '***'
-    if p_value <= 0.01:
-        return '**'
-    if p_value <= 0.05:
-        return '*'
-    return 'ns'
 
 class PrettyPrinter():
     """
@@ -205,6 +175,39 @@ class TextWrapper(textwrap.TextWrapper):
         else:
             output = self.fill(text)
         return output
+
+
+def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
+    """converting pd.Interval data type to a more readable string"""
+    
+    # preserve NaNs
+    if pd.isna(interval):
+        return np.nan
+
+    range_str = fmt.format(interval.left, interval.right)
+    if interval.closed == 'both':
+        output_str = '[' + range_str + ']'
+    elif interval.closed == 'left':
+        output_str = '[' + range_str + ')'
+    elif interval.closed == 'right':
+        output_str = '(' + range_str + ']'
+    elif interval.closed == 'neither':
+        output_str = '(' + range_str + ')'
+    else:
+        raise ValueError('Unknown bound')
+    return output_str
+
+
+def pvalue_to_asterisks(p_value):
+    if p_value <= 0.0001:
+        return '****'
+    if p_value <= 0.001:
+        return '***'
+    if p_value <= 0.01:
+        return '**'
+    if p_value <= 0.05:
+        return '*'
+    return 'ns'
 
 
 def human_readable_size(size, decimal_places=1):
