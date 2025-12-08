@@ -279,7 +279,14 @@ def heatmap(matrix_df, **kwargs):
                 corr_df, 
                 cmap=cmap, 
                 ax=ax,
-                cbar_kws={'label': 'Label of the colorbar', 'extend': 'max'},
+                cbar_kws={
+                    'label': 'Label of the colorbar', 
+                    'extend': 'max',
+                    'fraction': 0.15,   # increase to allocate more space to the colorbar axis
+                    'shrink': 0.5,      # closer to 1.0 means less shrinking (thicker bar)
+                    'aspect': 10,       # smaller aspect makes the bar thicker (for vertical bars)
+                    'ticks': [-4, 0, 4],
+                },
                 box_kws={
                     'mesh_alpha': 0.7, # background color of the each element in the heatmap (same as `facecolor`)
                     'sizes': corr_df.abs().values * 0.98 / corr_df.values.max(), 
