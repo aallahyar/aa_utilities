@@ -179,6 +179,12 @@ class TextWrapper(textwrap.TextWrapper):
 
 def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
     """converting pd.Interval data type to a more readable string"""
+
+    # handle array-like input
+    if isinstance(interval, (pd.IntervalIndex, np.ndarray, pd.Series, list, tuple)):
+        return [
+            interval2str(intv, fmt=fmt) for intv in interval
+        ]
     
     # preserve NaNs
     if pd.isna(interval):
