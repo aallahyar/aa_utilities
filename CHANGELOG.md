@@ -1,3 +1,8 @@
+## [0.0.41] - 2025-01-23
+### Added:
+- `.computation.modeling.stability_selection` to check stability of selected features in a 
+fitted model.
+
 ## [0.0.40] - 2025-11-26
 ### Changed:
 - Moved all `pandas` related functions into a specific `.helpers.pandas` submodule.
