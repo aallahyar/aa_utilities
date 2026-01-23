@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Any, Tuple
+from typing import Callable, Dict, List, Any, Tuple
 import os
 
 import numpy as np
@@ -19,14 +19,14 @@ class SelectorResult:
     - failure: None if fit/selection succeeded; otherwise an error message string.
     - meta: metadata such as iteration, subfit_id (0..), iter_seed, subset_size, and optional origin.
     """
-    feature_weights: Optional[np.ndarray]
-    sample_idxs: np.ndarray
-    failure: Optional[str] = None
+    feature_weights: np.ndarray
+    sample_idxs: np.ndarray | None = None
+    failure: str | None = None
     meta: Dict[str, Any] = field(default_factory=dict)
 
 
-SelectorFn = Callable[[BaseEstimator, Optional[List[str]]], SelectorResult]
-EstimatorFactory = Callable[[Optional[int]], BaseEstimator]
+SelectorFn = Callable[[BaseEstimator, List[str] | None], SelectorResult]
+EstimatorFactory = Callable[[int | None], BaseEstimator]
 
 
 @dataclass
@@ -41,7 +41,7 @@ class StabilitySelectionConfig:
     - *_num_threads: thread caps applied only inside the parallel block and restored afterward.
     """
     n_iterations: int = 200
-    random_state: Optional[int] = 42
+    random_state: int | None = 42
     n_jobs: int = 1
     verbose: int = 0
     cap_threads: bool = True
@@ -60,7 +60,7 @@ class StabilitySelectionRun:
     - config, n_samples, n_features: run-level metadata for auditability.
     """
     results: List[SelectorResult]
-    feature_names: Optional[List[str]]
+    feature_names: List[str] | None
     config: StabilitySelectionConfig
     n_samples: int
     n_features: int
@@ -80,7 +80,7 @@ class StabilitySelector:
         estimator_factory: EstimatorFactory,
         selector_fn: SelectorFn,
         subsampler: BaseSampler,
-        config: Optional[StabilitySelectionConfig] = None,
+        config: StabilitySelectionConfig | None = None,
     ):
         self.estimator_factory = estimator_factory
         self.selector_fn = selector_fn
@@ -90,7 +90,7 @@ class StabilitySelector:
     # -------------------------
     # Deterministic seed utils
     # -------------------------
-    def _derive_iteration_seed(self, base_seed: Optional[int], iteration: int) -> Optional[int]:
+    def _derive_iteration_seed(self, base_seed: int | None, iteration: int) -> int | None:
         if base_seed is None:
             return None
         # 32-bit wrap to keep deterministic behavior across platforms
@@ -99,7 +99,7 @@ class StabilitySelector:
     # -------------------------
     # Thread-cap utils (scoped)
     # -------------------------
-    def _apply_thread_caps(self) -> Dict[str, Optional[str]]:
+    def _apply_thread_caps(self) -> Dict[str, str | None]:
         prev = {
             "OMP_NUM_THREADS": os.environ.get("OMP_NUM_THREADS"),
             "MKL_NUM_THREADS": os.environ.get("MKL_NUM_THREADS"),
@@ -113,7 +113,7 @@ class StabilitySelector:
             os.environ["NUMEXPR_NUM_THREADS"] = str(self.config.numexpr_num_threads)
         return prev
 
-    def _restore_thread_caps(self, prev: Dict[str, Optional[str]]) -> None:
+    def _restore_thread_caps(self, prev: Dict[str, str | None]) -> None:
         for key, val in prev.items():
             if val is None:
                 if key in os.environ:
@@ -128,12 +128,12 @@ class StabilitySelector:
         self,
         it: int,
         subfit_id: int,
-        idx: np.ndarray,
+        sample_idxs: np.ndarray,
         X: np.ndarray,
-        y: Optional[np.ndarray],
-        feature_names: Optional[List[str]],
-        fit_params: Optional[Dict[str, Any]],
-        iter_seed: Optional[int],
+        y: np.ndarray | None,
+        feature_names: List[str] | None,
+        fit_params: Dict[str, Any] | None,
+        iter_seed: int | None,
     ) -> SelectorResult:
         # Create a fresh estimator, passing the per-iteration seed if supported
         try:
@@ -142,8 +142,8 @@ class StabilitySelector:
             estimator = self.estimator_factory(None)
 
         try:
-            X_sub = X[idx]
-            y_sub = y[idx] if y is not None else None
+            X_sub = X[sample_idxs, :]
+            y_sub = y[sample_idxs] if y is not None else None
 
             if fit_params:
                 estimator.fit(X_sub, y_sub, **fit_params)
@@ -158,7 +158,7 @@ class StabilitySelector:
                 raise ValueError("selector returned feature_weights of wrong length.")
 
             # Attach indices and meta
-            sel_result.sample_idxs = idx
+            sel_result.sample_idxs = sample_idxs
             sel_result.failure = None
             meta = sel_result.meta or {}
             meta.update(
@@ -166,7 +166,7 @@ class StabilitySelector:
                     "iteration": it,
                     "subfit_id": subfit_id,
                     "iter_seed": iter_seed,
-                    "subset_size": int(idx.shape[0]),
+                    "subset_size": len(sample_idxs),
                 }
             )
             sel_result.meta = meta
@@ -174,13 +174,13 @@ class StabilitySelector:
         except Exception as e:
             sel_result = SelectorResult(
                 feature_weights=None,
-                sample_idxs=idx,
+                sample_idxs=sample_idxs,
                 failure=str(e),
                 meta={
                     "iteration": it,
                     "subfit_id": subfit_id,
                     "iter_seed": iter_seed,
-                    "subset_size": int(idx.shape[0]),
+                    "subset_size": len(sample_idxs),
                 },
             )
 
@@ -192,9 +192,9 @@ class StabilitySelector:
     def fit(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray] = None,
-        feature_names: Optional[List[str]] = None,
-        fit_params: Optional[Dict[str, Any]] = None,
+        y: np.ndarray | None = None,
+        feature_names: List[str] | None = None,
+        fit_params: Dict[str, Any] | None = None,
     ) -> StabilitySelectionRun:
         """
         Run stability selection using the provided subsampler strategy.
@@ -223,12 +223,12 @@ class StabilitySelector:
                 for it in iterations:
                     iter_seed = self._derive_iteration_seed(base_seed, it)
                     rng = np.random.default_rng(iter_seed)
-                    idx_tuple = self.subsampler.draw(n=n_samples, rng=rng)
-                    for sub_id, idx in enumerate(idx_tuple):
+                    sample_idxs_collection = self.subsampler.draw(n=n_samples, rng=rng)
+                    for sub_id, sample_idxs in enumerate(sample_idxs_collection):
                         res = self._subfit_task(
                             it=it,
                             subfit_id=sub_id,
-                            idx=idx,
+                            sample_idxs=sample_idxs,
                             X=X,
                             y=y,
                             feature_names=feature_names,
@@ -238,30 +238,31 @@ class StabilitySelector:
                         results.append(res)
             else:
                 # Build tasks for all sub-fits across all iterations
-                tasks: List[Tuple[int, int, np.ndarray, Optional[int]]] = []
+                tasks: List[Tuple[int, int, np.ndarray, int | None]] = []
                 for it in iterations:
                     iter_seed = self._derive_iteration_seed(base_seed, it)
                     rng = np.random.default_rng(iter_seed)
-                    idx_tuple = self.subsampler.draw(n=n_samples, rng=rng)
-                    for sub_id, idx in enumerate(idx_tuple):
-                        tasks.append((it, sub_id, idx, iter_seed))
+                    sample_idxs_collection = self.subsampler.draw(n=n_samples, rng=rng)
+                    for sub_id, sample_idxs in enumerate(sample_idxs_collection):
+                        tasks.append((it, sub_id, sample_idxs, iter_seed))
 
-                results = Parallel(
+                job_pool = Parallel(
                     n_jobs=self.config.n_jobs,
                     backend="loky",
                     verbose=self.config.verbose > 0,
-                )(
+                )
+                results = job_pool(
                     delayed(self._subfit_task)(
                         it=it,
                         subfit_id=sub_id,
-                        idx=idx,
+                        sample_idxs=sample_idxs,
                         X=X,
                         y=y,
                         feature_names=feature_names,
                         fit_params=fit_params,
                         iter_seed=iter_seed,
                     )
-                    for (it, sub_id, idx, iter_seed) in tasks
+                    for (it, sub_id, sample_idxs, iter_seed) in tasks
                 )
         finally:
             self._restore_thread_caps(prev_env)
