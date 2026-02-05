@@ -94,6 +94,16 @@ if first_ok is not None:
     print(f"First success: subset size={first_ok.meta.get('subset_size')}, "
             f"weights shape={first_ok.feature_weights.shape}")
 
+# fit ElasticNet on full data for comparison
+full_enet = enet_factory(iter_seed=42)
+full_enet.fit(X, y)
+full_enet_coef = (
+    pd.Series(
+        data=full_enet.coef_,
+        index=run.feature_names,
+    )
+    .sort_values(ascending=False)
+)
 
 # Plot stability selection frequencies vs. full-data ElasticNet coefficients
 n_results = len(run.results)
@@ -114,26 +124,17 @@ axes[0].bar(
     x=np.arange(n_bar),
     height=stab_sel_freq.head(n_bar).values,
 )
-axes[0].set_xticks(ticks=np.arange(n_bar), labels=stab_sel_freq.index[:n_bar])
+axes[0].set_xticks(ticks=np.arange(n_bar), labels=stab_sel_freq.index[:n_bar], fontsize=8)
 axes[0].set_title("Stability selection frequencies")
 axes[0].set_ylabel("Selection frequency (%)")
 
-# train ElasticNet on full data for comparison
-full_enet = enet_factory(iter_seed=42)
-full_enet.fit(X, y)
-full_enet_coef = (
-    pd.Series(
-        data=full_enet.coef_,
-        index=run.feature_names,
-    )
-    .sort_values(ascending=False)
-)
+# show ElasticNet on full data for comparison
 axes[1].bar(
     x=np.arange(n_bar),
     height=full_enet_coef.head(n_bar).values,
     color="orange",
 )
-axes[1].set_xticks(ticks=np.arange(n_bar), labels=full_enet_coef.index[:n_bar])
+axes[1].set_xticks(ticks=np.arange(n_bar), labels=full_enet_coef.index[:n_bar], fontsize=8)
 axes[1].set_title("ElasticNet coefficients trained on full data")
 axes[1].set_ylabel("Coefficient value")
 

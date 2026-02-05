@@ -127,7 +127,7 @@ class LinearModel:
 
     def fit_lm(self, formula, ci=0.95):
         # e.g., formula = 'TRT01P'
-        # optional: family=gaussian(link = "identity") or gaussian(link = "log"
+        # optional: family=gaussian(link = "identity") or gaussian(link = "log")
         self.R(f"""
             fit <- lm(
                 formula = {formula},

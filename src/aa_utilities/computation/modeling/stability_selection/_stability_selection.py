@@ -246,6 +246,8 @@ class StabilitySelector:
                     for sub_id, sample_idxs in enumerate(sample_idxs_collection):
                         tasks.append((it, sub_id, sample_idxs, iter_seed))
 
+                if self.config.verbose > 0:
+                    print(f"Starting stability selection: {len(tasks)} fits across {self.config.n_jobs} cores ...")
                 job_pool = Parallel(
                     n_jobs=self.config.n_jobs,
                     backend="loky",
