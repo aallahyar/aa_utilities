@@ -2,6 +2,11 @@ from aa_utilities.wrappers import RSpace
 
 R = RSpace()
 
+# Example: capturing R warnings
+R("""
+    warning("example warning message.")
+""")
+
 R("""
 data <- read.table(text="
 index expression mouse treat1 treat2

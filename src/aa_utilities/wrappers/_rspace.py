@@ -10,12 +10,13 @@ from rpy2.robjects import (
     pandas2ri,
 )
 import rpy2.rlike.container as rlc
+from rpy2.rinterface_lib import callbacks as rpy2_callbacks
 
 from ..loggers import setup_logger
 from .._configurations import configs
 
 # setting up logger
-logger = setup_logger(name=__name__, level=configs.log.level)
+logger = setup_logger(name='RSpace', level=configs.log.level)
 
 class RSpace():
     """A wrapper around `rpy2` package to facilitate import/export of variables between R and Python as well as running R commands.
@@ -36,7 +37,10 @@ class RSpace():
                 https://rpy2.github.io/doc/latest/html/interactive.html for details
         """
         self.ro = ro
+        self.logger = logger
         self.ipython_loaded = ipython
+        self.warnings = [] # List to store captured R warnings
+        self.warn_handler_backup = rpy2_callbacks.consolewrite_warnerror # Backup the original warning handler
         
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
         if ipython:
@@ -121,11 +125,19 @@ class RSpace():
         return value_py
 
     def __call__(self, r_script):
+        self.warnings = [] # Reset warnings before execution
+        rpy2_callbacks.consolewrite_warnerror = self.r_warn_handler # Override the default warning/error writer
         try:
-            return ro.r(r_script)
+            returned_result = ro.r(r_script)
         except Exception as e:
             raise RuntimeError(f"R execution failed: {e}")
-
+        finally: # Ensure that we restore the original warning handler even if an error occurs
+            rpy2_callbacks.consolewrite_warnerror = self.warn_handler_backup # Restore the original warning handler after execution
+        
+        if len(self.warnings) != 0: # If there were any warnings, log them
+            self.logger.warning(f'Warning(s) issued during execution. Check `self.warnings` for details.')
+        return returned_result
+    
     def __repr__(self):
         var_infos = []
         for name in list(ri.globalenv):
@@ -163,6 +175,12 @@ class RSpace():
     @classmethod
     def as_lines(cls, strings: list):
         return '\n'.join(map(str, strings))
+    
+    # capturing R warnings in a Python list
+    def r_warn_handler(self, warning):
+        self.warnings.append(warning)
+        self.logger.warning(f"{warning}") # Optional: still print it to console
+    
     
 
 

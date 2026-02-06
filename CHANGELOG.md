@@ -1,3 +1,9 @@
+## [0.0.42] - 2025-02-06
+### Changed:
+- `RSpace` now holds a copy of its dedicated `logger` in `self.logger`.
+### Added:
+- `RSpace.r_warnings` to collect the raised warnings.
+
 ## [0.0.41] - 2025-01-23
 ### Added:
 - `.computation.modeling.stability_selection` to check stability of selected features in a 
