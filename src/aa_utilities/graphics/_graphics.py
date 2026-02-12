@@ -3,6 +3,7 @@ import numpy as np
 from matplotlib import (
     pyplot as plt,
     transforms as mpl_transforms,
+    colors as mpl_colors,
 )
 # import seaborn as sns
 
@@ -444,6 +445,76 @@ def jitter(values, n_bins=10, max_spread=0.9, seed=None):
         space = spreads.at[bin_interval]
         offsets[idx] = rng.uniform(- space / 2.0, space / 2.0, size=idx.sum())
     return offsets
+
+#%%
+def to_colors(
+    values,
+    cmap_name="viridis",
+    scale="linear",           # "linear", "log", or "diverging"
+    vmin=None,
+    vmax=None,
+    vcenter=None,             # required for "diverging"
+    include_alpha=False       # return #RRGGBB or #RRGGBBAA
+):
+    """
+    Convert a list/array of numbers to hex color strings using a matplotlib colormap.
+    
+    Parameters
+    ----------
+    values : array-like
+        Continuous numeric values.
+    cmap_name : str
+        Matplotlib colormap name (e.g., "viridis", "plasma", "cividis", "coolwarm", "RdBu").
+    scale : str
+        "linear" for Normalize, "log" for LogNorm (values must be > 0),
+        "diverging" for TwoSlopeNorm (requires vcenter).
+    vmin, vmax : float or None
+        Data range for normalization. If None, inferred from values.
+    vcenter : float or None
+        Center value for diverging normalization (e.g., 0). Required if scale="diverging".
+    include_alpha : bool
+        If True, include alpha in hex (#RRGGBBAA). Otherwise return #RRGGBB.
+
+    Returns
+    -------
+    list[str]
+        Hex color strings corresponding to input values.
+    """
+
+    values = np.asarray(values)
+
+    # Infer vmin/vmax if not provided
+    if vmin is None:
+        vmin = np.nanmin(values)
+    if vmax is None:
+        vmax = np.nanmax(values)
+
+    # Choose normalization
+    if scale == "linear":
+        norm = mpl_colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
+    elif scale == "log":
+        if np.any(values <= 0):
+            raise ValueError("Log scaling requires all values to be > 0.")
+        
+        # Avoid identical vmin/vmax for constant arrays
+        if vmin <= 0:
+            vmin = np.min(values[values > 0])
+        norm = mpl_colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
+    elif scale == "diverging":
+        if vcenter is None:
+            raise ValueError("scale='diverging' requires vcenter (e.g., 0).")
+        norm = mpl_colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
+    else:
+        raise ValueError("scale must be 'linear', 'log', or 'diverging'.")
+
+    # Get colormap
+    cmap = plt.get_cmap(cmap_name)
+
+    # Map values to RGBA and convert to hex
+    rgba = cmap(norm(values))
+    hex_colors = [mpl_colors.to_hex(c, keep_alpha=include_alpha) for c in rgba]
+    
+    return hex_colors
 
 
 #%%
