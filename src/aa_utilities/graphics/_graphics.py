@@ -479,41 +479,100 @@ def to_colors(
     -------
     list[str]
         Hex color strings corresponding to input values.
+        
+    Examples
+    --------
+    >>> # Linear scale
+    >>> colors = to_colors([1, 2, 3, 4, 5], cmap_name="viridis")
+    
+    >>> # Log scale
+    >>> colors = to_colors([1, 10, 100, 1000], scale="log", cmap_name="plasma")
+    
+    >>> # Diverging scale centered at zero
+    >>> colors = to_colors([-5, -2, 0, 2, 5], scale="diverging", vcenter=0, cmap_name="RdBu")
     """
 
+    # Input validation
     values = np.asarray(values)
-
+    
+    # Handle empty arrays
+    if values.size == 0:
+        return []
+    
+    # Handle all-NaN arrays
+    if np.all(np.isnan(values)):
+        raise ValueError("All values are NaN. Cannot determine color mapping.")
+    
+    # Validate scale parameter
+    valid_scales = ["linear", "log", "diverging"]
+    if scale not in valid_scales:
+        raise ValueError(f"scale must be one of {valid_scales}, got '{scale}'.")
+    
+    # Validate diverging scale requirements
+    if scale == "diverging" and vcenter is None:
+        raise ValueError("scale='diverging' requires vcenter parameter (e.g., vcenter=0).")
+    
     # Infer vmin/vmax if not provided
     if vmin is None:
         vmin = np.nanmin(values)
     if vmax is None:
         vmax = np.nanmax(values)
-
-    # Choose normalization
+    
+    # Validate that vmin and vmax are finite
+    if not np.isfinite(vmin) or not np.isfinite(vmax):
+        raise ValueError(f"vmin and vmax must be finite. Got vmin={vmin}, vmax={vmax}.")
+    
+    # Handle constant arrays (vmin == vmax)
+    if vmin == vmax:
+        # For constant arrays, create a narrow range to avoid normalization issues
+        if scale == "log":
+            if vmin <= 0:
+                raise ValueError(f"Constant array with value {vmin} cannot use log scale (requires values > 0).")
+            vmin = vmin * 0.999
+            vmax = vmax * 1.001
+        else:
+            vmin = vmin - 0.5
+            vmax = vmax + 0.5
+    
+    # Create normalization based on scale
     if scale == "linear":
         norm = mpl_colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
-    elif scale == "log":
-        if np.any(values <= 0):
-            raise ValueError("Log scaling requires all values to be > 0.")
         
-        # Avoid identical vmin/vmax for constant arrays
-        if vmin <= 0:
-            vmin = np.min(values[values > 0])
+    elif scale == "log":
+        # Validate log scale requirements
+        if vmin <= 0 or vmax <= 0:
+            raise ValueError(
+                f"Log scaling requires vmin > 0 and vmax > 0. Got vmin={vmin}, vmax={vmax}. "
+                f"Consider filtering out non-positive values or using a different scale."
+            )
+        
+        if np.any(values[np.isfinite(values)] <= 0):
+            raise ValueError(
+                "Log scaling requires all finite values to be > 0. "
+                "Consider filtering out non-positive values or using a different scale."
+            )
+        
         norm = mpl_colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
+        
     elif scale == "diverging":
-        if vcenter is None:
-            raise ValueError("scale='diverging' requires vcenter (e.g., 0).")
+        # Validate that vcenter is within range
+        if not (vmin <= vcenter <= vmax):
+            raise ValueError(
+                f"vcenter must be between vmin and vmax. "
+                f"Got vmin={vmin}, vcenter={vcenter}, vmax={vmax}."
+            )
         norm = mpl_colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
-    else:
-        raise ValueError("scale must be 'linear', 'log', or 'diverging'.")
 
     # Get colormap
-    cmap = plt.get_cmap(cmap_name)
+    try:
+        cmap = plt.get_cmap(cmap_name)
+    except ValueError as e:
+        raise ValueError(f"Invalid colormap name '{cmap_name}'. {str(e)}")
 
     # Map values to RGBA and convert to hex
     rgba = cmap(norm(values))
     hex_colors = [mpl_colors.to_hex(c, keep_alpha=include_alpha) for c in rgba]
-    
+
     return hex_colors
 
 
