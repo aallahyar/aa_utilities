@@ -1,7 +1,9 @@
+import numpy as np
+
 from aa_utilities.graphics import to_colors
 
 # Linear scale
-colors = to_colors([1, 2, 3, 4, 5], cmap_name="viridis")
+colors = to_colors([1, 2, 3, 4, 5, np.nan, None], cmap_name="viridis", default='#888888')
 print(colors)
     
 # Log scale
@@ -12,3 +14,8 @@ print(colors)
 colors = to_colors([-5, -2, 0, 2, 5], scale="diverging", vcenter=0, cmap_name="RdBu")
 print(colors)
 
+# Categorical strings
+colors = to_colors(['apple', 'banana', 'apple', 'cherry', 'banana', None], cmap_name="Set3", default="#888888")
+# Returns 6 colors (including gray for NaN): 
+# apple and the 3rd value get the same color, banana and the 5th get the same color
+print(colors)

@@ -3,6 +3,7 @@
 - `RSpace` now holds a copy of its dedicated `logger` in `self.logger`.
 ### Added:
 - `RSpace.r_warnings` to collect the raised warnings.
+- `graphics.to_colors` to convert a list of values to (hex) colors.
 
 ## [0.0.41] - 2025-01-23
 ### Added:

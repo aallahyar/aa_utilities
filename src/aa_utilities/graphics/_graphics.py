@@ -454,26 +454,30 @@ def to_colors(
     vmin=None,
     vmax=None,
     vcenter=None,             # required for "diverging"
-    include_alpha=False       # return #RRGGBB or #RRGGBBAA
+    include_alpha=False,       # return #RRGGBB or #RRGGBBAA
+    default='#808080',
 ):
     """
-    Convert a list/array of numbers to hex color strings using a matplotlib colormap.
+    Convert a list/array of numbers or strings to hex color strings using a matplotlib colormap.
     
     Parameters
     ----------
     values : array-like
-        Continuous numeric values.
+        Continuous numeric values or categorical strings.
     cmap_name : str
         Matplotlib colormap name (e.g., "viridis", "plasma", "cividis", "coolwarm", "RdBu").
     scale : str
-        "linear" for Normalize, "log" for LogNorm (values must be > 0),
+        For numeric values: "linear" for Normalize, "log" for LogNorm (values must be > 0),
         "diverging" for TwoSlopeNorm (requires vcenter).
+        Ignored for string values (uses discrete mapping).
     vmin, vmax : float or None
-        Data range for normalization. If None, inferred from values.
+        Data range for normalization (numeric values only). If None, inferred from values.
     vcenter : float or None
         Center value for diverging normalization (e.g., 0). Required if scale="diverging".
     include_alpha : bool
         If True, include alpha in hex (#RRGGBBAA). Otherwise return #RRGGBB.
+    default : str
+        Hex color string to use for NaN/None values (default: '#808080' gray).
 
     Returns
     -------
@@ -482,14 +486,17 @@ def to_colors(
         
     Examples
     --------
-    >>> # Linear scale
+    >>> # Linear scale (numeric)
     >>> colors = to_colors([1, 2, 3, 4, 5], cmap_name="viridis")
     
-    >>> # Log scale
+    >>> # Log scale (numeric)
     >>> colors = to_colors([1, 10, 100, 1000], scale="log", cmap_name="plasma")
     
-    >>> # Diverging scale centered at zero
+    >>> # Diverging scale centered at zero (numeric)
     >>> colors = to_colors([-5, -2, 0, 2, 5], scale="diverging", vcenter=0, cmap_name="RdBu")
+    
+    >>> # Categorical strings
+    >>> colors = to_colors(['apple', 'banana', 'apple', 'cherry', 'banana'], cmap_name="Set3")
     """
 
     # Input validation
@@ -498,6 +505,37 @@ def to_colors(
     # Handle empty arrays
     if values.size == 0:
         return []
+    
+    # Get colormap
+    try:
+        cmap = plt.get_cmap(cmap_name)
+    except ValueError as e:
+        raise ValueError(f"Invalid colormap name '{cmap_name}'. {str(e)}")
+    cmap.set_bad(color=default) # set color for NaN values
+    
+    # Check if values are strings (categorical)
+    is_categorical = np.issubdtype(values.dtype, np.str_) or np.issubdtype(values.dtype, np.object_)
+    
+    if is_categorical:
+        # Categorical/string mapping
+        unique_values = np.unique(values[~pd.isna(values)])
+        n_unique = len(unique_values)
+        
+        if n_unique == 0:
+            raise ValueError("All values are NaN/None. Cannot determine color mapping.")
+        
+        # Create discrete color mapping
+        # Use evenly spaced points from the colormap
+        color_indices = np.linspace(0, 1, n_unique)
+        color_map = {val: mpl_colors.to_hex(cmap(idx), keep_alpha=include_alpha) 
+                     for val, idx in zip(unique_values, color_indices)}
+        
+        # Map each value to its color (use default for NaN/None)
+        hex_colors = [color_map.get(val, default) for val in values]
+        
+        return hex_colors
+    
+    # Handle numeric values
     
     # Handle all-NaN arrays
     if np.all(np.isnan(values)):
@@ -562,12 +600,6 @@ def to_colors(
                 f"Got vmin={vmin}, vcenter={vcenter}, vmax={vmax}."
             )
         norm = mpl_colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
-
-    # Get colormap
-    try:
-        cmap = plt.get_cmap(cmap_name)
-    except ValueError as e:
-        raise ValueError(f"Invalid colormap name '{cmap_name}'. {str(e)}")
 
     # Map values to RGBA and convert to hex
     rgba = cmap(norm(values))

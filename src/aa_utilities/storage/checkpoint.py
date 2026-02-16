@@ -43,8 +43,8 @@ class Checkpoint:
                     size_human = Checkpoint.human_readable_size(size_bytes)
                     print(f'Loading from: {fpath}  ({size_human})')
                 obj = pickle.load(fh)
-        except FileNotFoundError:
-            raise FileNotFoundError(f'File not found: {fpath}')
+        except FileNotFoundError as e:
+            raise FileNotFoundError(f'File not found: {fpath}') from e
         else:
             if self.verbose:
                 print(f'Successfully loaded from: {fpath}')
@@ -61,7 +61,10 @@ class Checkpoint:
         entries = []
         for fpath in self.path.glob(pattern):
             if not extended:
-                entries.append(fpath)
+                entries.append({
+                    'name': fpath.name,
+                    'path': fpath,
+                })
                 continue
             st = fpath.stat()
             mode = st.st_mode
