@@ -449,7 +449,7 @@ def jitter(values, n_bins=10, max_spread=0.9, seed=None):
 #%%
 def to_colors(
     values,
-    cmap_name="viridis",
+    cmap="viridis",
     scale="linear",           # "linear", "log", or "diverging"
     vmin=None,
     vmax=None,
@@ -464,7 +464,7 @@ def to_colors(
     ----------
     values : array-like
         Continuous numeric values or categorical strings.
-    cmap_name : str
+    cmap : str
         Matplotlib colormap name (e.g., "viridis", "plasma", "cividis", "coolwarm", "RdBu").
     scale : str
         For numeric values: "linear" for Normalize, "log" for LogNorm (values must be > 0),
@@ -487,16 +487,16 @@ def to_colors(
     Examples
     --------
     >>> # Linear scale (numeric)
-    >>> colors = to_colors([1, 2, 3, 4, 5], cmap_name="viridis")
+    >>> colors = to_colors([1, 2, 3, 4, 5], cmap="viridis")
     
     >>> # Log scale (numeric)
-    >>> colors = to_colors([1, 10, 100, 1000], scale="log", cmap_name="plasma")
+    >>> colors = to_colors([1, 10, 100, 1000], scale="log", cmap="plasma")
     
     >>> # Diverging scale centered at zero (numeric)
-    >>> colors = to_colors([-5, -2, 0, 2, 5], scale="diverging", vcenter=0, cmap_name="RdBu")
+    >>> colors = to_colors([-5, -2, 0, 2, 5], scale="diverging", vcenter=0, cmap="RdBu")
     
     >>> # Categorical strings
-    >>> colors = to_colors(['apple', 'banana', 'apple', 'cherry', 'banana'], cmap_name="Set3")
+    >>> colors = to_colors(['apple', 'banana', 'apple', 'cherry', 'banana'], cmap="Set3")
     """
 
     # Input validation
@@ -508,10 +508,10 @@ def to_colors(
     
     # Get colormap
     try:
-        cmap = plt.get_cmap(cmap_name)
+        cmap_obj = plt.get_cmap(cmap)
     except ValueError as e:
-        raise ValueError(f"Invalid colormap name '{cmap_name}'. {str(e)}")
-    cmap.set_bad(color=default) # set color for NaN values
+        raise ValueError(f"Invalid colormap name '{cmap}'. {str(e)}")
+    cmap_obj.set_bad(color=default) # set color for NaN values
     
     # Check if values are strings (categorical)
     is_categorical = np.issubdtype(values.dtype, np.str_) or np.issubdtype(values.dtype, np.object_)
@@ -527,7 +527,7 @@ def to_colors(
         # Create discrete color mapping
         # Use evenly spaced points from the colormap
         color_indices = np.linspace(0, 1, n_unique)
-        color_map = {val: mpl_colors.to_hex(cmap(idx), keep_alpha=include_alpha) 
+        color_map = {val: mpl_colors.to_hex(cmap_obj(idx), keep_alpha=include_alpha) 
                      for val, idx in zip(unique_values, color_indices)}
         
         # Map each value to its color (use default for NaN/None)
@@ -602,7 +602,7 @@ def to_colors(
         norm = mpl_colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
 
     # Map values to RGBA and convert to hex
-    rgba = cmap(norm(values))
+    rgba = cmap_obj(norm(values))
     hex_colors = [mpl_colors.to_hex(c, keep_alpha=include_alpha) for c in rgba]
 
     return hex_colors
