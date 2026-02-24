@@ -3,8 +3,6 @@ from importlib.util import find_spec as _find_spec
 from ..loggers import setup_logger
 
 
-from ._entimice import EntimICE
-
 
 if _find_spec('rpy2'):
     from ._rspace import RSpace

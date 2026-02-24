@@ -145,12 +145,12 @@ class RestrictedLogger(logging.Logger):
             self.to_stdout = logging.getLogger(name=f'{name}_STDOUT')
             handler_stdout = logging.StreamHandler(stream=sys.stdout)
             if COLOR_ENABLED:
-                handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))
+                handler_stdout.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))
             else:
-                handler.setFormatter(self.formatter)
-            handler.setLevel(level)
-            self.addHandler(handler)
-            self.addFilter(self.loggable)
+                handler_stdout.setFormatter(self.formatter)
+            handler_stdout.setLevel(level)
+            self.to_stdout.addHandler(handler_stdout)
+            self.to_stdout.addFilter(self.loggable)
 
             # define stdout logger: it prints to stdout regardless of the level (with an added timestamp)
             self.to_stdout = logging.getLogger(name=f'{name}_STDOUT')

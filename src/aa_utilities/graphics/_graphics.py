@@ -334,7 +334,10 @@ def heatmap(matrix_df, **kwargs):
         # vmax = ax.collections[0].colorbar.vmax
         # color_idxs = (matrix_df.values - vmin) / (vmax - vmin)
         # face_colors = cmap(color_idxs)
-        face_colors = ax.collections[0]._facecolors
+        face_colors = ax.collections[0].get_facecolors()
+        if face_colors is None or len(face_colors) == 0:
+            # Fallback for older matplotlib where facecolors may be empty until draw
+            face_colors = ax.collections[0]._facecolors
         edge_colors = box_kws.get('edge_colors', np.empty_like(matrix_df, dtype=object))
         sizes = box_kws.get('sizes', np.ones_like(matrix_df) * 0.8)
         line_width = box_kws.get('line_width', 3)

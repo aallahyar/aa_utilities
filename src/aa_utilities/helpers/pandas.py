@@ -193,100 +193,86 @@ def store(data: Any, namespace: dict, name: str='stored_data', copy=True) -> Any
 
 def sort(
         data: Union[pd.Series, pd.DataFrame],
-        orders: Union[list, dict, pd.Series, pd.DataFrame],
+        orders: Union[list, tuple, np.ndarray, pd.Index, dict],
         ascending=True,
         method='mergesort',
         na_position: Literal['first', 'last'] = 'last',
         validate=True,
     ) -> Union[pd.DataFrame, pd.Series]:
-    """Sorts the given data according to provided orders. Any undefined value will be assumed
-    as NaN and placed at the `na_position`. The undefined orders are preserved.
+    """Sorts the given data according to explicit, user-defined orders.
+
+    The function uses categorical sorting so the provided order is respected.
+    Values not listed in `orders` are treated as missing and placed per `na_position`.
+
+    Supported `orders`:
+        - If `data` is a Series: a list/tuple/ndarray/Index of ordered values.
+        - If `data` is a DataFrame: a dict of {column_name: ordered_values}.
 
     Args:
-        data (Union[pd.Series, pd.DataFrame]): Source data that is going to be sorted
-        orders (Union[dict, pd.Series, pd.DataFrame]): the requested order. All columns defined 
-        in `orders` will be used for sorting.
+        data (Union[pd.Series, pd.DataFrame]): Source data to be sorted.
+        orders (Union[list, tuple, np.ndarray, pd.Index, dict]): Ordering rules.
         ascending (bool, optional): Order of the sort. Defaults to True.
-        na_position: Where to place undefined enties, can be 'first', or 'last'.
+        method (str, optional): Sorting method used by pandas. Defaults to 'mergesort'.
+        na_position: Where to place undefined entries: 'first' or 'last'.
+        validate (bool, optional): Raise if all values in a target become undefined.
 
     Returns:
-        Union[pd.Series, pd.DataFrame]: Sorted data
-    
-    Notes: 
-        * If sorting a `pd.Series`, then `orders` can be any `Iterable`. Note that in 
-            this case, if `orders` is a `pd.Series`, its `.values` will be used and not 
-            its `.index`.
-        * The order of repeated values is kept untouched (i.e., stable sort)
-        * The order of undefined values is kept untouched (i.e., stable sort)
+        Union[pd.Series, pd.DataFrame]: Sorted data.
 
     Examples:
-        # pd.Series or pd.DataFrames can be sorted, 
-        print(sort(df.i, orders=['C', 'A', 'D']))
+        # Series
+        print(sort(df['i'], orders=['C', 'A', 'D']))
+
+        # DataFrame with per-column orders
         print(sort(df, orders={'i': ['C', 'A', 'D']}))
 
-        # orders defined by unknown values are allowed
-        print(sort(df.i, orders=['c', 'B', 'a', 'A']))
-
-        # Error: at least one value needs to be defined
-        # print(sort(df.i, orders=['c', 'a']))
-
-        # the orders can be defined in multiple partially-overlapping columns
+        # Multiple columns with partial orders
         print(sort(df, orders={'a': [3, 2], 'b': [104, 102, 105, 100]}))
-        
-        # the priorities can also be a pd.Series 
-        print(sort(df, orders=df.i.loc[[1, 0, 3]]))
-
-        # the priorities can also be a dataframe (values will be used, not the index)
-        print(sort(df, orders=df.loc[[1, 0, 3], ['a', 'c']]))
     """
 
-    # sanity checks
-    assert isinstance(data, (pd.DataFrame, pd.Series)), '`data` must be either a `pd.DataFrame` or `pd.Series` instance'
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError('`data` must be either a `pd.DataFrame` or `pd.Series` instance')
 
-    # prepare orders
-    if isinstance(orders, (pd.Series, )):
-        orders = {orders.name: orders.values.tolist()}
-    elif isinstance(orders, (pd.DataFrame, )):
-        col_orders = {}
-        for col_name in list(orders.keys()):
-            col_orders[col_name] = list(orders[col_name].unique())
-        orders = col_orders
-    
-    # if data is `pd.Series`, only orders.keys() are used
-    if isinstance(data, (pd.Series, )):
-        # keep unique values only, preserves order
-        orders = list(dict.fromkeys(orders).keys()) # dict with values == `None`
-        
-        cat_dtype = pd.CategoricalDtype(categories=orders, ordered=True)
-        data_ordered = (
-            data
-            .astype(cat_dtype)
-            .sort_values(ascending=ascending, na_position=na_position)
-            .copy()
+    def _unique_ordered(values):
+        # Preserve order while dropping duplicates
+        return list(dict.fromkeys(values).keys())
+
+    if isinstance(data, pd.Series):
+        if not isinstance(orders, (list, tuple, np.ndarray, pd.Index)):
+            raise TypeError('For a `pd.Series`, `orders` must be a list-like of values')
+        ordered_values = _unique_ordered(list(orders))
+        cat_dtype = pd.CategoricalDtype(categories=ordered_values, ordered=True)
+        data_ordered = data.astype(cat_dtype).sort_values(
+            ascending=ascending,
+            na_position=na_position,
         )
         if validate and data_ordered.isna().all():
-            raise ValueError(f'Every value the series is now undefined!')
+            raise ValueError(
+                'Every value in the series is now undefined! Are you sure you defined the `order` properly?'
+            )
         return data.loc[data_ordered.index].copy()
-    
-    # if data is `pd.DataFrame`
-    elif isinstance(data, (pd.DataFrame, )):
 
-        # assign orders and sort, per column
-        assert isinstance(orders, (dict, )), 'For a `pd.DataFrame`, `orders` must be defined per column'
-        data_ordered = data.copy()
-        for col in orders.keys():
-            data_ordered[col] = pd.Categorical(data[col], categories=orders[col], ordered=True)
-            if validate and data_ordered[col].isna().all():
-                raise ValueError(f'Every value in column "{col}" is now NaN! Have you defined the ordered properly?')
-        data_ordered = (
-            data_ordered
-            .sort_values(by=list(orders.keys()), ascending=ascending, kind=method, na_position=na_position)
-        )
-        return data.loc[data_ordered.index, :].copy()
+    if not isinstance(orders, dict):
+        raise TypeError('For a `pd.DataFrame`, `orders` must be a dict of column->order')
 
-    # otherwise
-    else:
-        raise ValueError('Data must be either a `pd.Series` or a `pd.DataFrame`')
+    data_ordered = data.copy()
+    for col, col_order in orders.items():
+        if col not in data_ordered.columns:
+            raise KeyError(f'Column "{col}" does not exist in the dataframe')
+        if not isinstance(col_order, (list, tuple, np.ndarray, pd.Index)):
+            raise TypeError(f'Order for column "{col}" must be list-like')
+        ordered_values = _unique_ordered(list(col_order))
+        data_ordered[col] = pd.Categorical(data[col], categories=ordered_values, ordered=True)
+        if validate and data_ordered[col].isna().all():
+            raise ValueError(f'Every value in column "{col}" is now NaN! Have you defined the `order` properly?')
+
+    data_ordered = data_ordered.sort_values(
+        by=list(orders.keys()),
+        ascending=ascending,
+        kind=method,
+        na_position=na_position,
+    )
+    return data.loc[data_ordered.index, :].copy()
 
 def search(
     df: pd.DataFrame,

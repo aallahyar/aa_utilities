@@ -4,6 +4,10 @@
 ### Added:
 - `RSpace.r_warnings` to collect the raised warnings.
 - `graphics.to_colors` to convert a list of values to (hex) colors.
+### Fixed:
+- `graphics.heatmap` now uses the handlers currectly.
+- `helpers.pandas.sort` now is much more readable, and handles `orders` properly.
+- `loggers.RestrictedLogger` handler is now properly set. 
 
 ## [0.0.41] - 2025-01-23
 ### Added:
