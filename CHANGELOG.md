@@ -1,4 +1,8 @@
 ## [0.0.42] - 2025-02-06
+### Updated:
+- `RSpace` now supports returning variables from nested objects in R and automatically convert them to Python objects
+
+## [0.0.42] - 2025-02-06
 ### Changed:
 - `RSpace` now holds a copy of its dedicated `logger` in `self.logger`.
 ### Added:

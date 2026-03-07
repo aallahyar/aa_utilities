@@ -31,8 +31,14 @@ model_matrix <- model.matrix(fit)
 model_coef <- coef(fit)
 print(model_coef)
 """)
+print(R('fit$coef'))
 print(R['model_matrix'])
 print(type(R['model_matrix']))
 print(R['model_coef'])
 print(type(R['model_coef']))
 print(R)
+
+# no need to convert, R nested objects are not converted to Python objects
+assert R['model_coef'].equals(R('fit$coef'))
+assert R['model_matrix'].equals(R('model.matrix(fit)'))
+

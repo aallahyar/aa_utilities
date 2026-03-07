@@ -124,11 +124,14 @@ class RSpace():
 
         return value_py
 
-    def __call__(self, r_script):
+    def __call__(self, r_snippet, convert=True):
         self.warnings = [] # Reset warnings before execution
+        TEMP_VARNAME = '__returned_object' # A temporary variable name to store the returned result in R
+        
+        # run the R script and capture warnings
         rpy2_callbacks.consolewrite_warnerror = self.r_warn_handler # Override the default warning/error writer
         try:
-            returned_result = ro.r(r_script)
+            returned_object = ro.r(r_snippet)
         except Exception as e:
             raise RuntimeError(f"R execution failed: {e}")
         finally: # Ensure that we restore the original warning handler even if an error occurs
@@ -136,7 +139,22 @@ class RSpace():
         
         if len(self.warnings) != 0: # If there were any warnings, log them
             self.logger.warning(f'Warning(s) issued during execution. Check `self.warnings` for details.')
-        return returned_result
+        
+        # try to convert the result to Python if possible, otherwise return the raw R object
+        if convert and returned_object is not None: #  and returned_object != ro.rinterface.NULL
+            try:
+                if TEMP_VARNAME in ro.globalenv:
+                    raise RuntimeError(
+                        f'Unexpected name conflict for the returned object. Please make sure the variable name '
+                        f'`{TEMP_VARNAME}` is not used in the R environment.'
+                    )
+                self[TEMP_VARNAME] = returned_object
+                result_py = self[TEMP_VARNAME] # This will trigger the conversion logic in __getitem__
+                ro.r(f'base::rm(list="{TEMP_VARNAME}")') # Clean up the temporary variable in R
+                return result_py
+            except Exception as e:
+                raise RuntimeError(f'Failed to convert the returned object to Python: {e}.') from e
+        return returned_object
     
     def __repr__(self):
         var_infos = []
