@@ -1,4 +1,5 @@
-from os import name
+from uuid import uuid4
+
 import numpy as np
 import pandas as pd
 from rpy2 import (
@@ -40,7 +41,6 @@ class RSpace():
         self.logger = logger
         self.ipython_loaded = ipython
         self.warnings = [] # List to store captured R warnings
-        self.warn_handler_backup = rpy2_callbacks.consolewrite_warnerror # Backup the original warning handler
         
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
         if ipython:
@@ -65,26 +65,61 @@ class RSpace():
                 value_r = ro.conversion.get_conversion().py2rpy(value)
                 ro.r.assign(name, value_r)
 
+    @staticmethod
+    def _to_python_atom(value):
+        if hasattr(value, 'item'):
+            try:
+                return value.item()
+            except Exception:
+                pass
+        return value
+
+    def _coerce_atomic_scalar(self, value):
+        if isinstance(value, np.ndarray):
+            if value.size == 1:
+                return self._to_python_atom(value.reshape(-1)[0])
+            return value
+
+        # likely never needed,
+        # if isinstance(value, pd.Series):
+        #     if len(value) == 1:
+        #         return self._to_python_atom(value.iloc[0])
+        #     return value
+
+        if isinstance(value, (list, tuple)):
+            if len(value) == 1:
+                return self._to_python_atom(value[0])
+            return value
+
+        return self._to_python_atom(value)
+
     def __getitem__(self, name):
 
         # fetch raw R object first (no conversion)
-        r_obj = ri.globalenv.find(name) # returns an rinterface-level object, no conversion yet
+        try:
+            r_obj = ri.globalenv.find(name) # returns an rinterface-level object, no conversion yet
+        except Exception as exc:
+            raise KeyError(name) from exc
         
         # performing type conversions
         with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
             value_rpy = ro.conversion.get_conversion().rpy2py(ro.globalenv[name])
+
+        if r_obj == ro.rinterface.NULL:
+            return None
+
+        # get R functions for type checking and metadata retrieval
+        r_is_atomic = ri.globalenv.find('is.atomic')
+        r_length = ri.globalenv.find('length')
+        r_dim = ri.globalenv.find('dim')
+        r_names = ri.globalenv.find('names')
+        r_rownames = ri.globalenv.find('rownames')
+        r_colnames = ri.globalenv.find('colnames')
         
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
         # pure Python (with identically item types) scalar, but also lists/arrays (with length 1) would be caught here
-        if ri.globalenv.find('is.atomic')(r_obj)[0] and ri.globalenv.find('length')(r_obj)[0] == 1:
-            # check in Python side as well to make sure it is a single-element list/array
-            if len(value_rpy) == 1: # isinstance(value_rpy, (list, tuple, np.ndarray, )) and 
-                # assert len(value_rpy) == 1, f'Unexpected length for a scalar variable: {value_rpy}'
-                return value_rpy[0].item()
-            else: # pure Python (with identically item types) list/array with length > 1
-                # raise ValueError
-                logger.warning(f'Unexpected length for a scalar variable: {value_rpy}')
-                return np.array(value_rpy)
+        if r_is_atomic(r_obj)[0] and r_length(r_obj)[0] == 1:
+            return self._coerce_atomic_scalar(value_rpy)
 
         # check if the variable is already typed properly
         if isinstance(value_rpy, (pd.DataFrame, )):
@@ -101,59 +136,60 @@ class RSpace():
         # adding column names if present
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if ri.globalenv.find('dim')(r_obj) == ro.rinterface.NULL or np.array(value_rpy).ndim == 1:
-            names = ri.globalenv.find('names')(r_obj)
+        if r_dim(r_obj) == ro.rinterface.NULL or np.array(value_rpy).ndim == 1:
+            names = r_names(r_obj)
+            data_vec = [self._to_python_atom(v) for v in value_rpy]
             if names == ro.rinterface.NULL:
                 value_py = pd.Series(
-                    data=[v.item() for v in value_rpy],
-                    index=range(len(value_rpy)),
+                    data=data_vec,
+                    index=range(len(data_vec)),
                 )
             else:
                 value_py = pd.Series(
-                    data=[v.item() for v in value_rpy],
+                    data=data_vec,
                     index=list(names),
                 )
         else:
             value_py = pd.DataFrame(
                 data=value_rpy,
             )
-            if ri.globalenv.find('rownames')(r_obj) != ro.rinterface.NULL:
-                value_py.index = list(ro.r['rownames'](r_obj))
-            if ri.globalenv.find('colnames')(r_obj) != ro.rinterface.NULL:
-                value_py.columns = list(ri.globalenv.find('colnames')(r_obj))
+            if r_rownames(r_obj) != ro.rinterface.NULL:
+                value_py.index = list(r_rownames(r_obj))
+            if r_colnames(r_obj) != ro.rinterface.NULL:
+                value_py.columns = list(r_colnames(r_obj))
 
         return value_py
 
     def __call__(self, r_snippet, convert=True):
         self.warnings = [] # Reset warnings before execution
-        TEMP_VARNAME = '__returned_object' # A temporary variable name to store the returned result in R
-        
+
         # run the R script and capture warnings
+        previous_warn_handler = rpy2_callbacks.consolewrite_warnerror
         rpy2_callbacks.consolewrite_warnerror = self.r_warn_handler # Override the default warning/error writer
         try:
             returned_object = ro.r(r_snippet)
         except Exception as e:
             raise RuntimeError(f"R execution failed: {e}")
         finally: # Ensure that we restore the original warning handler even if an error occurs
-            rpy2_callbacks.consolewrite_warnerror = self.warn_handler_backup # Restore the original warning handler after execution
+            rpy2_callbacks.consolewrite_warnerror = previous_warn_handler # Restore the original warning handler after execution
         
         if len(self.warnings) != 0: # If there were any warnings, log them
             self.logger.warning(f'Warning(s) issued during execution. Check `self.warnings` for details.')
         
         # try to convert the result to Python if possible, otherwise return the raw R object
-        if convert and returned_object is not None: #  and returned_object != ro.rinterface.NULL
+        if convert and returned_object is not None and returned_object != ro.rinterface.NULL:
+            temp_varname = f'__returned_object_{uuid4().hex}'
+            temp_assigned = False
             try:
-                if TEMP_VARNAME in ro.globalenv:
-                    raise RuntimeError(
-                        f'Unexpected name conflict for the returned object. Please make sure the variable name '
-                        f'`{TEMP_VARNAME}` is not used in the R environment.'
-                    )
-                self[TEMP_VARNAME] = returned_object
-                result_py = self[TEMP_VARNAME] # This will trigger the conversion logic in __getitem__
-                ro.r(f'base::rm(list="{TEMP_VARNAME}")') # Clean up the temporary variable in R
+                self[temp_varname] = returned_object
+                temp_assigned = True
+                result_py = self[temp_varname] # This will trigger the conversion logic in __getitem__
                 return result_py
             except Exception as e:
                 raise RuntimeError(f'Failed to convert the returned object to Python: {e}.') from e
+            finally:
+                if temp_assigned and temp_varname in ro.globalenv:
+                    ro.r(f'base::rm(list="{temp_varname}")')
         return returned_object
     
     def __repr__(self):

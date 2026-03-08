@@ -129,3 +129,30 @@ def test_dataframe_roundtrip(rspace, sample_df):
             assert np.allclose(left, right, equal_nan=True, atol=1e-8, rtol=1e-8)
         else:
             assert list(out_df[col].astype(str)) == list(sample_df[col].astype(str))
+
+
+# ----- __call__ behavior -----
+
+@requires_rspace
+def test_call_scalar_conversion(rspace):
+    out = rspace("1 + 2")
+    assert isinstance(out, (int, float, np.integer, np.floating))
+    assert float(out) == pytest.approx(3.0)
+
+
+@requires_rspace
+def test_call_null_conversion(rspace):
+    out = rspace("NULL")
+    assert out is None
+
+
+@requires_rspace
+def test_call_without_conversion_returns_r_object(rspace):
+    out = rspace("1 + 2", convert=False)
+    assert not isinstance(out, (int, float, np.integer, np.floating))
+
+
+@requires_rspace
+def test_getitem_missing_key_raises_keyerror(rspace):
+    with pytest.raises(KeyError):
+        _ = rspace["__definitely_missing_object__"]
