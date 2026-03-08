@@ -179,16 +179,14 @@ class RSpace():
         # try to convert the result to Python if possible, otherwise return the raw R object
         if convert and returned_object is not None and returned_object != ro.rinterface.NULL:
             temp_varname = f'__returned_object_{uuid4().hex}'
-            temp_assigned = False
             try:
                 self[temp_varname] = returned_object
-                temp_assigned = True
                 result_py = self[temp_varname] # This will trigger the conversion logic in __getitem__
                 return result_py
             except Exception as e:
                 raise RuntimeError(f'Failed to convert the returned object to Python: {e}.') from e
             finally:
-                if temp_assigned and temp_varname in ro.globalenv:
+                if temp_varname in ro.globalenv:
                     ro.r(f'base::rm(list="{temp_varname}")')
         return returned_object
     
