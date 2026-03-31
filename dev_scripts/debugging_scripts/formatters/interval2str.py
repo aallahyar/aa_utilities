@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 
 from aa_utilities.helpers import (
-    interval2str
+    formatters,
 )
+
+interval2str = formatters.interval2str
 
 print(interval2str(pd.Interval(0.123456, 0.654321)))
 print(interval2str(pd.Interval(1, 2, closed='both')))

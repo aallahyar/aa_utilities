@@ -1,12 +1,5 @@
 from ._convenience import *
-from ._formaters import (
-    PrettyPrinter, 
-    TextWrapper,
-    interval2str,
-    pvalue_to_asterisks,
-    human_readable_number,
-    human_readable_size,
-)
+from . import _formaters as formatters
 
 from ._linkage_tree_parser import LinkageTreeParser
 from ..loggers._loggers import (
