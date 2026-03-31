@@ -85,7 +85,7 @@ class PrettyPrinter():
                     bnds = '()'
 
                 outputs = [f'{bnds[0]}']
-                idx_ndigit = np.log10(len(obj)).astype(int) + 1
+                idx_ndigit = np.log10(max(len(obj), 1)).astype(int) + 1
                 for idx, item in enumerate(obj):
                     if isinstance(obj, (dict, )):
                         key_repr = self.clip(self.pformat(item))
@@ -119,10 +119,7 @@ class PrettyPrinter():
 
 
 class TextWrapper(textwrap.TextWrapper):
-    """_summary_
-
-    Args:
-        textwrap (_type_): _description_
+    """A TextWrapper subclass that optionally preserves newlines when wrapping text.
     
     Example:
         text = "line with   space,\n\n\n2nd paragraph with text\n3rd paragraph with a LOOOOOOOOOngWorddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"

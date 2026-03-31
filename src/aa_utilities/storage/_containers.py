@@ -10,10 +10,7 @@ from .._configurations import configs
 
 
 class Container(dict):
-    """_summary_
-
-    Args:
-        pd (_type_): _description_
+    """A dict subclass with attribute-style access and pretty-printing support.
     
     Example:
         container = Container(
@@ -22,8 +19,8 @@ class Container(dict):
         )
         container._pp.set_params(
             display_width=120,
-            prev_max_rows=20,
-            repr_max_n_elements=11,
+            max_n_rows=20,
+            max_n_elements=11,
         )
 
         container['a3'] = 20

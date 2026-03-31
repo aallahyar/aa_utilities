@@ -2,6 +2,7 @@
 import re
 
 import numpy as np
+import pandas as pd
 import patsy
 import statsmodels.api as sm
 
@@ -10,16 +11,6 @@ from ..._configurations import configs
 
 # setup logger
 logger = setup_logger(name=__name__, level=configs.log.level)
-
-
-import numpy as np
-import pandas as pd
-import patsy
-import statsmodels.api as sm
-
-from aa_utilities.storage import (
-    Container,
-)
 
 
 def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=None, verbose=False):

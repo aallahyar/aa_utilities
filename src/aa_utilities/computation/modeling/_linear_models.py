@@ -31,7 +31,7 @@ class LinearModel:
         )
         self.results._pp.display_width = 175
 
-    @classmethod # the function does not need the instantiated object
+    @staticmethod # the function does not need the instantiated object
     def get_dummy(n=500, n_visit=5, seed=42):
         # prepare a dummy data
         rng = np.random.default_rng(seed=seed)
@@ -294,8 +294,9 @@ class LinearModel:
         # method: "revpairwise", "pairwise", "eff", "del.eff"
         # eff: compare each level with the average over all
         # del.eff: compare each level with average over all other levels
-        # comparisons are done in the original response scale (defined in formula), irrespective of emmeans(type=X). 
-        # If emmeans(type='response') are called beforehand, the contrasts are exponentiated, and so are named A / B (but the p-values stay the same).
+        # Contrasts operate on the scale of the emmeans object's reference grid.
+        # If emmeans(type='response') was called, contrasts are on the response scale
+        # (e.g., ratios for log-link models, named A / B). P-values remain unchanged.
         self.R(f"""
             # `pairs()` is a special case of `contrast()`
             # emm_diff <- pairs(LSmeans, adjust = "none", reverse = TRUE)

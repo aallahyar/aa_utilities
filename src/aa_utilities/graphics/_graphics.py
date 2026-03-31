@@ -117,15 +117,16 @@ def forest_plot(
     """Generates a ForestPlot that is often used in Treatment-effect presentations
 
     Args:
-        estimates (pd.DataFrame): A dataframe containing the `estimate` column
-        origin (int, optional): _description_. Defaults to 0.
-        estimate_labels (_type_, optional): _description_. Defaults to None.
-        p_values (_type_, optional): _description_. Defaults to None.
-        line_ys (_type_, optional): determines the location of each estimate. Defaults to None.
-        line_labels (_type_, optional): _description_. Defaults to None.
-        line_sublabels (_type_, optional): _description_. Defaults to None.
-        line_colors (_type_, optional): _description_. Defaults to None.
-        marker_colors (_type_, optional): _description_. Defaults to None.
+        estimates (pd.DataFrame): A dataframe containing the `estimate`, `conf.low`, and `conf.high` columns.
+        origin (float, optional): Reference line position (e.g., 0 for difference, 1 for ratio). Defaults to 0.
+        estimate_labels (array-like, optional): Text labels placed below each estimate marker. Defaults to None.
+        p_values (array-like, optional): P-values displayed to the right of each line. Defaults to None.
+        line_ys (array-like, optional): Determines the y-position of each estimate. Defaults to None.
+        line_labels (list, optional): Y-axis tick labels for each estimate line. Defaults to None.
+        line_sublabels (list, optional): Secondary labels placed below and left of each line. Defaults to None.
+        line_colors (array-like, optional): Colors for error bar lines. Defaults to None.
+        marker_colors (array-like, optional): Colors for the diamond markers. Defaults to None.
+        x_scale (dict, optional): Passed to ax.set_xscale(). E.g., dict(value='log', base=2). Defaults to None.
 
     Returns:
         plt.axe: The ax on which the Forest Plot is drawn. Several properties are added:
@@ -263,6 +264,7 @@ def heatmap(matrix_df, **kwargs):
         matrix_df (pd.DataFrame): Matrix for which a heatmap will be drawn
     
     Example:
+            import numpy as np
             import pandas as pd
             from matplotlib import pyplot as plt, colors
 
@@ -334,10 +336,12 @@ def heatmap(matrix_df, **kwargs):
         # vmax = ax.collections[0].colorbar.vmax
         # color_idxs = (matrix_df.values - vmin) / (vmax - vmin)
         # face_colors = cmap(color_idxs)
-        face_colors = ax.collections[0].get_facecolors()
+        face_colors = ax.collections[0].get_facecolors() # shape: (n_row * n_col, 4)
         if face_colors is None or len(face_colors) == 0:
             # Fallback for older matplotlib where facecolors may be empty until draw
+            # shape of _facecolors is (n_row, n_col, 4)
             face_colors = ax.collections[0]._facecolors
+        face_colors = face_colors.reshape(*matrix_df.shape, 4) # unifying shape
         edge_colors = box_kws.get('edge_colors', np.empty_like(matrix_df, dtype=object))
         sizes = box_kws.get('sizes', np.ones_like(matrix_df) * 0.8)
         line_width = box_kws.get('line_width', 3)
@@ -360,7 +364,8 @@ def heatmap(matrix_df, **kwargs):
         ax.add_collection(PatchCollection(rectangles, match_original=True))
 
         # final adjustments
-        ax.collections[0].set_alpha(mesh_alpha)
+        # adjust the original heatmap's alpha allows more visible boxes (if mesh_alpha < 1)
+        ax.collections[0].set_alpha(mesh_alpha) 
         # ax.xaxis.tick_top()
     
     return ax

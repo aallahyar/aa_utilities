@@ -55,8 +55,8 @@ def _pearson_numpy(A, B):
     am = A - _np.mean(A, axis=1, keepdims=True)
     bm = B - _np.mean(B, axis=1, keepdims=True)
     return am @ bm.T /  (
-        _np.sqrt(_np.sum(am**2, axis=1, keepdims=True)).T * 
-        _np.sqrt(_np.sum(bm**2, axis=1, keepdims=True))
+        _np.sqrt(_np.sum(am**2, axis=1, keepdims=True)) * 
+        _np.sqrt(_np.sum(bm**2, axis=1, keepdims=True)).T
     )
 
 def spearman(A, B=None, low_memory=False):

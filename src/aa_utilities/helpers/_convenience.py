@@ -60,11 +60,11 @@ def quantile_cut(
 
     # adjust bins edges based on `right` argument, similar to what pd.cut does internally: 
     # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.cut.html
-    range = series.max() - series.min()
+    data_range = series.max() - series.min()
     if right:
-        bins.iat[ 0] -= range * 0.001
+        bins.iat[ 0] -= data_range * 0.001
     else:
-        bins.iat[-1] += range * 0.001
+        bins.iat[-1] += data_range * 0.001
 
     # perform the quantile cut
     output = pd.cut(
