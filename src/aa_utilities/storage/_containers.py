@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 import pandas as pd
 
-from ..helpers import PrettyPrinter
+from ..helpers import formatters
 from ..loggers._loggers import setup_logger
 from .._configurations import configs
 
@@ -109,7 +109,7 @@ class Container(dict):
         # and skips any custom logic implemented in Container.__setattr__.
         # The attribute is stored in the instance’s __dict__ as usual.
         ## Get all public attributes/methods (exclude dunder and private by convention)
-        super().__setattr__('_pp', PrettyPrinter())
+        super().__setattr__('_pp', formatters.PrettyPrinter())
         super().__setattr__('_params', {})
         super().__setattr__('_logger', setup_logger(name=__name__, level=configs.log.level))
         super().__setattr__('_RESERVED_TERMS', {
