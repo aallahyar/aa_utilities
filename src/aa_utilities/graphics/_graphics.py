@@ -323,8 +323,10 @@ def heatmap(matrix_df, **kwargs):
         # annot_kws={'fontsize': 6},
         # fmt='.1f',
         # cmap=cmap,
+        # center=0,
         # vmin=-1,
         # vmax=+1,
+        # cbar_kws={'label': 'Label of the colorbar', 'extend': 'max', 'fraction': 0.15, 'shrink': 0.5, 'aspect': 10, 'ticks': [-4, 0, 4]},
         **kwargs,
     )
 
