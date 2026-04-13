@@ -193,10 +193,10 @@ class UpsetPlot:
     # ------------------------------------------------------------------ plot
 
     _DEFAULT_COLORS = {
-        'member': '#3366cc',
+        'member': '#000000',
         'excluded': '#e0e0e0',
         'ignored': '#e0e0e0',
-        'connector': '#3366cc',
+        'connector': '#000000',
         'bar': '#3366cc',
     }
 
@@ -378,47 +378,75 @@ class UpsetPlot:
 
         color_map = {1: c['member'], -1: c['excluded'], 0: c['ignored']}
 
-        # Stripes
+        # Stripes — use alpha so row and column stripes blend where they
+        # overlap instead of one fully overwriting the other.
         if row_stripe:
             for i in range(0, n_sets, 2):
-                ax.axhspan(i - 0.5, i + 0.5, color=row_stripe, zorder=0)
+                ax.axhspan(
+                    i - 0.5, i + 0.5,
+                    facecolor=row_stripe, edgecolor='none',
+                    alpha=0.5, zorder=0,
+                )
                 self.ax_set_sizes.axhspan(
-                    i - 0.5, i + 0.5, color=row_stripe, zorder=0,
+                    i - 0.5, i + 0.5,
+                    facecolor=row_stripe, edgecolor='none',
+                    alpha=0.5, zorder=0,
                 )
         if col_stripe:
             for i in range(0, n_ints, 2):
-                ax.axvspan(i - 0.5, i + 0.5, color=col_stripe, zorder=0)
+                ax.axvspan(
+                    i - 0.5, i + 0.5,
+                    facecolor=col_stripe, edgecolor='none',
+                    alpha=0.5, zorder=0,
+                )
                 self.ax_intersection_sizes.axvspan(
-                    i - 0.5, i + 0.5, color=col_stripe, zorder=0,
+                    i - 0.5, i + 0.5,
+                    facecolor=col_stripe, edgecolor='none',
+                    alpha=0.5, zorder=0,
                 )
 
-        # Dots and segments
+        # Dots and connectors — draw non-member dots first (lower zorder),
+        # then connectors, then member dots on top.
         for ix in range(n_ints):
             member_ys = []
             for sx in range(n_sets):
                 val = int(mat[ix, sx])
+                if val == 1:
+                    member_ys.append(sx)
+                    continue  # draw member dots after the connector
                 dot = ax.scatter(
                     ix, sx,
                     s=dot_area,
                     c=color_map.get(val, c['ignored']),
                     marker='o',
-                    zorder=3,
+                    zorder=2,
                     edgecolors='none',
                 )
                 _add(set_cols[sx], int_labels[ix], 'dot', dot)
-                if val == 1:
-                    member_ys.append(sx)
 
+            # Connector on top of non-member dots
             if len(member_ys) >= 2:
                 line = ax.plot(
                     [ix, ix],
                     [min(member_ys), max(member_ys)],
                     color=c['connector'],
-                    linewidth=2,
-                    zorder=2,
+                    linewidth=3,
+                    zorder=3,
                     solid_capstyle='round',
                 )[0]
                 _add('', int_labels[ix], 'connector', line)
+
+            # Member dots on top of connector
+            for sx in member_ys:
+                dot = ax.scatter(
+                    ix, sx,
+                    s=dot_area,
+                    c=c['member'],
+                    marker='o',
+                    zorder=4,
+                    edgecolors='none',
+                )
+                _add(set_cols[sx], int_labels[ix], 'dot', dot)
 
         # Axis formatting
         xp = np.arange(n_ints)
