@@ -1,3 +1,7 @@
+## [0.0.44] - 2026-04-13
+### Added:
+- `graphics.UpsetPlot` to plot upset plots.
+
 ## [0.0.43] - 2026-03-31
 ### Added:
 - `graphics.repel_text` to remove the overlap between textboxes.
