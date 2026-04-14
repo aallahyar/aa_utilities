@@ -19,7 +19,7 @@ up.plot()
 up_ex = UpsetPlot(sets, mode='exclusive')
 print('\n=== intersections (exclusive) ===')
 print(up_ex.intersections)
-up_ex.plot(colors={'excluded': '#cc3333'})
+up_ex.plot(col_stripe="#7dc1f1", colors={'excluded': '#cc3333'})
 
 # ── 3. Filter: keep only intersections with size >= 1, sorted by size ──
 up_filt = UpsetPlot(
@@ -29,7 +29,7 @@ up_filt = UpsetPlot(
 )
 print('\n=== filtered (exclusive, size >= 1) ===')
 print(up_filt.intersections)
-up_filt.plot(row_stripe='#f0f0f0', col_stripe='#f0f0ff')
+up_filt.plot(row_stripe="#efe0a2", col_stripe='#f0f0ff')
 
 # ── 4. Filter: drop a set column ────────────────────────────────────────
 def drop_set_d(df):

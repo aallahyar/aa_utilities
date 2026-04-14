@@ -194,7 +194,7 @@ class UpsetPlot:
 
     _DEFAULT_COLORS = {
         'member': '#000000',
-        'excluded': '#e0e0e0',
+        'excluded': '#cc3333',
         'ignored': '#e0e0e0',
         'connector': '#000000',
         'bar': '#3366cc',
