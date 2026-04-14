@@ -18,22 +18,6 @@ class UpsetPlot:
     sets : dict[str, set]
         Ordered dictionary of set names to sets of elements.
         The key order determines the display order of sets.
-    filter : callable, optional
-        A function ``f(df) -> df`` that receives the intersections DataFrame
-        and returns a filtered/modified copy.  Only the set columns (with
-        values 1, 0, -1) need to be preserved; metadata columns (``_size``,
-        ``_n_included``, ``_n_excluded``) are regenerated automatically.
-
-        Common operations in the filter function:
-
-        - Drop rows to remove intersections.
-        - Drop columns to remove sets from the analysis.
-        - Change cell values (e.g. ``0`` → ``-1``) to alter inclusion logic.
-        - Reorder rows / columns to control display order.
-    recompute : bool, default True
-        Recompute ``_size`` from the original sets after filtering.  When
-        ``False``, the ``_size`` values from the filter output are preserved
-        (first occurrence kept on deduplication).
     mode : {'inclusive', 'exclusive'}, default 'inclusive'
         Default value for non-member sets in the generated matrix.
 
@@ -68,23 +52,18 @@ class UpsetPlot:
 
     # ------------------------------------------------------------------ init
 
-    def __init__(self, sets, filter=None, recompute=True, mode='inclusive'):
+    def __init__(self, sets, mode='inclusive'):
         if mode not in ('inclusive', 'exclusive'):
             raise ValueError(
                 f"mode must be 'inclusive' or 'exclusive', got {mode!r}"
             )
 
-        self._original_sets = {name: set(s) for name, s in sets.items()}
-        self._set_names = list(sets.keys())
-
-        self.sets = pd.DataFrame(
-            {'size': {name: len(s) for name, s in self._original_sets.items()}}
-        )
+        self.sets = pd.DataFrame({
+            'members': [set(s) for s in sets.values()],
+            'size': [len(s) for s in sets.values()],
+        }, index=sets.keys())
 
         self.intersections = self._generate_intersections(mode)
-
-        if filter is not None:
-            self.intersections = self._apply_filter(filter, recompute)
 
         # Populated by plot()
         self.fig = None
@@ -93,67 +72,129 @@ class UpsetPlot:
         self.ax_matrix = None
         self.artists = None
 
+    @property
+    def set_names(self):
+        """Set names, in display order."""
+        return self.sets.index
+
     # ------------------------------------------------------------------ data
 
     def _generate_intersections(self, mode):
         """Build the full intersection matrix (2^n - 1 rows)."""
-        names = self._set_names
+        set_names = list(self.set_names)
         non_member = -1 if mode == 'exclusive' else 0
 
         rows = []
-        for r in range(1, len(names) + 1):
-            for combo in combinations(names, r):
+        for r in range(1, len(set_names) + 1):
+            for combo in combinations(set_names, r):
                 included = set(combo)
                 rows.append(
                     {name: (1 if name in included else non_member)
-                     for name in names}
+                     for name in set_names}
                 )
 
-        df = pd.DataFrame(rows)
-        set_cols = list(names)
-        df['_size'] = df.apply(
-            lambda row: self._compute_size(row, set_cols), axis=1
+        ixs = pd.DataFrame(rows)
+        ixs['_size'] = ixs.apply(
+            lambda row: self._compute_size(row, set_names), axis=1
         )
-        df = self._refresh_meta(df, set_cols)
-        df.index = self._make_labels(df, set_cols)
-        df.index.name = None
-        return df
+        ixs = self._refresh_meta(ixs, set_names)
+        ixs.index = self._derive_labels(ixs, set_names)
+        ixs.index.name = None
+        return ixs
+
+    def filter(self, fn, update_stats=True):
+        """Apply a filter function to the intersections.
+
+        Parameters
+        ----------
+        fn : callable
+            A function ``f(ix) -> ix`` that receives a copy of
+            :attr:`intersections` and returns a modified DataFrame.
+            Only the set columns (with values 1, 0, -1) need to be
+            preserved; metadata columns are regenerated automatically.
+
+            Common operations::
+
+                # keep large intersections, sorted by size
+                up.filter(lambda ix: ix[ix['_size'] >= 5]
+                                       .sort_values('_size', ascending=False))
+
+                # drop a set column
+                up.filter(lambda ix: ix.drop(columns=['Gene Set D']))
+
+                # make all non-members exclusive
+                up.filter(lambda ix: ix.replace(0, -1))
+
+        update_stats : bool, default True
+            Recompute ``_size`` from the original sets after filtering.
+            When ``False``, the ``_size`` values from the filter output
+            are preserved (first occurrence kept on deduplication).
+
+        Returns
+        -------
+        self
+            For method chaining.
+        """
+        ixs = fn(self.intersections.copy())
+        set_cols = [c for c in ixs.columns if c in self.set_names]
+
+        # Preserve _size before dropping meta (used when update_stats=False)
+        if not update_stats and '_size' in ixs.columns:
+            saved_sizes = ixs['_size'].values
+            ixs = ixs[set_cols].copy()
+            ixs['_size'] = saved_sizes
+        else:
+            ixs = ixs[set_cols].copy()
+
+        # Relabel from surviving set columns
+        ixs.index = self._derive_labels(ixs, set_cols)
+
+        # Deduplicate (keep first occurrence)
+        # : improves readability by making it clear that we're dropping duplicate rows, not columns
+        ixs = ixs.loc[~ixs.index.duplicated(keep='first'), :]
+
+        # Sizes
+        if update_stats or '_size' not in ixs.columns:
+            ixs['_size'] = ixs.apply(
+                lambda row: self._compute_size(row, set_cols), axis=1
+            )
+
+        self.intersections = self._refresh_meta(ixs, set_cols)
+        return self
 
     def _compute_size(self, row, set_cols):
         """Compute the cardinality of one intersection row."""
-        included = [c for c in set_cols if row[c] == 1
-                    and c in self._original_sets]
-        excluded = [c for c in set_cols if row[c] == -1
-                    and c in self._original_sets]
+        included = [c for c in set_cols if row[c] == 1]
+        excluded = [c for c in set_cols if row[c] == -1]
 
         if not included:
             return 0
 
         result = set.intersection(
-            *(self._original_sets[c] for c in included)
+            *(self.sets.loc[included, 'members'].tolist()),
         )
         if excluded:
             result = result - set.union(
-                *(self._original_sets[c] for c in excluded)
+                *(self.sets.loc[excluded, 'members'].tolist())
             )
         return len(result)
 
     @staticmethod
-    def _refresh_meta(df, set_cols):
+    def _refresh_meta(ixs, set_cols):
         """(Re-)derive ``_n_included`` and ``_n_excluded``."""
-        df = df.copy()  # avoid modifying original in-place
-        df['_n_included'] = (df[set_cols] == 1).sum(axis=1)
-        df['_n_excluded'] = (df[set_cols] == -1).sum(axis=1)
-        return df
+        ixs = ixs.copy()  # avoid modifying original in-place
+        ixs['_n_included'] = (ixs[set_cols] == 1).sum(axis=1)
+        ixs['_n_excluded'] = (ixs[set_cols] == -1).sum(axis=1)
+        return ixs
 
     @staticmethod
-    def _make_labels(df, set_cols):
+    def _derive_labels(ixs, set_cols):
         """Derive row labels from the 1 / 0 / -1 pattern.
 
         Format: ``"A & B \\ C"``  (A intersect B, set-minus C).
         """
         labels = []
-        for _, row in df.iterrows():
+        for _, row in ixs.iterrows():
             included = [c for c in set_cols if row[c] == 1]
             excluded = [c for c in set_cols if row[c] == -1]
 
@@ -162,33 +203,6 @@ class UpsetPlot:
                 parts += f' \\ {ex}'
             labels.append(parts.strip() or '(empty)')
         return labels
-
-    def _apply_filter(self, filter_fn, recompute):
-        """Run the user's filter, relabel, deduplicate, refresh metadata."""
-        df = filter_fn(self.intersections.copy())
-        set_cols = [c for c in df.columns if c in self._original_sets]
-
-        # Preserve _size before dropping meta (used when recompute=False)
-        if not recompute and '_size' in df.columns:
-            saved_sizes = df['_size'].values
-            df = df[set_cols].copy()
-            df['_size'] = saved_sizes
-        else:
-            df = df[set_cols].copy()
-
-        # Relabel from surviving set columns
-        df.index = self._make_labels(df, set_cols)
-
-        # Deduplicate (keep first occurrence)
-        df = df[~df.index.duplicated(keep='first')]
-
-        # Sizes
-        if recompute or '_size' not in df.columns:
-            df['_size'] = df.apply(
-                lambda row: self._compute_size(row, set_cols), axis=1
-            )
-
-        return self._refresh_meta(df, set_cols)
 
     # ------------------------------------------------------------------ plot
 
@@ -246,7 +260,7 @@ class UpsetPlot:
         c = {**self._DEFAULT_COLORS, **(colors or {})}
         set_cols = [
             col for col in self.intersections.columns
-            if col in self._original_sets
+            if col in self.set_names
         ]
         n_sets = len(set_cols)
         n_ints = len(self.intersections)
@@ -287,15 +301,15 @@ class UpsetPlot:
 
         # ---- intersection-size bars -----------------------------------
         self._plot_intersection_sizes(
-            int_labels, sizes, n_ints, c, bar_labels, _add,
+            int_labels, sizes, c, bar_labels, _add,
         )
 
         # ---- set-size bars --------------------------------------------
-        self._plot_set_sizes(set_cols, n_sets, c, _add)
+        self._plot_set_sizes(set_cols, c, _add)
 
         # ---- matrix ---------------------------------------------------
         self._plot_matrix(
-            set_cols, int_labels, n_sets, n_ints, c,
+            set_cols, int_labels, c,
             marker_scale, figsize, row_stripe, col_stripe, _add,
         )
 
@@ -320,9 +334,10 @@ class UpsetPlot:
     # ---- plot helpers (private) ----------------------------------------
 
     def _plot_intersection_sizes(
-        self, int_labels, sizes, n_ints, c, bar_labels, _add,
+        self, int_labels, sizes, c, bar_labels, _add,
     ):
         ax = self.ax_intersection_sizes
+        n_ints = len(sizes)
         xp = np.arange(n_ints)
 
         bars = ax.bar(xp, sizes, color=c['bar'], edgecolor='white', zorder=2)
@@ -342,8 +357,9 @@ class UpsetPlot:
         for spine in ('top', 'right', 'bottom'):
             ax.spines[spine].set_visible(False)
 
-    def _plot_set_sizes(self, set_cols, n_sets, c, _add):
+    def _plot_set_sizes(self, set_cols, c, _add):
         ax = self.ax_set_sizes
+        n_sets = len(set_cols)
         yp = np.arange(n_sets)
         ss = self.sets.loc[set_cols, 'size'].values
 
@@ -359,10 +375,12 @@ class UpsetPlot:
             ax.spines[spine].set_visible(False)
 
     def _plot_matrix(
-        self, set_cols, int_labels, n_sets, n_ints, c,
+        self, set_cols, int_labels, c,
         marker_scale, figsize, row_stripe, col_stripe, _add,
     ):
         ax = self.ax_matrix
+        n_sets = len(set_cols)
+        n_ints = len(int_labels)
         mat = self.intersections[set_cols].values  # (n_ints, n_sets)
 
         # Dot size adapts to grid density
@@ -417,7 +435,7 @@ class UpsetPlot:
                 dot = ax.scatter(
                     ix, sx,
                     s=dot_area,
-                    c=color_map.get(val, c['ignored']),
+                    c=color_map[val],
                     marker='o',
                     zorder=2,
                     edgecolors='none',
