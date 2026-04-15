@@ -385,5 +385,105 @@ def search(
         'col_number': col_indices,
     })
 
+def reorder_by_similarity(
+    df: pd.DataFrame,
+    axis: Literal['both', 'rows', 'columns'] = 'both',
+    row_kws=None,
+    col_kws=None,
+) -> pd.DataFrame:
+    """Reorder rows and columns of a numeric DataFrame by hierarchical clustering,
+    similar to what ``sns.clustermap()`` does internally.
+    This is useful for visualizations like heatmaps, where you want to group
+    similar rows and columns together.
+
+    All columns must be numeric (int, float, bool). Non-numeric columns
+    (e.g. strings, datetimes) will raise a ``TypeError``.
+
+    Args:
+        df (pd.DataFrame): A numeric DataFrame with no NaN values.
+        axis (Literal['both', 'rows', 'columns'], optional): Which axes to
+            reorder. ``'both'`` (default) clusters rows and columns,
+            ``'rows'`` clusters rows only, ``'columns'`` clusters columns only.
+        row_kws (dict, optional): Keyword arguments forwarded to
+            ``scipy.spatial.distance.pdist`` and ``scipy.cluster.hierarchy.linkage``
+            for row clustering. Recognised keys are ``method`` (default ``'average'``)
+            and ``metric`` (default ``'euclidean'``). Must be ``None`` when
+            ``axis='columns'``.
+        col_kws (dict, optional): Same as ``row_kws`` but for column clustering.
+            Must be ``None`` when ``axis='rows'``.
+
+    Returns:
+        pd.DataFrame: A copy of ``df`` with rows and/or columns reordered according
+        to the hierarchical clustering leaf order.
+
+    Examples:
+        >>> import numpy as np, pandas as pd
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame(rng.standard_normal((5, 4)), columns=list('ABCD'))
+        >>> reorder_by_similarity(df)
+        >>> reorder_by_similarity(df, axis='rows')
+        >>> reorder_by_similarity(df, axis='columns')
+        >>> reorder_by_similarity(df, row_kws={'method': 'ward', 'metric': 'euclidean'})
+        >>> reorder_by_similarity(df, col_kws={'metric': 'correlation'})
+    """
+    from scipy.cluster import hierarchy
+    from scipy.spatial.distance import pdist
+
+    _valid_axes = ('both', 'rows', 'columns')
+    if axis not in _valid_axes:
+        raise ValueError(f'`axis` must be one of {_valid_axes}, got {axis!r}')
+
+    cluster_rows = axis in ('both', 'rows')
+    cluster_cols = axis in ('both', 'columns')
+
+    # Validate that *_kws are not provided for the unused axis
+    if not cluster_rows and row_kws is not None:
+        raise ValueError("`row_kws` must be None when axis='columns'")
+    if not cluster_cols and col_kws is not None:
+        raise ValueError("`col_kws` must be None when axis='rows'")
+
+    # All columns must be numeric
+    non_numeric = [c for c in df.columns if not is_numeric_dtype(df[c])]
+    if len(non_numeric) > 0:
+        raise TypeError(
+            f'All columns must be numeric, but the following are not: {non_numeric}'
+        )
+
+    # Check for NaN values and raise an error if any are found
+    assert df.notna().all().all(), (
+        'DataFrame contains NaN values! '
+        'Please handle them before reordering (e.g., by imputation or dropping).'
+    )
+
+    # Cluster rows
+    if cluster_rows and df.shape[0] >= 2:
+        row_kws = {'method': 'average', 'metric': 'euclidean', **(row_kws or {})}
+        row_dist = pdist(df, metric=row_kws['metric'])
+        row_linkage = hierarchy.linkage(row_dist, method=row_kws['method'])
+        row_order = hierarchy.leaves_list(row_linkage)
+    else:
+        row_order = np.arange(df.shape[0])
+
+    # Cluster columns
+    if cluster_cols and df.shape[1] >= 2:
+        col_kws = {'method': 'average', 'metric': 'euclidean', **(col_kws or {})}
+        col_dist = pdist(df.T, metric=col_kws['metric'])
+        col_linkage = hierarchy.linkage(col_dist, method=col_kws['method'])
+        col_order = hierarchy.leaves_list(col_linkage)
+    else:
+        col_order = np.arange(df.shape[1])
+
+    # Reorder the DataFrame
+    # equivalent to: df.iloc[np.ix_(row_order, col_order)], but more readable
+    df_reordered = (
+        df
+        .iloc[row_order, :]
+        .iloc[:, col_order]
+        .copy()
+    )
+
+    return df_reordered
+
+
 if __name__ == '__main__':
     pass

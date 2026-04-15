@@ -1,3 +1,7 @@
+## [0.0.45] - 2026-04-15
+### Added:
+- `helper.pandas.reorder_by_similarity` to reorder rows/columns by row/column similarity
+
 ## [0.0.44] - 2026-04-13
 ### Added:
 - `graphics.UpsetPlot` to plot upset plots.
