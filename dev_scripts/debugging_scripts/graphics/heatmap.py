@@ -35,6 +35,7 @@ heatmap(
         'legend': {
             'bins': 4,
             'title': 'Box size',
+            'position': (1.05, 0.05),
         },
     },
 )
