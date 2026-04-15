@@ -28,10 +28,14 @@ heatmap(
         'ticks': [-4, 0, 4],
     },
     box_kws={
-        'mesh_alpha': 0.7, # background alpha of the each element in the heatmap (same as `facecolor`)
+        'background_alpha': 0.7, # background alpha of the each element in the heatmap (same as `facecolor`)
         'sizes': corr_df.abs().values * 0.98 / corr_df.values.max(), 
-        'line_width': 0.9, 
-        'edge_colors': np.where(corr_df.le(0), '#000000', None)
+        'linewidth': 0.9, 
+        'edgecolors': np.where(corr_df.le(0), '#000000', None),
+        'legend': {
+            'bins': 4,
+            'title': 'Box size',
+        },
     },
 )
 fig.show()
