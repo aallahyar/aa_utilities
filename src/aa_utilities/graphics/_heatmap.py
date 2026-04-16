@@ -105,7 +105,7 @@ def _draw_box_legend(ax, sizes, legend_kws):
 
     right_edge = max_v / 2  # right edge of the largest box
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
-        cy = mi * spacing + spacing / 2
+        cy = mi * spacing + spacing / 2 + spacing / 10   # center y of the current marker
         ax.add_patch(
             patches.Rectangle(
                 (right_edge - v, cy - v / 2),
