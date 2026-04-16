@@ -1,6 +1,8 @@
-import numpy as np
 import textwrap
 
+import numpy as np
+import seaborn as sns
+from matplotlib import pyplot as plt
 
 def _extract_face_colors(ax, matrix_df):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
@@ -101,7 +103,6 @@ def _draw_box_legend(ax, sizes, legend_kws):
     ideal_spacing = max_v + max_v / 10  # marker height + 10%-marker gap
     spacing = min(ideal_spacing, marker_ymax / n_bins)
 
-    #  [p.remove() for p in ax.patches]
     right_edge = max_v / 2  # right edge of the largest box
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
         cy = mi * spacing + spacing / 2
@@ -134,8 +135,7 @@ def _draw_box_legend(ax, sizes, legend_kws):
     ax.patch.set_visible(False)
 
 
-def heatmap(matrix_df, box_kws, figsize=None, width_ratios=None,
-            height_ratios=None, **kwargs):
+def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
     """Plot a heatmap with sized rectangles per cell and a marker-range legend.
 
     Creates a figure with a 2x2 GridSpec::
@@ -162,12 +162,12 @@ def heatmap(matrix_df, box_kws, figsize=None, width_ratios=None,
             - legend (dict): Marker legend config passed to
               ``_draw_box_legend``.  Default: ``{}`` (draws a 4-bin auto
               legend).
-        figsize (tuple): Figure size ``(width, height)`` in inches.
-            Default: ``(10, 8)``.
-        width_ratios (list): ``[heatmap, right_panel]`` GridSpec widths.
-            Default: ``[10, 0.5]``.
-        height_ratios (list): ``[colorbar_row, marker_row]`` GridSpec heights.
-            Default: ``[1, 1]``.
+        fig (matplotlib.figure.Figure, optional): Pre-created figure to draw
+            into.  If ``None``, a new ``(10, 8)`` figure is created.
+        gs_kws (dict): Keyword arguments forwarded to
+            ``fig.add_gridspec()``.  Use this to control the layout, e.g.
+            ``{'width_ratios': [10, 0.5], 'height_ratios': [1, 1],
+            'wspace': 0.3, 'hspace': 0.5}``.
         **kwargs: Forwarded to ``sns.heatmap()``.  The ``ax`` key is ignored;
             ``cbar_ax`` is overridden to point at the colorbar subplot.
 
@@ -196,19 +196,14 @@ def heatmap(matrix_df, box_kws, figsize=None, width_ratios=None,
         )
         fig.show()
     """
-    import seaborn as sns
-    from matplotlib import pyplot as plt
 
-    if figsize is None:
-        figsize = (10, 8)
-    if width_ratios is None:
-        width_ratios = [10, 0.5]
-    if height_ratios is None:
-        height_ratios = [1, 1]
+    gs_kws = dict(gs_kws or {})
+    gs_kws.setdefault('width_ratios', [10, 0.5])
+    gs_kws.setdefault('height_ratios', [1, 1])
 
-    fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(2, 2, width_ratios=width_ratios,
-                          height_ratios=height_ratios)
+    if fig is None:
+        fig = plt.figure(figsize=(10, 8))
+    gs = fig.add_gridspec(2, 2, **gs_kws)
 
     ax_heat = fig.add_subplot(gs[:, 0])
     ax_cbar = fig.add_subplot(gs[0, 1])

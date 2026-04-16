@@ -27,7 +27,7 @@ fig = heatmap(
             'title': 'Box size',
         },
     },
-    figsize=(10, 8),
+    fig=plt.figure(figsize=(10, 8)),
     cmap=cmap,
     cbar_kws={
         'label': 'Label of the colorbar',
@@ -36,6 +36,9 @@ fig = heatmap(
     },
 )
 fig.axes[0].set_title('Basic heatmap with bins=4')
+fig.subplots_adjust(wspace=0.3, hspace=0.5)  # adjust spacing between subplots
+# gs = fig.axes[0].get_subplotspec().get_gridspec() # similar effect
+# gs.update(wspace=0.3, hspace=0.5)
 fig.show()
 
 #%% legend with explicit bin values
@@ -53,7 +56,7 @@ fig = heatmap(
             'edgecolor': '#222222',
         },
     },
-    figsize=(10, 8),
+    fig=plt.figure(figsize=(10, 8)),
     cmap=cmap,
 )
 fig.axes[0].set_title('Legend with explicit bin values')
@@ -71,7 +74,7 @@ fig = heatmap(
             'title': 'Strength',
         },
     },
-    figsize=(10, 8),
+    fig=plt.figure(figsize=(10, 8)),
     cmap=cmap,
 )
 fig.axes[0].set_title('Legend with custom labels')
