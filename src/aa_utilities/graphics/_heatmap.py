@@ -200,6 +200,8 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
     gs_kws = dict(gs_kws or {})
     gs_kws.setdefault('width_ratios', [10, 0.5])
     gs_kws.setdefault('height_ratios', [1, 1])
+    gs_kws.setdefault('hspace', 0.5)
+    gs_kws.setdefault('wspace', 0.1)
 
     if fig is None:
         fig = plt.figure(figsize=(10, 8))
