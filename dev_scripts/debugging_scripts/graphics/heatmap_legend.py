@@ -13,14 +13,8 @@ cmap = colors.LinearSegmentedColormap.from_list('BlueWhiteRed', ['blue', 'white'
 sizes = corr_df.abs().values * 0.98 / corr_df.values.max()
 
 #%% legend with bins=int (auto-spaced)
-fig, ax = plt.subplots(figsize=(8, 6))
-ax.set_title('Legend with bins=4 (auto-spaced)')
-fig.tight_layout()
-heatmap(
+fig = heatmap(
     corr_df,
-    cmap=cmap,
-    ax=ax,
-    cbar_kws={'label': 'Value', 'shrink': 0.5},
     box_kws={
         'sizes': sizes,
         'linewidth': 0.9,
@@ -29,18 +23,18 @@ heatmap(
         'legend': {
             'bins': 4,
             'title': 'Box size',
-            'position': (1.05, 0.05),
         },
     },
+    figsize=(10, 8),
+    cmap=cmap,
+    cbar_kws={'label': 'Value'},
 )
+fig.axes[0].set_title('Legend with bins=4 (auto-spaced)')
 fig.show()
 
 #%% legend with bins=array (explicit values)
-fig, ax = plt.subplots(figsize=(8, 6))
-heatmap(
+fig = heatmap(
     corr_df,
-    cmap=cmap,
-    ax=ax,
     box_kws={
         'sizes': sizes,
         'linewidth': 0.9,
@@ -51,19 +45,17 @@ heatmap(
             'label_fmt': '{:.1f}',
             'facecolor': '#aaaaee',
             'edgecolor': '#222222',
-            'position': (1.05, 0.05),
         },
     },
+    figsize=(10, 8),
+    cmap=cmap,
 )
-ax.set_title('Legend with explicit bin values')
+fig.axes[0].set_title('Legend with explicit bin values')
 fig.show()
 
 #%% legend with custom labels
-fig, ax = plt.subplots(figsize=(8, 6))
-heatmap(
+fig = heatmap(
     corr_df,
-    cmap=cmap,
-    ax=ax,
     box_kws={
         'sizes': sizes,
         'background_alpha': 0.3,
@@ -71,12 +63,12 @@ heatmap(
             'bins': 3,
             'labels': ['Low', 'Medium', 'High'],
             'title': 'Strength',
-            'frameon': False,
-            'position': (1.05, 0.05),
         },
     },
+    figsize=(10, 8),
+    cmap=cmap,
 )
-ax.set_title('Legend with custom labels')
+fig.axes[0].set_title('Legend with custom labels')
 fig.show()
 
 plt.show()
