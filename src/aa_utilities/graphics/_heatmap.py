@@ -88,27 +88,26 @@ def _draw_box_legend(ax, sizes, legend_kws):
     heat_xrange = np.abs(np.diff(ax_heat.get_xlim()))[0]
     heat_yrange = np.abs(np.diff(ax_heat.get_ylim()))[0]
     marker_xmax = heat_xrange * w_ratios[1] / w_ratios[0]
-    marker_ymax = heat_yrange * h_ratios[1] / h_ratios[0] / 2 # 50% colorbar 50% marker
+    marker_ymax = heat_yrange * h_ratios[1] / sum(h_ratios)
 
     ax.set_xlim(0, marker_xmax)
     ax.set_ylim(marker_ymax, 0)
     ax.set_xticks([])
     ax.set_yticks([])
 
-    # Space bins evenly across the available height
-    title_space = 1.5 if title else 0
-    usable_height = marker_ymax - title_space
-    space = min(
-        usable_height / max(bin_values) * 6, # fit largest box
-        1,
-    )
+    # Spacing: largest marker + 10% gap, constant across all bins.
+    # If bins don't fit, shrink spacing so all markers stay within ylim.
+    max_v = max(bin_values)
+    ideal_spacing = max_v + max_v / 10  # marker height + 10%-marker gap
+    spacing = min(ideal_spacing, marker_ymax / n_bins)
 
-    # [p.remove() for p in ax.patches]
+    #  [p.remove() for p in ax.patches]
+    right_edge = max_v / 2  # right edge of the largest box
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
-        cy = mi * space + space / 2
+        cy = mi * spacing + spacing / 2
         ax.add_patch(
             patches.Rectangle(
-                (0.5 - v / 2, cy - v / 2),
+                (right_edge - v, cy - v / 2),
                 width=v,
                 height=v,
                 facecolor=facecolor,
@@ -118,15 +117,16 @@ def _draw_box_legend(ax, sizes, legend_kws):
             )
         )
         ax.text(
-            1.1, cy, textwrap.fill(lbl, width=10),
-            va='center', ha='left', fontsize=fontsize,
+            right_edge + max_v * 0.1,  # label starts just past the largest box
+            cy, textwrap.fill(lbl, width=10),
+            va='center_baseline', ha='left', fontsize=fontsize,
         )
 
     if title:
         ax.set_title(
             title,
             va='center', ha='center', fontsize=title_fontsize,
-            fontweight='bold',
+            fontweight='normal',
         )
 
     for spine in ax.spines.values():
