@@ -50,8 +50,11 @@ class Node:
 
 
 class LinkageTreeParser:
-    """
-    Example:
+    """Parses the output of hierarchical clustering algorithms (scikit-learn or scipy) into a tree structure.
+    Each node in the tree represents a cluster, with leaf nodes representing individual samples and internal 
+    nodes representing merged clusters. The parser provides easy access to cluster information, 
+    such as the members of each cluster, the distance at which clusters were merged, and the 
+    relationships between clusters (parent-child and sibling relationships).
     """
 
     def __init__(self, model):

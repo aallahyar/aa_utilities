@@ -1,7 +1,8 @@
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering
+from scipy.cluster.hierarchy import linkage
 
-import aa_utilities.computation
+from aa_utilities.computation import LinkageTreeParser
 
 X = pd.DataFrame(
     data=[
@@ -14,50 +15,83 @@ X = pd.DataFrame(
     columns=['x1', 'x2'],
     index=list('abcde'),
 )
-print(X)
 
-# scikit-learn example
-model = AgglomerativeClustering(
-    linkage='single', 
+# ── scikit-learn ──────────────────────────────────────────────────────────────
+sk_model = AgglomerativeClustering(
+    linkage='single',
     metric='euclidean',
     compute_distances=True,
 ).fit(X)
-print(model)
 
-parsed = aa_utilities.computation.LinkageTreeParser(model=model)
+parsed = LinkageTreeParser(model=sk_model)
+
+# tree overview: shows the top-5 nodes from root downward
+print('=== Tree overview ===')
 print(parsed)
+
+# access any node directly by its id
+print('\n=== Node access: parsed[2] ===')
 print(parsed[2])
-print('root:', parsed.root)
-print('root.is_root:', parsed.root.is_root)
-print('root.is_leaf:', parsed.root.is_leaf)
-print('leaf 0 depth:', parsed[0].depth)
-print('leaf 0 sibling:', parsed[0].sibling)
-print('cut n=2:', parsed.cut(n_clusters=2))
 
-# scipy example
-from scipy.cluster.hierarchy import linkage
-model = linkage(X, optimal_ordering=True, method='single', metric='euclidean')
-print(model)
-parsed = aa_utilities.computation.LinkageTreeParser(model=model)
-print(parsed)
+# root node
+print('\n=== Root ===')
+root = parsed.root
+print(root)
+print(f'  is_root  : {root.is_root}')
+print(f'  is_leaf  : {root.is_leaf}')
+print(f'  depth    : {root.depth}')
+print(f'  distance : {root.distance}')
+print(f'  sibling  : {root.sibling}')   # None — root has no sibling
 
-# from matplotlib import pyplot as plt
-# import numpy as np
-# import seaborn as sns
-# cls_map = sns.clustermap(
-#     data=X,
-#     row_linkage=model,
-#     cmap="vlag",
-#     # colors_ratio = 0.02,
-#     center=0,
-#     # vmin=-3, vmax=3,
-#     # cbar_pos=(1.0, 0.7, 0.02, 0.2),
-#     figsize=(4, 7),
-# )
+# leaf node
+print('\n=== Leaf node (id=0) ===')
+leaf = parsed[0]
+print(leaf)
+print(f'  is_leaf  : {leaf.is_leaf}')
+print(f'  is_root  : {leaf.is_root}')
+print(f'  depth    : {leaf.depth}')
+print(f'  sibling  : {leaf.sibling}')
 
-# dgram = cls_map.dendrogram_row.dendrogram
-# I = np.array(dgram['icoord'])
-# D = np.array(dgram['dcoord'])
+# walk from a leaf up to the root via .parent
+print('\n=== Path from leaf 0 to root ===')
+node = parsed[0]
+while node is not None:
+    print(f'  Node {node.id}  distance={node.distance:.3f}  is_leaf={node.is_leaf}')
+    node = node.parent
+
+# cut the tree at a specific number of clusters
+print('\n=== cut(n_clusters=2) ===')
+clusters = parsed.cut(n_clusters=2)
+for node_id, members in clusters.items():
+    print(f'  cluster rooted at Node {node_id}: {members}')
+
+print('\n=== cut(n_clusters=3) ===')
+for node_id, members in parsed.cut(n_clusters=3).items():
+    print(f'  cluster rooted at Node {node_id}: {members}')
+
+# navigate a split: inspect both children of the root
+print('\n=== Root split ===')
+print(f'  left  child: Node {root.left.id}  members={root.left.merged}')
+print(f'  right child: Node {root.right.id}  members={root.right.merged}')
+print(f'  left.sibling is right: {root.left.sibling is root.right}')
+
+# ── scipy ─────────────────────────────────────────────────────────────────────
+print('\n=== scipy linkage matrix ===')
+sp_model = linkage(
+    X, 
+    method='single', 
+    metric='euclidean', 
+    optimal_ordering=True, # only available in scipy, not available in scikit-learn
+)
+print(sp_model)
+
+parsed_sp = LinkageTreeParser(model=sp_model)
+print('\n=== scipy tree overview ===')
+print(parsed_sp)
+
+print('\n=== scipy cut(n_clusters=2) ===')
+for node_id, members in parsed_sp.cut(n_clusters=2).items():
+    print(f'  cluster rooted at Node {node_id}: {members}')
 
 # plt.show(block=True)
 # print()
