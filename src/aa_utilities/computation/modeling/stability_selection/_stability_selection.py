@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Any, Tuple
+from typing import Any, Callable, Generic, TypeVar
 import os
 
 import numpy as np
@@ -10,22 +10,25 @@ from joblib import Parallel, delayed
 from ._subsampling import BaseSampler
 
 
+T = TypeVar("T")
+
+
 @dataclass
-class SelectorResult:
+class SelectorResult(Generic[T]):
     """
     Per-fit output collected by the orchestrator from the selector function and augmented with context.
-    - feature_weights: signed array of length p (model-native coefficients or analogous weights).
+    - output: result returned by the selector function; type T (e.g., 1-D weight array, matrix, dict).
     - sample_idxs: integer indices used in this sub-fit.
     - failure: None if fit/selection succeeded; otherwise an error message string.
     - meta: metadata such as iteration, subfit_id (0..), iter_seed, subset_size, and optional origin.
     """
-    feature_weights: np.ndarray
+    output: T | None
     sample_idxs: np.ndarray | None = None
     failure: str | None = None
-    meta: Dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
-SelectorFn = Callable[[BaseEstimator, List[str] | None], SelectorResult]
+SelectorFn = Callable[[BaseEstimator, list[str] | None], SelectorResult[Any]]
 EstimatorFactory = Callable[[int | None], BaseEstimator]
 
 
@@ -52,40 +55,43 @@ class StabilitySelectionConfig:
 
 
 @dataclass
-class StabilitySelectionRun:
+class StabilitySelectionRun(Generic[T]):
     """
     Returned by the orchestrator's fit method.
     - results: flat list of per-fit results (CPSS contributes 2 per iteration; others contribute 1).
-    - feature_names: optional list aligned to feature_weights length p.
+    - feature_names: optional list aligned to n_features.
     - config, n_samples, n_features: run-level metadata for auditability.
     """
-    results: List[SelectorResult]
-    feature_names: List[str] | None
+    results: list[SelectorResult[T]]
+    feature_names: list[str] | None
     config: StabilitySelectionConfig
     n_samples: int
     n_features: int
 
 
-class StabilitySelector:
+class StabilitySelector(Generic[T]):
     """
     Orchestrates stability selection with a pluggable subsampling strategy.
     - subsampler: any BaseSampler subclass instance (StandardSampler, BootstrapSampler, StratifiedSampler, ComplementaryPairsSampler).
-    - selector_fn: extracts feature_weights from a fitted estimator (signed, length p).
+    - selector_fn: returns a SelectorResult[T] from a fitted estimator; T can be any type (1-D array, matrix, dict, ...).
     - estimator_factory: creates a fresh estimator per sub-fit and accepts an optional seed.
+    - output_validator: optional callable (output, n_features) -> None; raise ValueError to reject an output.
     - No aggregation: returns per-fit results only; post-processing remains external.
     """
 
     def __init__(
         self,
         estimator_factory: EstimatorFactory,
-        selector_fn: SelectorFn,
+        selector_fn: Callable[[BaseEstimator, list[str] | None], SelectorResult[T]],
         subsampler: BaseSampler,
         config: StabilitySelectionConfig | None = None,
+        output_validator: Callable[[T, int], None] | None = None,
     ):
         self.estimator_factory = estimator_factory
         self.selector_fn = selector_fn
         self.subsampler = subsampler
         self.config = config or StabilitySelectionConfig()
+        self.output_validator = output_validator
 
     # -------------------------
     # Deterministic seed utils
@@ -99,7 +105,7 @@ class StabilitySelector:
     # -------------------------
     # Thread-cap utils (scoped)
     # -------------------------
-    def _apply_thread_caps(self) -> Dict[str, str | None]:
+    def _apply_thread_caps(self) -> dict[str, str | None]:
         prev = {
             "OMP_NUM_THREADS": os.environ.get("OMP_NUM_THREADS"),
             "MKL_NUM_THREADS": os.environ.get("MKL_NUM_THREADS"),
@@ -113,7 +119,7 @@ class StabilitySelector:
             os.environ["NUMEXPR_NUM_THREADS"] = str(self.config.numexpr_num_threads)
         return prev
 
-    def _restore_thread_caps(self, prev: Dict[str, str | None]) -> None:
+    def _restore_thread_caps(self, prev: dict[str, str | None]) -> None:
         for key, val in prev.items():
             if val is None:
                 if key in os.environ:
@@ -131,10 +137,10 @@ class StabilitySelector:
         sample_idxs: np.ndarray,
         X: np.ndarray,
         y: np.ndarray | None,
-        feature_names: List[str] | None,
-        fit_params: Dict[str, Any] | None,
+        feature_names: list[str] | None,
+        fit_params: dict[str, Any] | None,
         iter_seed: int | None,
-    ) -> SelectorResult:
+    ) -> SelectorResult[T]:
         # Create a fresh estimator, passing the per-iteration seed if supported
         try:
             estimator = self.estimator_factory(iter_seed)
@@ -152,10 +158,10 @@ class StabilitySelector:
 
             sel_result = self.selector_fn(estimator, feature_names)
 
-            # Basic shape validation
+            # Optional output validation (caller-supplied; raises ValueError to reject)
             n_features = X.shape[1]
-            if sel_result.feature_weights is not None and len(sel_result.feature_weights) != n_features:
-                raise ValueError("selector returned feature_weights of wrong length.")
+            if self.output_validator is not None and sel_result.output is not None:
+                self.output_validator(sel_result.output, n_features)
 
             # Attach indices and meta
             sel_result.sample_idxs = sample_idxs
@@ -173,7 +179,7 @@ class StabilitySelector:
 
         except Exception as e:
             sel_result = SelectorResult(
-                feature_weights=None,
+                output=None,
                 sample_idxs=sample_idxs,
                 failure=str(e),
                 meta={
@@ -193,9 +199,9 @@ class StabilitySelector:
         self,
         X: np.ndarray,
         y: np.ndarray | None = None,
-        feature_names: List[str] | None = None,
-        fit_params: Dict[str, Any] | None = None,
-    ) -> StabilitySelectionRun:
+        feature_names: list[str] | None = None,
+        fit_params: dict[str, Any] | None = None,
+    ) -> StabilitySelectionRun[T]:
         """
         Run stability selection using the provided subsampler strategy.
         - For single-fit samplers (standard/stratified/bootstrap), each iteration yields 1 result.
@@ -219,7 +225,7 @@ class StabilitySelector:
         prev_env = self._apply_thread_caps()
         try:
             if self.config.n_jobs == 1:
-                results: List[SelectorResult] = []
+                results: list[SelectorResult[T]] = []
                 for it in iterations:
                     iter_seed = self._derive_iteration_seed(base_seed, it)
                     rng = np.random.default_rng(iter_seed)
@@ -238,7 +244,7 @@ class StabilitySelector:
                         results.append(res)
             else:
                 # Build tasks for all sub-fits across all iterations
-                tasks: List[Tuple[int, int, np.ndarray, int | None]] = []
+                tasks: list[tuple[int, int, np.ndarray, int | None]] = []
                 for it in iterations:
                     iter_seed = self._derive_iteration_seed(base_seed, it)
                     rng = np.random.default_rng(iter_seed)

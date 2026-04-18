@@ -13,7 +13,7 @@ from aa_utilities.computation.modeling import stability_selection
 def linear_feature_weights_selector(
     estimator: BaseEstimator,
     feature_names: list[str] | None,
-) -> stability_selection.SelectorResult:
+) -> stability_selection.SelectorResult[np.ndarray]:
     """
     Default linear selector returning signed model-native coefficients.
     - If coef_ is 1D: use directly.
@@ -30,8 +30,8 @@ def linear_feature_weights_selector(
 
     # sample_idxs and meta are filled by the orchestrator
     return stability_selection.SelectorResult(
-        feature_weights=weights, 
-        failure=None, 
+        output=weights,
+        failure=None,
         meta={"origin": "coef"},
     )
 
@@ -92,7 +92,7 @@ print(f"Successful fits: {ok} / {len(run.results)}")
 first_ok = next((r for r in run.results if r.failure is None), None)
 if first_ok is not None:
     print(f"First success: subset size={first_ok.meta.get('subset_size')}, "
-            f"weights shape={first_ok.feature_weights.shape}")
+            f"weights shape={first_ok.output.shape}")
 
 # fit ElasticNet on full data for comparison
 full_enet = enet_factory(iter_seed=42)
@@ -111,7 +111,7 @@ n_bar = 50
 fig, axes = plt.subplots(2, 1, figsize=(15, 8))
 stab_sel_freq = (
     pd.DataFrame(
-        data=(result.feature_weights for result in run.results),
+        data=(result.output for result in run.results),
         columns=run.feature_names,
     )
     .ne(0)  # Non-zero feature selections
@@ -150,7 +150,7 @@ fig.subplots_adjust(hspace=0.5, bottom=0.2)
 # show scatterplot of stability selection freq vs full-data coefficients
 nonzero_coefs = (
     pd.DataFrame(
-        data=(result.feature_weights for result in run.results),
+        data=(result.output for result in run.results),
         columns=run.feature_names,
     )
     .ne(0)  # Non-zero feature selections
