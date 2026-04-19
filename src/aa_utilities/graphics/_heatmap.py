@@ -19,8 +19,8 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
     from matplotlib.collections import PatchCollection
 
     edgecolors = box_kws.get('edgecolors', np.empty_like(heatmap_df, dtype=object))
-    linewidths = box_kws.get('linewidths', np.ones_like(heatmap_df, dtype=float))
-    background_alpha = box_kws.get('background_alpha', 0.05)
+    linewidths = box_kws.get('linewidths', np.ones_like(heatmap_df, dtype=float) * 1.5)
+    background_alpha = box_kws.get('background_alpha', 0.1)
 
     rectangles = []
     for ri in range(heatmap_df.shape[0]):
@@ -164,8 +164,8 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
             - sizes (np.ndarray): Per-cell box sizes in [0, 1].
               Default: 0.8 uniform.
             - edgecolors (np.ndarray): Per-cell edge colors. Default: None.
-            - linewidths (np.ndarray): Per-cell border widths. Default: 1.5.
-            - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.05.
+            - linewidths (np.ndarray): Per-cell border widths. Default: 1.5 uniform.
+            - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.1.
             - legend (dict): Marker legend config passed to
               ``_draw_box_legend``.  Default: ``{}`` (draws a 4-bin auto
               legend).
@@ -261,7 +261,8 @@ def overlay_boxes(
             matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.), in **original** 
             data order. 
             Default: no (i.e., fully transparent) edge color.
-        linewidths (np.ndarray, optional): Per-cell border widths in **original** data order. Default: 1.5.
+        linewidths (np.ndarray, optional): Per-cell border widths in **original** data order. 
+            Default: 1.5 uniform.
         background_alpha (float): Heatmap mesh alpha after dimming.
             Default: 0.1.
 
