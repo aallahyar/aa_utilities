@@ -4,26 +4,27 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-def _extract_face_colors(ax, matrix_df):
+
+def _extract_face_colors(ax, heatmap_df):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
     face_colors = ax.collections[0].get_facecolors()
     if face_colors is None or len(face_colors) == 0:
         face_colors = ax.collections[0]._facecolors
-    return face_colors.reshape(*matrix_df.shape, 4)
+    return face_colors.reshape(*heatmap_df.shape, 4)
 
 
-def _overlay_boxes(ax, matrix_df, face_colors, sizes, box_kws):
+def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
     """Draw sized rectangles on top of the heatmap mesh and dim the original."""
     from matplotlib import patches
     from matplotlib.collections import PatchCollection
 
-    edgecolors = box_kws.get('edgecolors', np.empty_like(matrix_df, dtype=object))
-    linewidth = box_kws.get('linewidth', 3)
+    edgecolors = box_kws.get('edgecolors', np.empty_like(heatmap_df, dtype=object))
+    linewidths = box_kws.get('linewidths', np.ones_like(heatmap_df, dtype=float))
     background_alpha = box_kws.get('background_alpha', 0.05)
 
     rectangles = []
-    for ri, row in enumerate(matrix_df.index):
-        for ci, col in enumerate(matrix_df.columns):
+    for ri in range(heatmap_df.shape[0]):
+        for ci in range(heatmap_df.shape[1]):
             rectangles.append(
                 patches.Rectangle(
                     (ci + 0.5 - sizes[ri, ci] / 2, ri + 0.5 - sizes[ri, ci] / 2),
@@ -31,11 +32,16 @@ def _overlay_boxes(ax, matrix_df, face_colors, sizes, box_kws):
                     height=sizes[ri, ci],
                     facecolor=face_colors[ri, ci],
                     edgecolor=edgecolors[ri, ci],
-                    linewidth=linewidth,
+                    linewidth=linewidths[ri, ci],
                 )
             )
-    ax.add_collection(PatchCollection(rectangles, match_original=True))
-    ax.collections[0].set_alpha(background_alpha)
+    patch_collection = PatchCollection(rectangles, match_original=True)
+    # Keep a reference to the original QuadMesh before adding the new collection.
+    quad_mesh = ax.collections[0]
+    ax.add_collection(patch_collection)
+    quad_mesh.set_alpha(background_alpha)
+    
+    return patch_collection
 
 
 def _draw_box_legend(ax, sizes, legend_kws):
@@ -103,7 +109,8 @@ def _draw_box_legend(ax, sizes, legend_kws):
     ideal_spacing = max_v + max_v / 10  # marker height + 10%-marker gap
     spacing = min(ideal_spacing, marker_ymax / n_bins)
 
-    right_edge = max_v / 2  # right edge of the largest box
+    # x-coordinate of the right edge shared by all boxes (right-aligns all sizes).
+    right_edge = max_v / 2
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
         cy = mi * spacing + spacing / 2 + spacing / 10   # center y of the current marker
         ax.add_patch(
@@ -157,8 +164,8 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
             - sizes (np.ndarray): Per-cell box sizes in [0, 1].
               Default: 0.8 uniform.
             - edgecolors (np.ndarray): Per-cell edge colors. Default: None.
-            - linewidth (float): Border width. Default: 3.
-            - background_alpha (float): Heatmap mesh alpha. Default: 0.05.
+            - linewidths (np.ndarray): Per-cell border widths. Default: 1.5.
+            - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.05.
             - legend (dict): Marker legend config passed to
               ``_draw_box_legend``.  Default: ``{}`` (draws a 4-bin auto
               legend).
@@ -186,7 +193,7 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
             corr,
             box_kws={
                 'sizes': corr.abs().values * 0.98 / corr.values.max(),
-                'linewidth': 0.9,
+                'linewidths': np.ones_like(corr, dtype=float) * 0.9,
                 'background_alpha': 0.7,
                 'edgecolors': np.where(corr.le(0), '#000000', None),
                 'legend': {'bins': 4, 'title': 'Box size'},
@@ -233,3 +240,82 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
     _draw_box_legend(ax_marker, sizes, legend_kws)
 
     return fig
+
+
+def overlay_boxes(
+        clustermap_obj,
+        sizes=None,
+        edgecolors=None,
+        linewidths=None,
+        background_alpha=0.1,
+    ):
+    """Overlay sized rectangles on an existing seaborn clustermap's heatmap.
+
+    Args:
+        clustermap_obj: The ``ClusterGrid`` object returned by
+            ``sns.clustermap()``.
+        sizes (np.ndarray, optional): Per-cell box sizes in [0, 1], in
+            **original** data order (pre-clustering). 
+            Default: 0.8 uniform.
+        edgecolors (np.ndarray, optional): Per-cell edge colors in any valid
+            matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.), in **original** 
+            data order. 
+            Default: no (i.e., fully transparent) edge color.
+        linewidths (np.ndarray, optional): Per-cell border widths in **original** data order. Default: 1.5.
+        background_alpha (float): Heatmap mesh alpha after dimming.
+            Default: 0.1.
+
+    Returns:
+        matplotlib.collections.PatchCollection: The overlay patch collection.
+
+    Notes:
+        When ``row_cluster=False`` or ``col_cluster=False`` was passed to
+        ``sns.clustermap()``, the corresponding dendrogram is ``None`` and
+        the original row/column order is used as-is.
+    """
+    ax_heat = clustermap_obj.ax_heatmap
+
+    # data2d has already been reordered to the clustered (visual) layout by seaborn's
+    # plot_matrix() before clustermap() returns, so it matches the heatmap's rendered order.
+    heatmap_df = clustermap_obj.data2d
+
+    n_rows, n_cols = heatmap_df.shape
+
+    # Resolve row/col clustering order, falling back to identity when a
+    # dendrogram is absent (row_cluster=False or col_cluster=False).
+    if clustermap_obj.dendrogram_row is not None:
+        row_order = clustermap_obj.dendrogram_row.reordered_ind
+    else:
+        row_order = list(range(n_rows))
+
+    if clustermap_obj.dendrogram_col is not None:
+        col_order = clustermap_obj.dendrogram_col.reordered_ind
+    else:
+        col_order = list(range(n_cols))
+
+    if sizes is None:
+        sizes = np.ones((n_rows, n_cols)) * 0.8
+    # Reorder sizes from original data order to the visual (clustered) order.
+    sizes_reordered = sizes[np.ix_(row_order, col_order)]
+
+    if edgecolors is None:
+        # default to no edge color
+        edgecolors = np.empty((n_rows, n_cols), dtype=object)
+    # Reorder edgecolors from original data order to the visual (clustered) order.
+    edgecolors_reordered = edgecolors[np.ix_(row_order, col_order)]
+
+    if linewidths is None:
+        linewidths = np.ones((n_rows, n_cols)) * 1.5
+    # Reorder linewidths from original data order to the visual (clustered) order.
+    linewidths_reordered = linewidths[np.ix_(row_order, col_order)]
+
+    box_kws = {
+        'edgecolors': edgecolors_reordered,
+        'linewidths': linewidths_reordered,
+        'background_alpha': background_alpha,
+    }
+
+    face_colors = _extract_face_colors(ax_heat, heatmap_df)
+    patch_collection = _overlay_boxes(ax_heat, heatmap_df, face_colors, sizes_reordered, box_kws)
+
+    return patch_collection
