@@ -252,6 +252,7 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
 def overlay_boxes(
         clustermap_obj,
         sizes=None,
+        facecolors=None,
         edgecolors=None,
         linewidths=None,
         background_alpha=0.1,
@@ -264,6 +265,9 @@ def overlay_boxes(
         sizes (np.ndarray, optional): Per-cell box sizes in [0, 1], in
             **original** data order (pre-clustering). 
             Default: 0.8 uniform.
+        facecolors (np.ndarray, optional): Per-cell RGBA colors in the original
+            data order.  If not provided, colors are extracted from the heatmap
+            mesh.  This is necessary if the heatmap was drawn with a custom colormap.
         edgecolors (np.ndarray, optional): Per-cell edge colors in any valid
             matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.), in **original** 
             data order. 
@@ -307,6 +311,9 @@ def overlay_boxes(
     sizes = np.array(sizes) # ensure it's a numpy array for indexing
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 
+    if facecolors is None:
+        facecolors = _extract_face_colors(ax_heat, heatmap_df)
+
     if edgecolors is None:
         # default to no edge color
         edgecolors = np.empty((n_rows, n_cols), dtype=object)
@@ -324,7 +331,12 @@ def overlay_boxes(
         'background_alpha': background_alpha,
     }
 
-    face_colors = _extract_face_colors(ax_heat, heatmap_df)
-    patch_collection = _overlay_boxes(ax_heat, heatmap_df, face_colors, sizes_reordered, box_kws)
+    patch_collection = _overlay_boxes(
+        ax=ax_heat, 
+        heatmap_df=heatmap_df, 
+        face_colors=facecolors, 
+        sizes=sizes_reordered, 
+        box_kws=box_kws,
+    )
 
     return patch_collection

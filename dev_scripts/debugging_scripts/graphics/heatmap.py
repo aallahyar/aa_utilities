@@ -123,4 +123,5 @@ overlay_boxes(
     background_alpha=0.1,
 )
 
-clsmap.figure.show()
+# clsmap.figure.show()
+plt.show()
