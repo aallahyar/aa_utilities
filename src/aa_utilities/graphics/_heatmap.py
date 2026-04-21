@@ -7,6 +7,13 @@ from matplotlib import pyplot as plt
 
 def _extract_face_colors(ax, heatmap_df):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
+    
+    # Force a canvas draw so that QuadMesh expands broadcast colors to per-cell
+    # values before we read them.  Without this, a second call (e.g. two
+    # consecutive overlay_boxes() calls) returns a single RGBA row instead of
+    # one row per cell.
+    ax.get_figure().canvas.draw()
+
     face_colors = ax.collections[0].get_facecolors()
     if face_colors is None or len(face_colors) == 0:
         face_colors = ax.collections[0]._facecolors
@@ -297,6 +304,7 @@ def overlay_boxes(
     if sizes is None:
         sizes = np.ones((n_rows, n_cols)) * 0.8
     # Reorder sizes from original data order to the visual (clustered) order.
+    sizes = np.array(sizes) # ensure it's a numpy array for indexing
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 
     if edgecolors is None:
