@@ -114,13 +114,10 @@ overlay_boxes(
 
 overlay_boxes(
     clsmap,
-    sizes=sizes / 2,
-
-    # use None or a fully transparent color (e.g., '#00000000') for no edges
-    edgecolors=np.where(corr_df.le(0), '#000000', "#039E6D"),
-    
-    linewidths=np.linspace(5, 0.5, corr_df.size).reshape(corr_df.shape), # example of varying linewidths
-    background_alpha=0.1,
+    sizes=np.ones_like(corr_df) * 0.98,  # using the percentage of cells expressing the marker as box size
+    linewidths=np.full(shape=corr_df.shape, fill_value=1),  # black edge color for all boxes
+    facecolors=np.full(shape=corr_df.shape, fill_value='none'),  # transparent fill color for all boxes
+    edgecolors=np.full(shape=corr_df.shape, fill_value='#000000'),  # edge color based on marker status
 )
 
 # clsmap.figure.show()
