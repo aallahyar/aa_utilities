@@ -11,9 +11,9 @@ from scipy.spatial.distance import cdist
 _GIL_FREE_METRICS = frozenset({
     "braycurtis", "canberra", "chebyshev", "cityblock", "correlation",
     "cosine", "euclidean", "jensenshannon", "mahalanobis", "minkowski",
-    "seuclidean", "sqeuclidean", "wminkowski",
-    "hamming", "jaccard", "kulsinski", "matching", "rogerstanimoto",
-    "russellrao", "sokalmichener", "sokalsneath", "yule",
+    "seuclidean", "sqeuclidean",
+    "hamming", "jaccard", "matching", "rogerstanimoto",
+    "russellrao", "sokalsneath", "yule",
 })
 
 
@@ -116,6 +116,9 @@ def pairwise_distances(
                 f"got X.shape[1]={X.shape[1]} and Y.shape[1]={Y.shape[1]}"
             )
 
+    if chunk_size is not None and chunk_size < 1:
+        raise ValueError(f"'chunk_size' must be >= 1, got {chunk_size}")
+
     n_workers = effective_n_jobs(n_jobs)
 
     # Single-worker fast path — skip joblib overhead entirely.
@@ -134,10 +137,14 @@ def pairwise_distances(
             )
 
         # Split X into row chunks, one per worker.
+        # Cap n_chunks to n_samples so we never produce empty chunks.
         if chunk_size is None:
-            n_chunks = n_workers
+            n_chunks = min(n_workers, X.shape[0])
         else:
-            n_chunks = max(1, int(np.ceil(X.shape[0] / chunk_size)))
+            n_chunks = min(
+                max(1, int(np.ceil(X.shape[0] / chunk_size))),
+                X.shape[0],
+            )
 
         x_chunks = np.array_split(X, n_chunks)
 

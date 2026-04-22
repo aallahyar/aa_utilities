@@ -126,6 +126,19 @@ def test_raises_on_feature_mismatch():
         pairwise_distances(X, Y)
 
 
+def test_raises_on_zero_chunk_size():
+    X = np.ones((10, 5))
+    with pytest.raises(ValueError, match="chunk_size"):
+        pairwise_distances(X, chunk_size=0)
+
+
+def test_n_chunks_capped_to_n_samples():
+    """n_jobs > n_samples must not produce empty chunks or raise."""
+    X = np.ones((3, 5))
+    D = pairwise_distances(X, metric="euclidean", n_jobs=8)
+    assert D.shape == (3, 3)
+
+
 # --- metric kwargs forwarding ---
 
 def test_metric_kwargs_forwarded(sample_matrices):
