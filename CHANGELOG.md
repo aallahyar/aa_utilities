@@ -1,3 +1,7 @@
+## [0.0.46] - 2026-04-22
+### Added:
+- `computation.pairwise_distances` to compute pairwise sample distances via multi-core implementation.
+
 ## [0.0.45] - 2026-04-15
 ### Added:
 - `helper.pandas.reorder_by_similarity` to reorder rows/columns by row/column similarity
