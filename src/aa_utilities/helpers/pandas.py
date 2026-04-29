@@ -506,7 +506,7 @@ def _render(df, title):
         print(df.to_string())
 
 
-def describe(df, n_top=3, show_numeric=True, show_categorical=True):
+def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=False):
     """
     Enhanced pandas.DataFrame.describe() that splits the summary into two focused tables:
     - Numeric table: standard describe() stats + dtype
@@ -528,6 +528,13 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True):
     tuple of (numeric_df, categorical_df) — either may be None if not requested
     or if no columns of that type exist.
     """
+
+    # If return_dfs is True, we won't display the tables, but will still compute them and return as DataFrames.
+    if return_dfs:
+        show_numeric = False
+        show_categorical = False
+    if show_numeric or show_categorical:
+        assert return_dfs == False, "If `return_dfs` is True, both `show_numeric` and `show_categorical` must be False to avoid displaying the tables."
 
     # ------------------------------------------------------------------ #
     #  Numeric Table                                                     #
@@ -599,7 +606,10 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True):
     if show_categorical and categorical_df is not None:
         _render(categorical_df, "CATEGORICAL SUMMARY")
 
-    return numeric_df, categorical_df
+    if return_dfs:
+        return numeric_df, categorical_df
+    else:
+        return None
 
 
 if __name__ == '__main__':
