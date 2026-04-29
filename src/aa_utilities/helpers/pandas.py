@@ -594,6 +594,10 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
                 pd.DataFrame(rows, index=categorical_cols)
             )
 
+            # cast the count columns to `Int64` to allow `NaNs` while keeping integers
+            count_cols = [f"count_{i}" for i in range(1, n_top + 1)]
+            categorical_df[count_cols] = categorical_df[count_cols].astype('Int64')
+
         else:
             print("No categorical/string columns found.")
 
