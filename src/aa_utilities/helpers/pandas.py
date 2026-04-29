@@ -7,7 +7,6 @@ from typing import (
 
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_numeric_dtype, is_string_dtype, infer_dtype
 
 
 def generate_dataframe(n=100, seed=42):
@@ -184,9 +183,10 @@ def store(data: Any, namespace: dict, name: str='stored_data', copy=True) -> Any
         print('>test4\n', test4)
         print('>test5\n', test5)
     """
-    
+    import copy as _copy
+
     if copy:
-        namespace[name] = data.copy()
+        namespace[name] = _copy.deepcopy(data)
     else:
         namespace[name] = data
     return data
@@ -326,9 +326,9 @@ def search(
     is_str = isinstance(value, str)
     assert is_num or is_str, 'Unsupported value type for search'
     if is_num:
-        selected_cols = [c for c in df.columns if is_numeric_dtype(df[c]) or 'mixed' in infer_dtype(df[c])]
+        selected_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) or 'mixed' in pd.api.types.infer_dtype(df[c])]
     elif is_str:
-        # selected_cols = [c for c in df.columns if is_string_dtype(df[c]) or 'mixed' in infer_dtype(df[c])]
+        # selected_cols = [c for c in df.columns if pd.api.types.is_string_dtype(df[c]) or 'mixed' in pd.api.types.infer_dtype(df[c])]
         selected_cols = df.select_dtypes('object').columns.tolist() + df.select_dtypes('string').columns.tolist()
     if len(selected_cols) == 0:
         return pd.DataFrame(columns=out_cols)
@@ -348,7 +348,7 @@ def search(
                 # Build mask efficiently using NumPy, then convert to DataFrame
                 mask_array = np.zeros(sub.shape, dtype=bool)
                 for c_idx, c_name in enumerate(sub.columns):
-                    if 'mixed' in infer_dtype(sub[c_name]):
+                    if 'mixed' in pd.api.types.infer_dtype(sub[c_name]):
                         arr = pd.to_numeric(sub[c_name], errors='coerce').to_numpy(copy=False)
                     else:
                         arr = sub[c_name].to_numpy(copy=False)
@@ -443,7 +443,7 @@ def reorder_by_similarity(
         raise ValueError("`col_kws` must be None when axis='rows'")
 
     # All columns must be numeric
-    non_numeric = [c for c in df.columns if not is_numeric_dtype(df[c])]
+    non_numeric = [c for c in df.columns if not pd.api.types.is_numeric_dtype(df[c])]
     if len(non_numeric) > 0:
         raise TypeError(
             f'All columns must be numeric, but the following are not: {non_numeric}'
@@ -483,6 +483,124 @@ def reorder_by_similarity(
     )
 
     return df_reordered
+
+
+def _is_jupyter():
+    """Detect if the code is running inside a Jupyter environment."""
+    try:
+        shell = get_ipython().__class__.__name__
+        return shell in ("ZMQInteractiveShell", "Shell")  # Jupyter Notebook/Lab/Colab
+    except NameError:
+        return False  # Plain Python interpreter
+
+
+def _render(df, title):
+    """Render a DataFrame using display() in Jupyter or print() otherwise."""
+    print("=" * 60)
+    print(f"  {title}")
+    print("=" * 60)
+
+    if _is_jupyter():
+        from IPython.display import display
+        display(df)
+    else:
+        print(df.to_string())
+
+
+def describe(df, n_top=3, show_numeric=True, show_categorical=True):
+    """
+    Enhanced pandas.DataFrame.describe() that splits the summary into two focused tables:
+    - Numeric table: standard describe() stats + dtype
+    - Categorical table: count, unique, top_n/count_n pairs + dtype
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The DataFrame to summarize.
+    n_top : int
+        Number of top frequent elements to show for categorical/string columns.
+    show_numeric : bool
+        Whether to display the numeric summary table.
+    show_categorical : bool
+        Whether to display the categorical/string summary table.
+
+    Returns
+    -------
+    tuple of (numeric_df, categorical_df) — either may be None if not requested
+    or if no columns of that type exist.
+    """
+
+    # ------------------------------------------------------------------ #
+    #  Numeric Table                                                       #
+    # ------------------------------------------------------------------ #
+    numeric_df = None
+
+    if show_numeric:
+        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+
+        if numeric_cols:
+            numeric_df = df[numeric_cols].describe().T
+            numeric_df.insert(0, "dtype", df[numeric_cols].dtypes)
+            numeric_df = (
+                numeric_df
+                .assign(
+                    count=lambda num_df: num_df['count'].astype(int), # .fillna(0)
+                )
+            )
+        else:
+            print("No numeric columns found.")
+
+    # ------------------------------------------------------------------ #
+    #  Categorical Table                                                   #
+    # ------------------------------------------------------------------ #
+    categorical_df = None
+
+    if show_categorical:
+        categorical_cols = df.select_dtypes(
+            include=["object", "category"]
+        ).columns.tolist()
+
+        if categorical_cols:
+            rows = []
+
+            for col in categorical_cols:
+                series = df[col]
+                value_counts = series.value_counts(dropna=False)
+
+                row = {
+                    "dtype"  : series.dtype,
+                    "count"  : series.count(),
+                    "n_unique" : series.nunique(),
+                }
+
+                # Gracefully handle fewer unique values than n
+                for i in range(1, n_top + 1):
+                    if i <= len(value_counts):
+                        row[f"top_{i}"]   = value_counts.index[i - 1]
+                        row[f"count_{i}"] = value_counts.iloc[i - 1]
+                    else:
+                        row[f"top_{i}"]   = np.nan
+                        row[f"count_{i}"] = np.nan
+
+                rows.append(row)
+
+            categorical_df = (
+                pd.DataFrame(rows, index=categorical_cols)
+            )
+
+        else:
+            print("No categorical/string columns found.")
+
+    # ------------------------------------------------------------------ #
+    #  Display                                                             #
+    # ------------------------------------------------------------------ #
+    if show_numeric and numeric_df is not None:
+        _render(numeric_df, "NUMERIC SUMMARY")
+
+    if show_categorical and categorical_df is not None:
+        _render(categorical_df, "CATEGORICAL SUMMARY")
+
+    return numeric_df, categorical_df
 
 
 if __name__ == '__main__':

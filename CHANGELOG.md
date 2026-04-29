@@ -1,12 +1,13 @@
 ## [0.0.46] - 2026-04-22
 ### Added:
 - `computation.pairwise_distances` to compute pairwise sample distances via multi-core implementation.
+- `helpers.pandas.describe` to quickly visualize the content of a dataframe
 
 ## [0.0.45] - 2026-04-15
 ### Added:
 - `helper.pandas.reorder_by_similarity` to reorder rows/columns by row/column similarity
-- `.computation.modeling.stability_selection` is now updated to accept any type of output.
-- `.graphics.overlay_boxes` to overlay boxes over existing `sns.clustermap` objects
+- `computation.modeling.stability_selection` is now updated to accept any type of output.
+- `graphics.overlay_boxes` to overlay boxes over existing `sns.clustermap` objects
 
 ## [0.0.44] - 2026-04-13
 ### Added:

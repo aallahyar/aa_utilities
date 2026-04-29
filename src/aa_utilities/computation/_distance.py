@@ -182,5 +182,6 @@ def pairwise_distances(
     # Symmetrise if requested and if the result should be symmetric.
     if force_symmetry and is_symmetric:
         distance_matrix = (distance_matrix + distance_matrix.T) / 2
+        np.fill_diagonal(distance_matrix, 0) # ensure exact zeros on the diagonal after symmetrisation
 
     return distance_matrix
