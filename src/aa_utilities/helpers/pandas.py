@@ -496,9 +496,8 @@ def _is_jupyter():
 
 def _render(df, title):
     """Render a DataFrame using display() in Jupyter or print() otherwise."""
-    print("=" * 60)
-    print(f"  {title}")
-    print("=" * 60)
+    
+    print(f"===  {title}")
 
     if _is_jupyter():
         from IPython.display import display
@@ -531,7 +530,7 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True):
     """
 
     # ------------------------------------------------------------------ #
-    #  Numeric Table                                                       #
+    #  Numeric Table                                                     #
     # ------------------------------------------------------------------ #
     numeric_df = None
 
@@ -551,7 +550,7 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True):
             print("No numeric columns found.")
 
     # ------------------------------------------------------------------ #
-    #  Categorical Table                                                   #
+    #  Categorical Table                                                 #
     # ------------------------------------------------------------------ #
     categorical_df = None
 
