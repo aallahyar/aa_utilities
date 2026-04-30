@@ -513,7 +513,7 @@ def to_colors(
         if vmin <= 0 or vmax <= 0:
             raise ValueError(
                 f'Log scaling requires vmin > 0 and vmax > 0. Got vmin={vmin}, vmax={vmax}. '
-                f'Consider filtering out non-positive values or using a different scale.'
+                'Consider filtering out non-positive values or using a different scale.'
             )
 
         if np.any(values[np.isfinite(values)] <= 0):

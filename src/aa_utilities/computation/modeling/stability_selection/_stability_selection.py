@@ -30,7 +30,7 @@ class SelectorResult(Generic[T]):
 
 
 SelectorFn = Callable[[BaseEstimator, list[str] | None], SelectorResult[Any]]
-EstimatorFactory = Callable[[int | None], BaseEstimator]
+EstimatorFactory = Callable[..., BaseEstimator]
 
 
 @dataclass

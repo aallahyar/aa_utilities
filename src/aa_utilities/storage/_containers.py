@@ -24,8 +24,8 @@ class Container(dict):
         )
 
         container['a3'] = 20
-        container.loc['b4'] = 20.234
-        container.include(a3=21, b4=21.234)
+        container['b4'] = 20.234
+        container.update(a3=21, b4=21.234)
 
         container.c5miss = 30 # NOTE: stored in the dict via __setattr__ and will appear in __repr__; use a name starting with '_' to store without representation
         print(container.c5miss)
@@ -123,9 +123,15 @@ class Container(dict):
             self.__setattr__(key, value)
 
     def set_params(self, **kwargs):
-        for key, value in kwargs.items():
-            assert key in self._params, 'Unknown parameter'
-            self._params[key] = value
+        """Set display/pretty-printing parameters. Delegates to the internal PrettyPrinter.
+
+        Valid keys: ``display_width``, ``max_n_rows``, ``max_n_elements``, ``indent``.
+
+        Examples:
+            container.set_params(display_width=120, max_n_rows=20, max_n_elements=15)
+        """
+        self._pp.set_params(**kwargs)
+        return self
 
     def copy(self, deep=True):
         if deep:
@@ -170,7 +176,7 @@ class Container(dict):
         if name in self._RESERVED_TERMS:
             self._logger.warning(
                 f'Setting "{name}" will shadow the existing attribute (or method) with the same name'
-                f'that exists in this <{type(self).__name__}>.'
+                f' that exists in this <{type(self).__name__}>.'
             )
         if name.startswith('_'):
             super().__setattr__(

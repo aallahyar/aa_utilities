@@ -35,8 +35,7 @@ class InteractiveSelection:
 
         if matplotlib.get_backend() not in ['ipympl', 'widget', 'module://ipympl.backend_nbagg']:
             raise ValueError(
-                """Place `%matplotlib ipympl` in the begining of 
-                the running cell to load it properly"""
+                'Place `%matplotlib ipympl` at the beginning of the running cell to load it properly'
             )
 
         if ax is None:

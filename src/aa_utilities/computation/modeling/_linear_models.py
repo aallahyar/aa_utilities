@@ -147,7 +147,7 @@ class LinearModel:
 
     def fit_logistic(self, formula, ci=0.95):
         if ci is None:
-            broom_params = f'conf.int = FALSE'
+            broom_params = 'conf.int = FALSE'
         else:
             broom_params = f'conf.int = TRUE, conf.level = {ci:0.2f}'
 
@@ -334,7 +334,7 @@ class LinearModel:
         # )
 
     def __repr__(self):
-        out = f'LinearModel'
+        out = 'LinearModel'
         meta = []
         if 'model_name' in self.results:
             meta.append(f'model_name={self.results["model_name"]}')

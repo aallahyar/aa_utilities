@@ -104,7 +104,7 @@ class StratifiedSampler(BaseSampler):
             warnings.warn(
                 f'StratifiedSampler: ratio={ratio} is too small for the smallest group '
                 f'(size={min_group_size}). Expected samples: {ratio * min_group_size:.2f}. '
-                f'This may lead to groups being excluded from sampling, violating stratification. '
+                'This may lead to groups being excluded from sampling, violating stratification. '
                 f'Consider using a larger ratio (>= {1.0 / min_group_size:.3f}) to ensure all groups contribute.',
                 UserWarning,
                 stacklevel=2,
@@ -170,8 +170,8 @@ class StratifiedSampler(BaseSampler):
 
             warnings.warn(
                 f'StratifiedSampler: ratio={self.ratio} resulted in zero samples from all groups. '
-                f'Falling back to selecting one sample from the largest group. '
-                f'This violates strict stratification. Consider increasing the ratio.',
+                'Falling back to selecting one sample from the largest group. '
+                'This violates strict stratification. Consider increasing the ratio.',
                 UserWarning,
                 stacklevel=4,
             )

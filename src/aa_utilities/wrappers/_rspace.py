@@ -178,7 +178,7 @@ class RSpace:
             )
 
         if len(self.warnings) != 0:  # If there were any warnings, log them
-            self.logger.warning(f'Warning(s) issued during execution. Check `self.warnings` for details.')
+            self.logger.warning('Warning(s) issued during execution. Check `self.warnings` for details.')
 
         # try to convert the result to Python if possible, otherwise return the raw R object
         if convert and returned_object is not None and returned_object != ro.rinterface.NULL:
