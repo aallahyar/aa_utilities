@@ -17,7 +17,7 @@ class Container(dict):
             A1=1000,
             B2=10000,
         )
-        container._pp.set_params(
+        container.set_params(
             display_width=120,
             max_n_rows=20,
             max_n_elements=11,
@@ -108,7 +108,6 @@ class Container(dict):
         # The attribute is stored in the instance’s __dict__ as usual.
         ## Get all public attributes/methods (exclude dunder and private by convention)
         super().__setattr__('_pp', formatters.PrettyPrinter())
-        super().__setattr__('_params', {})
         super().__setattr__('_logger', setup_logger(name=__name__, level=configs.log.level))
         super().__setattr__(
             '_RESERVED_TERMS', {key for key in dir(type(self)) if not key.startswith('__') and not key.startswith('_')}
@@ -141,7 +140,9 @@ class Container(dict):
             # https://pandas.pydata.org/docs/reference/api/pandas.Series.copy.html
             return deepcopy(self)
         else:
-            return Container(**self)
+            new = Container(**self)
+            super(Container, new).__setattr__('_pp', deepcopy(self._pp))
+            return new
 
     @classmethod
     def from_series(cls, series):
