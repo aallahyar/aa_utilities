@@ -9,9 +9,9 @@ import pandas as pd
 # from aa_utilities.convenience import Container
 
 
-class PrettyPrinter():
+class PrettyPrinter:
     """
-    Example: 
+    Example:
         if sys.path[0] != './':
         sys.path.insert(0, './')
         from _containers import Container
@@ -31,19 +31,20 @@ class PrettyPrinter():
         obj['f8'] = pd.DataFrame(np.random.rand(50, 50))
         print(pp.pformat(obj))
     """
+
     def __init__(
-            self, 
-            indent=' ' * 4, 
-            display_width=120, 
-            max_n_rows=100,
-            max_n_elements=20,
-        ):
+        self,
+        indent=' ' * 4,
+        display_width=120,
+        max_n_rows=100,
+        max_n_elements=20,
+    ):
         self.indent = indent
         # self.pp = pprint.PrettyPrinter()
         self.display_width = display_width
         self.max_n_rows = max_n_rows
         self.max_n_elements = max_n_elements
-    
+
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
             assert hasattr(self, key), 'Unknown PrettyPrinter parameter'
@@ -52,60 +53,55 @@ class PrettyPrinter():
     def clip(self, representation, indent=None):
         outputs = []
         lines = representation.split('\n')
-        for line in lines[:self.max_n_rows]:
-            output = line[:self.display_width]
+        for line in lines[: self.max_n_rows]:
+            output = line[: self.display_width]
             if len(line) > self.display_width:
                 output += ' ...'
             outputs.append(output)
         if len(lines) > self.max_n_rows:
-                outputs.append('...')
+            outputs.append('...')
         if indent:
             return f'\n{indent}'.join(outputs)
         else:
             return f'\n{self.indent}'.join(outputs)
-    
+
     def pformat(self, obj):
         meta = f'<{obj.__class__.__name__}>'
         if isinstance(obj, (dict, list, tuple, set, pd.Series)):
             meta += f' ({len(obj)})'
-        if isinstance(obj, (pd.DataFrame, )):
+        if isinstance(obj, (pd.DataFrame,)):
             meta += f' {obj.shape}'
-        
+
         match obj:
             case int() | float() | str():
                 preview = f'{obj!r}'
             case dict() | list() | tuple() | set() if type(obj) in [dict, list, tuple, set]:
-
                 # define boundaries
                 if isinstance(obj, (dict, set)):
                     bnds = '{}'
-                if isinstance(obj, (list, )):
+                if isinstance(obj, (list,)):
                     bnds = '[]'
-                if isinstance(obj, (tuple, )):
+                if isinstance(obj, (tuple,)):
                     bnds = '()'
 
                 outputs = [f'{bnds[0]}']
                 idx_ndigit = np.log10(max(len(obj), 1)).astype(int) + 1
                 for idx, item in enumerate(obj):
-                    if isinstance(obj, (dict, )):
+                    if isinstance(obj, (dict,)):
                         key_repr = self.clip(self.pformat(item))
                         value_repr = self.clip(self.pformat(obj[item]))
                         outputs.append(f'{key_repr}: {value_repr},')
                     else:
                         value_repr = self.clip(self.pformat(item))
-                        if isinstance(obj, (list, )):
-                            outputs.append(f"{f'[{idx}]':>{idx_ndigit + 2}s} {value_repr},")
+                        if isinstance(obj, (list,)):
+                            outputs.append(f'{f"[{idx}]":>{idx_ndigit + 2}s} {value_repr},')
                         else:
                             outputs.append(f'{value_repr},')
                     if idx + 1 == self.max_n_elements:
                         outputs.append('...')
                         break
                 # outputs.append(f'{bnds[1]}')
-                preview = (
-                    f'{meta} '
-                    + f'\n{self.indent}'.join(outputs)
-                    + f'\n{bnds[1]}'
-                )
+                preview = f'{meta} ' + f'\n{self.indent}'.join(outputs) + f'\n{bnds[1]}'
             # case Container():
             #     preview = self.clip(f'{meta}\n{obj}')
             case pd.Series():
@@ -120,7 +116,7 @@ class PrettyPrinter():
 
 class TextWrapper(textwrap.TextWrapper):
     """A TextWrapper subclass that optionally preserves newlines when wrapping text.
-    
+
     Example:
         text = "line with   space,\n\n\n2nd paragraph with text\n3rd paragraph with a LOOOOOOOOOngWorddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
         text_wrapper = textwrap.TextWrapper(width=25)
@@ -158,6 +154,7 @@ class TextWrapper(textwrap.TextWrapper):
         ddddddddddddddddddddddddd
         dddddddddddddddddd
     """
+
     def __init__(self, keep_newlines=True, **kwargs):
         super().__init__(**kwargs)
         self.keep_newlines = keep_newlines
@@ -179,10 +176,8 @@ def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
 
     # handle array-like input
     if isinstance(interval, (pd.IntervalIndex, np.ndarray, pd.Series, list, tuple)):
-        return [
-            interval2str(intv, fmt=fmt) for intv in interval
-        ]
-    
+        return [interval2str(intv, fmt=fmt) for intv in interval]
+
     # preserve NaNs
     if pd.isna(interval):
         return np.nan
@@ -216,15 +211,12 @@ def pvalue_to_asterisks(p_value):
 def human_readable_size(size, decimal_places=1):
     for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
         if size < 1024.0 or unit == 'PB':
-            return f"{size:.{decimal_places}f} {unit}"
+            return f'{size:.{decimal_places}f} {unit}'
         size /= 1024.0
 
 
 def human_readable_number(num, decimal_places=1):
     for unit in ['', 'k', 'M', 'B', 'T']:
         if abs(num) < 1000.0 or unit == 'T':
-            return f"{num:.{decimal_places}f} {unit}"
+            return f'{num:.{decimal_places}f} {unit}'
         num /= 1000.0
-
-
-

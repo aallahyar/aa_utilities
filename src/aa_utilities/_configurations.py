@@ -1,14 +1,11 @@
-
 from types import SimpleNamespace
 import logging
 
-class Configs:
 
+class Configs:
     debug = False
 
-    repository = SimpleNamespace(
-        url='https://github.com/aallahyar/aa_utilities/'
-    )
+    repository = SimpleNamespace(url='https://github.com/aallahyar/aa_utilities/')
 
     # NOTSET=0
     # DEBUG=10

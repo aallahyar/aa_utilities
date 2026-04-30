@@ -18,7 +18,7 @@ class BaseSampler:
         rng: np.random.Generator,
         labels: Optional[Sequence[str]] = None,
     ) -> Tuple[np.ndarray, ...]:
-        raise NotImplementedError("Subclasses must implement draw().")
+        raise NotImplementedError('Subclasses must implement draw().')
 
 
 class StandardSampler(BaseSampler):
@@ -29,7 +29,7 @@ class StandardSampler(BaseSampler):
 
     def __init__(self, ratio: float = 0.5):
         if not (0 < ratio <= 1.0):
-            raise ValueError("ratio must be in (0, 1].")
+            raise ValueError('ratio must be in (0, 1].')
         self.ratio = ratio
 
     def draw(
@@ -55,7 +55,7 @@ class BootstrapSampler(BaseSampler):
 
     def __init__(self, replacement: bool = True, ratio: float = 0.5):
         if not (0 < ratio <= 1.0):
-            raise ValueError("ratio must be in (0, 1].")
+            raise ValueError('ratio must be in (0, 1].')
         self.replacement = replacement
         self.ratio = ratio
 
@@ -86,29 +86,30 @@ class StratifiedSampler(BaseSampler):
 
     def __init__(self, groups: Sequence[str], ratio: float = 0.5):
         if not (0 < ratio <= 1.0):
-            raise ValueError("ratio must be in (0, 1].")
+            raise ValueError('ratio must be in (0, 1].')
         groups = np.asarray(groups)
         if groups.ndim != 1:
-            raise ValueError("groups must be a 1D array-like aligned to samples.")
+            raise ValueError('groups must be a 1D array-like aligned to samples.')
         if len(groups) == 0:
-            raise ValueError("groups cannot be empty.")
-        
+            raise ValueError('groups cannot be empty.')
+
         # Validate that ratio is reasonable for stratification
         unique_groups, counts = np.unique(groups, return_counts=True)
         min_group_size = counts.min()
-        
+
         # Warn if ratio is too small for meaningful stratification
         if ratio * min_group_size < 0.5:
             import warnings
+
             warnings.warn(
-                f"StratifiedSampler: ratio={ratio} is too small for the smallest group "
-                f"(size={min_group_size}). Expected samples: {ratio * min_group_size:.2f}. "
-                f"This may lead to groups being excluded from sampling, violating stratification. "
-                f"Consider using a larger ratio (>= {1.0 / min_group_size:.3f}) to ensure all groups contribute.",
+                f'StratifiedSampler: ratio={ratio} is too small for the smallest group '
+                f'(size={min_group_size}). Expected samples: {ratio * min_group_size:.2f}. '
+                f'This may lead to groups being excluded from sampling, violating stratification. '
+                f'Consider using a larger ratio (>= {1.0 / min_group_size:.3f}) to ensure all groups contribute.',
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-        
+
         self.groups = groups
         self.ratio = ratio
 
@@ -119,7 +120,7 @@ class StratifiedSampler(BaseSampler):
         labels: Optional[Sequence[str]] = None,
     ) -> Tuple[np.ndarray, ...]:
         if n != self.groups.shape[0]:
-            raise ValueError("StratifiedSampler: len(groups) must equal n samples in X.")
+            raise ValueError('StratifiedSampler: len(groups) must equal n samples in X.')
 
         unique_groups, inverse = np.unique(self.groups, return_inverse=True)
         # Map each group to the indices of its members
@@ -166,12 +167,13 @@ class StratifiedSampler(BaseSampler):
         # It's possible all k_g == 0 if ratio is extremely small; enforce at least one globally.
         if len(selected) == 0:
             import warnings
+
             warnings.warn(
-                f"StratifiedSampler: ratio={self.ratio} resulted in zero samples from all groups. "
-                f"Falling back to selecting one sample from the largest group. "
-                f"This violates strict stratification. Consider increasing the ratio.",
+                f'StratifiedSampler: ratio={self.ratio} resulted in zero samples from all groups. '
+                f'Falling back to selecting one sample from the largest group. '
+                f'This violates strict stratification. Consider increasing the ratio.',
                 UserWarning,
-                stacklevel=4
+                stacklevel=4,
             )
             # Choose from largest group to maintain stability.
             largest_group = max(group_indices.keys(), key=lambda gg: group_sizes[gg])
@@ -198,5 +200,5 @@ class ComplementaryPairsSampler(BaseSampler):
         perm = rng.permutation(n)
         half = n // 2
         a = np.sort(perm[:half])
-        b = np.sort(perm[half:half + half])
+        b = np.sort(perm[half : half + half])
         return (a, b)

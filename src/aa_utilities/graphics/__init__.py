@@ -1,4 +1,3 @@
-
 from ._graphics import *
 from ._heatmap import heatmap, overlay_boxes
 from ._interactive_selection import InteractiveSelection

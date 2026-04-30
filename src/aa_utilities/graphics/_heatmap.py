@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 def _extract_face_colors(ax, heatmap_df):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
-    
+
     # Force a canvas draw so that QuadMesh expands broadcast colors to per-cell
     # values before we read them.  Without this, a second call (e.g. two
     # consecutive overlay_boxes() calls) returns a single RGBA row instead of
@@ -47,7 +47,7 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
     quad_mesh = ax.collections[0]
     ax.add_collection(patch_collection)
     quad_mesh.set_alpha(background_alpha)
-    
+
     return patch_collection
 
 
@@ -119,7 +119,7 @@ def _draw_box_legend(ax, sizes, legend_kws):
     # x-coordinate of the right edge shared by all boxes (right-aligns all sizes).
     right_edge = max_v / 2
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
-        cy = mi * spacing + spacing / 2 + spacing / 10   # center y of the current marker
+        cy = mi * spacing + spacing / 2 + spacing / 10  # center y of the current marker
         ax.add_patch(
             patches.Rectangle(
                 (right_edge - v, cy - v / 2),
@@ -133,14 +133,19 @@ def _draw_box_legend(ax, sizes, legend_kws):
         )
         ax.text(
             right_edge + max_v * 0.1,  # label starts just past the largest box
-            cy, textwrap.fill(lbl, width=10),
-            va='center_baseline', ha='left', fontsize=fontsize,
+            cy,
+            textwrap.fill(lbl, width=10),
+            va='center_baseline',
+            ha='left',
+            fontsize=fontsize,
         )
 
     if title:
         ax.set_title(
             title,
-            va='center', ha='center', fontsize=title_fontsize,
+            va='center',
+            ha='center',
+            fontsize=title_fontsize,
             fontweight='normal',
         )
 
@@ -250,29 +255,29 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
 
 
 def overlay_boxes(
-        clustermap_obj,
-        sizes=None,
-        facecolors=None,
-        edgecolors=None,
-        linewidths=None,
-        background_alpha=0.1,
-    ):
+    clustermap_obj,
+    sizes=None,
+    facecolors=None,
+    edgecolors=None,
+    linewidths=None,
+    background_alpha=0.1,
+):
     """Overlay sized rectangles on an existing seaborn clustermap's heatmap.
 
     Args:
         clustermap_obj: The ``ClusterGrid`` object returned by
             ``sns.clustermap()``.
         sizes (np.ndarray, optional): Per-cell box sizes in [0, 1], in
-            **original** data order (pre-clustering). 
+            **original** data order (pre-clustering).
             Default: 0.8 uniform.
         facecolors (np.ndarray, optional): Per-cell RGBA colors in the original
             data order.  If not provided, colors are extracted from the heatmap
             mesh.  This is necessary if the heatmap was drawn with a custom colormap.
         edgecolors (np.ndarray, optional): Per-cell edge colors in any valid
-            matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.), in **original** 
-            data order. 
+            matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.), in **original**
+            data order.
             Default: no (i.e., fully transparent) edge color.
-        linewidths (np.ndarray, optional): Per-cell border widths in **original** data order. 
+        linewidths (np.ndarray, optional): Per-cell border widths in **original** data order.
             Default: 1.5 uniform.
         background_alpha (float): Heatmap mesh alpha after dimming.
             Default: 0.1.
@@ -308,11 +313,17 @@ def overlay_boxes(
     if sizes is None:
         sizes = np.ones((n_rows, n_cols)) * 0.8
     # Reorder sizes from original data order to the visual (clustered) order.
-    sizes = np.array(sizes) # ensure it's a numpy array for indexing
+    sizes = np.array(sizes)  # ensure it's a numpy array for indexing
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 
     if facecolors is None:
         facecolors = _extract_face_colors(ax_heat, heatmap_df)
+        # Already in clustered (visual) order — no reordering needed.
+        facecolors_reordered = facecolors
+    else:
+        # Reorder from original data order to the visual (clustered) order.
+        facecolors = np.array(facecolors)
+        facecolors_reordered = facecolors[row_order, :, :][:, col_order, :]
 
     if edgecolors is None:
         # default to no edge color
@@ -332,10 +343,10 @@ def overlay_boxes(
     }
 
     patch_collection = _overlay_boxes(
-        ax=ax_heat, 
-        heatmap_df=heatmap_df, 
-        face_colors=facecolors, 
-        sizes=sizes_reordered, 
+        ax=ax_heat,
+        heatmap_df=heatmap_df,
+        face_colors=facecolors_reordered,
+        sizes=sizes_reordered,
         box_kws=box_kws,
     )
 

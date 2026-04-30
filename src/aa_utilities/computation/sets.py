@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def count_sets_overlap(sequences, names=None, exclusive=False):
     """Generate a NxN table of overlap counts, where `N=len(sequences)`.
 
@@ -8,9 +9,9 @@ def count_sets_overlap(sequences, names=None, exclusive=False):
             items that need to be counted.
         names (_type_, optional): If provided, the corresponding element in the output
             count table will be named as such. Otherwise, sequences are indexed from `0` to
-            `N`. If a given sequence has a `name` attribute, then that name will be 
+            `N`. If a given sequence has a `name` attribute, then that name will be
             prioritized. Defaults to None.
-        exclusive (bool, optional): Whether exclusive overlaps should be counted. 
+        exclusive (bool, optional): Whether exclusive overlaps should be counted.
             Defaults to False.
 
     Returns:

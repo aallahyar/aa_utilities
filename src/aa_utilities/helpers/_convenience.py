@@ -1,8 +1,7 @@
-
 from typing import (
-    # Any, 
-    # Callable, 
-    Union, 
+    # Any,
+    # Callable,
+    Union,
     # Literal,
 )
 
@@ -11,13 +10,13 @@ import pandas as pd
 
 
 def quantile_cut(
-        x: Union[pd.Series, np.ndarray, list],
-        q: Union[int, list, np.ndarray],
-        right=False,
-        quantile_kwargs: dict = None,
-        *args,
-        **kwargs,
-    ) -> pd.Categorical:
+    x: Union[pd.Series, np.ndarray, list],
+    q: Union[int, list, np.ndarray],
+    right=False,
+    quantile_kwargs: dict = None,
+    *args,
+    **kwargs,
+) -> pd.Categorical:
     """A convenience wrapper that enhances `pd.qcut` to allow left-inclusive intervals.
 
     Examples:
@@ -36,7 +35,7 @@ def quantile_cut(
         quantile_kwargs = {}
     if isinstance(q, int):
         if q < 1:
-            raise ValueError("`q` must be at least 1")
+            raise ValueError('`q` must be at least 1')
         probs = np.linspace(0.0, 1.0, q + 1)
     else:
         probs = np.array(q, dtype=float)
@@ -47,22 +46,18 @@ def quantile_cut(
     series = pd.Series(x)
     if series.dropna().size == 0:
         raise ValueError('Input `x` is empty or all-NaN!')
-    
+
     # get quantile bins
-    bins = (
-        series
-        .dropna()
-        .quantile(
-            q=probs,
-            **quantile_kwargs,
-        )
+    bins = series.dropna().quantile(
+        q=probs,
+        **quantile_kwargs,
     )
 
-    # adjust bins edges based on `right` argument, similar to what pd.cut does internally: 
+    # adjust bins edges based on `right` argument, similar to what pd.cut does internally:
     # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.cut.html
     data_range = series.max() - series.min()
     if right:
-        bins.iat[ 0] -= data_range * 0.001
+        bins.iat[0] -= data_range * 0.001
     else:
         bins.iat[-1] += data_range * 0.001
 
@@ -77,9 +72,6 @@ def quantile_cut(
 
     return output
 
+
 if __name__ == '__main__':
     pass
-
-
-
-

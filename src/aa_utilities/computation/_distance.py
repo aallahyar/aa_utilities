@@ -8,13 +8,29 @@ from scipy.spatial.distance import cdist
 
 # Metrics whose C implementations release the GIL — threading is sufficient and
 # avoids the process-spawn overhead that loky incurs.
-_GIL_FREE_METRICS = frozenset({
-    "braycurtis", "canberra", "chebyshev", "cityblock", "correlation",
-    "cosine", "euclidean", "jensenshannon", "mahalanobis", "minkowski",
-    "seuclidean", "sqeuclidean",
-    "hamming", "jaccard", "matching", "rogerstanimoto",
-    "russellrao", "sokalsneath", "yule",
-})
+_GIL_FREE_METRICS = frozenset(
+    {
+        'braycurtis',
+        'canberra',
+        'chebyshev',
+        'cityblock',
+        'correlation',
+        'cosine',
+        'euclidean',
+        'jensenshannon',
+        'mahalanobis',
+        'minkowski',
+        'seuclidean',
+        'sqeuclidean',
+        'hamming',
+        'jaccard',
+        'matching',
+        'rogerstanimoto',
+        'russellrao',
+        'sokalsneath',
+        'yule',
+    }
+)
 
 
 def _compute_chunk(
@@ -29,7 +45,7 @@ def _compute_chunk(
 def pairwise_distances(
     X: np.ndarray,
     Y: np.ndarray | None = None,
-    metric: str | Callable = "euclidean",
+    metric: str | Callable = 'euclidean',
     n_jobs: int = 1,
     chunk_size: int | None = None,
     force_symmetry: bool = False,
@@ -137,7 +153,7 @@ def pairwise_distances(
         if X.shape[1] != Y.shape[1]:
             raise ValueError(
                 f"'X' and 'Y' must have the same number of features; "
-                f"got X.shape[1]={X.shape[1]} and Y.shape[1]={Y.shape[1]}"
+                f'got X.shape[1]={X.shape[1]} and Y.shape[1]={Y.shape[1]}'
             )
 
     if chunk_size is not None and chunk_size < 1:
@@ -148,17 +164,12 @@ def pairwise_distances(
     # Single-worker fast path — skip joblib overhead entirely.
     if n_workers == 1:
         distance_matrix = cdist(X, Y, metric=metric, **metric_kwargs)
-    
+
     # Multi-worker path with joblib parallelism.
     else:
-
         # Determine joblib backend.
         if backend is None:
-            backend = (
-                "threading"
-                if isinstance(metric, str) and metric.lower() in _GIL_FREE_METRICS
-                else "loky"
-            )
+            backend = 'threading' if isinstance(metric, str) and metric.lower() in _GIL_FREE_METRICS else 'loky'
 
         # Split X into row chunks, one per worker.
         # Cap n_chunks to n_samples so we never produce empty chunks.
@@ -173,8 +184,7 @@ def pairwise_distances(
         x_chunks = np.array_split(X, n_chunks)
 
         chunks_result: list[np.ndarray] = Parallel(n_jobs=n_jobs, backend=backend)(
-            delayed(_compute_chunk)(chunk, Y, metric, metric_kwargs)
-            for chunk in x_chunks
+            delayed(_compute_chunk)(chunk, Y, metric, metric_kwargs) for chunk in x_chunks
         )
 
         distance_matrix = np.vstack(chunks_result)
@@ -182,6 +192,6 @@ def pairwise_distances(
     # Symmetrise if requested and if the result should be symmetric.
     if force_symmetry and is_symmetric:
         distance_matrix = (distance_matrix + distance_matrix.T) / 2
-        np.fill_diagonal(distance_matrix, 0) # ensure exact zeros on the diagonal after symmetrisation
+        np.fill_diagonal(distance_matrix, 0)  # ensure exact zeros on the diagonal after symmetrisation
 
     return distance_matrix

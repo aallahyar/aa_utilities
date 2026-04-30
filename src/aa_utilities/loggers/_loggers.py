@@ -5,6 +5,7 @@ import re
 import threading
 import time
 import json
+
 # from datetime import datetime
 # from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -12,6 +13,7 @@ from pathlib import Path
 # Optional: colorized logs in terminal (requires 'colorama')
 try:
     from colorama import Fore, Style, init
+
     init(autoreset=True)
     COLOR_ENABLED = True
 except ImportError:
@@ -26,6 +28,7 @@ _loggers = {}
 # Log format
 LOG_FORMAT = r'[%(asctime)s] [%(levelname)s] %(name)s: %(message)s'
 DATE_FORMAT = r'%Y-%m-%d %H:%M:%S'
+
 
 class ColoredFormatter(logging.Formatter):
     if COLOR_ENABLED:
@@ -49,6 +52,7 @@ class ColoredFormatter(logging.Formatter):
 
         return message
 
+
 # Example of a logger that stores in a file
 # file_handler = logging.FileHandler("app.log", mode="a", encoding="utf-8")
 # file_handler.setLevel(logging.INFO)
@@ -63,12 +67,12 @@ class ColoredFormatter(logging.Formatter):
 #     utc=False          # use local time for rotation
 # )
 # handler = RotatingFileHandler(
-#     filename=log_path, 
+#     filename=log_path,
 #     mode='a', # adds new logs to the end and preserves existing content.
 #     # maxBytes=2_000_000, # Size threshold that triggers rotation. Max 2MB per file.
-#     # backupCount=3, # If maxBytes is zero, rollover never occurs. 
-#     # Rollover occurs whenever the current log file is nearly maxBytes in length. 
-#     # If backupCount is >= 1, the system will successively create new files with the same pathname 
+#     # backupCount=3, # If maxBytes is zero, rollover never occurs.
+#     # Rollover occurs whenever the current log file is nearly maxBytes in length.
+#     # If backupCount is >= 1, the system will successively create new files with the same pathname
 #     # as the base file, but with extensions ".1", ".2" etc. Existing backups are shifted up in the sequence
 #     delay=True, # If True, the file is not opened until the first log message is emitted.
 #     encoding='utf-8',
@@ -101,14 +105,13 @@ def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
         else:
             formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
         ch.setFormatter(formatter)
-        
+
         logger.addHandler(ch)
 
     return logger
 
 
 class RestrictedLogger(logging.Logger):
-
     def __init__(self, name, level=configs.log.level, time=None, count=None):
         super().__init__(name, level)
 
@@ -117,16 +120,17 @@ class RestrictedLogger(logging.Logger):
         self._count_limit = count
         stats_default = {'n_printed': 0, 'n_ignored': 0, 'last_print': 0}
         self._stats = {
-            'STDOUT':  stats_default.copy(),
-            'INFO':    stats_default.copy(),
+            'STDOUT': stats_default.copy(),
+            'DEBUG': stats_default.copy(),
+            'INFO': stats_default.copy(),
             'WARNING': stats_default.copy(),
-            'ERROR':   stats_default.copy(),
+            'ERROR': stats_default.copy(),
+            'CRITICAL': stats_default.copy(),
         }
         self._lock = threading.Lock()
 
         # this will determine whether the logger is already initialized
         if len(self.handlers) == 0:
-
             # define the default handler
             self.formatter = logging.Formatter(
                 fmt=r'%(asctime)s %(name)s [%(levelname)-s]: %(message)s',
@@ -146,7 +150,7 @@ class RestrictedLogger(logging.Logger):
             handler_stdout = logging.StreamHandler(stream=sys.stdout)
             if COLOR_ENABLED:
                 formatter_stdout = ColoredFormatter(
-                    f'[%(asctime)s] {name}: %(message)s', 
+                    f'[%(asctime)s] {name}: %(message)s',
                     datefmt=DATE_FORMAT,
                 )
             else:
@@ -168,8 +172,8 @@ class RestrictedLogger(logging.Logger):
         self._lock.acquire()
         loggable_time = True
         loggable_count = True
-        if self.name == record.name: # its the main logger
-            name = record.levelname # or logging.getLevelName(10)
+        if self.name == record.name:  # its the main logger
+            name = record.levelname  # or logging.getLevelName(10)
         else:  # its the sub-logger
             name = re.sub(f'^{self.name}_', '', record.name)
         stats = self._stats[name]
@@ -184,29 +188,28 @@ class RestrictedLogger(logging.Logger):
         if self._time_limit is not None:
             if time.time() < stats['last_print'] + self._time_limit:
                 loggable_time = False
-        
+
         is_printable = loggable_count and loggable_time
         if is_printable:
             stats['n_printed'] += 1
             stats['last_print'] = time.time()
         else:
             stats['n_ignored'] += 1
-        
+
         self._lock.release()
         return is_printable
-    
+
     def stdout(self, record):
         return self.to_stdout.info(record)
 
     def __repr__(self):
         return json.dumps(
-            self.stats, 
-            sort_keys=False, 
-            indent=2, 
+            self.stats,
+            sort_keys=False,
+            indent=2,
             default=str,
-        ) 
+        )
 
     @property
     def stats(self):
         return self._stats
-

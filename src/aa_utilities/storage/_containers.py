@@ -11,10 +11,10 @@ from .._configurations import configs
 
 class Container(dict):
     """A dict subclass with attribute-style access and pretty-printing support.
-    
+
     Example:
         container = Container(
-            A1=1000, 
+            A1=1000,
             B2=10000,
         )
         container._pp.set_params(
@@ -27,7 +27,7 @@ class Container(dict):
         container.loc['b4'] = 20.234
         container.include(a3=21, b4=21.234)
 
-        container.c5miss = 30 # NOTE: this is not going to be represented (but is available)! Implementation choise to protect typos
+        container.c5miss = 30 # NOTE: stored in the dict via __setattr__ and will appear in __repr__; use a name starting with '_' to store without representation
         print(container.c5miss)
 
         container['c5show'] = [300, 200.3]
@@ -57,7 +57,7 @@ class Container(dict):
         #     0    10     asdf
         #     1  1000  asdaaaf
         # f8: <pd.DataFrame> (50, 50)
-        #             0         1         2         3         4         5         6   ...   
+        #             0         1         2         3         4         5         6   ...
         #     0   0.002107  0.338896  0.690741  0.812407  0.963908  0.973091  0.471101  ...  0
         #     1   0.770973  0.562469  0.126399  0.598199  0.434090  0.809549  0.218046  ...  0
         #     2   0.878720  0.822819  0.687376  0.363813  0.437782  0.578828  0.903076  ...  0
@@ -94,14 +94,12 @@ class Container(dict):
 
         # not test1 anymore
         # False
-        # Traceback (most recent call last):
-        # ....
-        # ValueError: Can only compare `Container` or `pd.Series()` instances.
+        # False  (returns False for unsupported types; no exception is raised)
 
-        
+
 
     """
-    
+
     def __init__(self, **kwargs):
         # initialization: Set up base infrastructure (private attributes, not user data)
         # Set _RESERVED_TERMS and logger before calling super().__init__ to avoid recursion in __setattr__
@@ -112,10 +110,9 @@ class Container(dict):
         super().__setattr__('_pp', formatters.PrettyPrinter())
         super().__setattr__('_params', {})
         super().__setattr__('_logger', setup_logger(name=__name__, level=configs.log.level))
-        super().__setattr__('_RESERVED_TERMS', {
-            key for key in dir(type(self))
-            if not key.startswith('__') and not key.startswith('_')
-        })
+        super().__setattr__(
+            '_RESERVED_TERMS', {key for key in dir(type(self)) if not key.startswith('__') and not key.startswith('_')}
+        )
 
         # configuration: handle user data logic in `_configure`
         self._configure(**kwargs)
@@ -124,28 +121,28 @@ class Container(dict):
         """Separation of instantiation from configuration; add user data here."""
         for key, value in kwargs.items():
             self.__setattr__(key, value)
-    
+
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
             assert key in self._params, 'Unknown parameter'
             self._params[key] = value
-    
+
     def copy(self, deep=True):
         if deep:
-            # Do not use pd.Series.copy(): 
-            # When copying an object containing Python objects, a deep copy will copy the data, 
+            # Do not use pd.Series.copy():
+            # When copying an object containing Python objects, a deep copy will copy the data,
             # but will not do so recursively. Updating a nested data object will be reflected in the deep copy.
             # https://pandas.pydata.org/docs/reference/api/pandas.Series.copy.html
             return deepcopy(self)
         else:
             return Container(**self)
-    
+
     @classmethod
     def from_series(cls, series):
         # or equally: Container(**series)
         # or equally: Container(**{'A': [1,2,3]})
         return cls(**series)
-    
+
     def to_series(self):
         return pd.Series(self)
 
@@ -163,12 +160,12 @@ class Container(dict):
 
     def filter(self, **kwargs):
         return self.from_series(self.to_series().filter(**kwargs))
-    
+
     def __getattribute__(self, name):
         if name in self:
             return self[name]
         return super().__getattribute__(name)
-    
+
     def __setattr__(self, name, value):
         if name in self._RESERVED_TERMS:
             self._logger.warning(
@@ -176,16 +173,17 @@ class Container(dict):
                 f'that exists in this <{type(self).__name__}>.'
             )
         if name.startswith('_'):
-            super().__setattr__(name, value) # would not appear in .items(); TODO: not very useful it seems. Need more time to figure out if this is useful
+            super().__setattr__(
+                name, value
+            )  # would not appear in .items(); TODO: not very useful it seems. Need more time to figure out if this is useful
         else:
             self[name] = value
 
-    def __repr__(self):        
-        
+    def __repr__(self):
+
         # add details for each element
         output = f'<Container> ({len(self):d})'
         for row_num, (index, value) in enumerate(self.items(), start=1):
-            
             # define connector
             if row_num == len(self) or row_num >= self._pp.max_n_elements:
                 connector = '└─■'
@@ -203,7 +201,7 @@ class Container(dict):
                 break
 
         return output
-    
+
     def __eq__(self, other):
         if isinstance(other, (pd.Series, dict, Container)):
             return dict(self) == dict(other)
@@ -213,9 +211,3 @@ class Container(dict):
             #     'Can only compare `Container`, `pd.Series()` instance.'
             #     f' Got {type(other)} instead.'
             #     )
-
-
-
-
-
-    

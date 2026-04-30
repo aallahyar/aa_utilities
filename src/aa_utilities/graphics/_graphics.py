@@ -8,10 +8,22 @@ from matplotlib import (
 # import seaborn as sns
 
 
-#%%
-def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_space=10, ax=None, line_kws=None, text_kws=None):
+# %%
+def link(
+    x_ticks,
+    text,
+    y_left,
+    y_top=None,
+    y_right=None,
+    height=10,
+    pad=5,
+    top_space=10,
+    ax=None,
+    line_kws=None,
+    text_kws=None,
+):
     """Links two x-ticks and places a text (e.g., a p-value for a test) over the link
-    
+
     Parameters:
     ----------
     ax: matplotlib Axes
@@ -30,7 +42,7 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     -------
     ax: matplotlib ax
         ax with the added annotation
-    
+
 
     Example:
     -------
@@ -53,7 +65,7 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
         plt.show()
     ```
     """
-    
+
     if ax is None:
         ax = plt.gca()
 
@@ -68,20 +80,20 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
             'color': '#555555',
             'linewidth': 0.5,
         }
-    
+
     # setting text defaults
     if text_kws is None:
         text_kws = {
             'color': '#555555',
         }
-    
+
     # setting y defaults
     if y_right is None:
         y_right = y_left
     if y_top is None:
         y_max = max(y_left, y_right)
         y_top = ax.transData.inverted().transform(transform_height.transform((1, y_max)))[1]
-    
+
     # draw the lines
     line_x = [x_ticks[0], x_ticks[0], x_ticks[1], x_ticks[1]]
     line_y = [y_left, y_top, y_top, y_right]
@@ -93,27 +105,28 @@ def link(x_ticks, text, y_left, y_top=None, y_right=None, height=10, pad=5, top_
     # adjust y-lim if needed
     if top_space is not None:
         coords_disp = link.text.get_window_extent()
-        coords_disp.y1 += top_space # go higher from the text, in display coordinates
-        coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
+        coords_disp.y1 += top_space  # go higher from the text, in display coordinates
+        coords_data = ax.transData.inverted().transform(coords_disp)  # transform from display to data coordinates
         y_max = coords_data[1, 1]
         if y_max > ax.get_ylim()[1]:
             ax.set_ylim(top=y_max)
-    
+
     return link
 
+
 def forest_plot(
-        estimates, 
-        origin=0, 
-        estimate_labels=None, 
-        p_values=None, 
-        line_ys=None,
-        line_labels=None, 
-        line_sublabels=None, 
-        line_colors=None, 
-        marker_colors=None,
-        x_scale=None,
-        ax=None,
-    ):
+    estimates,
+    origin=0,
+    estimate_labels=None,
+    p_values=None,
+    line_ys=None,
+    line_labels=None,
+    line_sublabels=None,
+    line_colors=None,
+    marker_colors=None,
+    x_scale=None,
+    ax=None,
+):
     """Generates a ForestPlot that is often used in Treatment-effect presentations
 
     Args:
@@ -132,7 +145,7 @@ def forest_plot(
         plt.axe: The ax on which the Forest Plot is drawn. Several properties are added:
             * `err_lines`: Is a list of `line` handles.
             * `origin`:
-    
+
     Example:
         ```python
         import pandas as pd
@@ -157,7 +170,7 @@ def forest_plot(
         )
         ax.set_xlim([0.3, 2])
         plt.show()
-        ```    
+        ```
     """
     from matplotlib.ticker import ScalarFormatter
 
@@ -170,7 +183,9 @@ def forest_plot(
 
     # calculate error-bound coordinates
     assert estimates['estimate'].between(estimates['conf.low'], estimates['conf.high'], inclusive='both').all()
-    err_ends = np.abs(estimates[['conf.low', 'conf.high']].values - expected[:, None]).T # each column refers to a single line
+    err_ends = np.abs(
+        estimates[['conf.low', 'conf.high']].values - expected[:, None]
+    ).T  # each column refers to a single line
 
     if line_colors is None:
         line_colors = np.repeat('#000000', n_line)
@@ -199,19 +214,19 @@ def forest_plot(
     ax.err_lines = [None] * n_line
     for ri, y_pos in enumerate(line_ys):
         ax.err_lines[ri] = ax.errorbar(
-            x=expected[ri], 
-            y=y_pos, 
-            xerr=err_ends[:, [ri]], 
+            x=expected[ri],
+            y=y_pos,
+            xerr=err_ends[:, [ri]],
             color=line_colors[ri],
             elinewidth=1,
-            marker='d', 
+            marker='d',
             markerfacecolor=marker_colors[ri],
-            markeredgecolor='none', 
-            markersize=10, 
-            capsize=3, # error end-cap height
-            markeredgewidth=2, # error end-cap width
+            markeredgecolor='none',
+            markersize=10,
+            capsize=3,  # error end-cap height
+            markeredgewidth=2,  # error end-cap width
         )
-    
+
     # add line labels
     if line_labels is not None:
         ax.set_yticks(line_ys, line_labels)
@@ -223,22 +238,46 @@ def forest_plot(
     if line_sublabels is not None:
         line_sublabels = np.array(line_sublabels)
         for ri, y_pos in enumerate(line_ys):
-           ax.err_lines[ri].sublabel = ax.text(
-               0, y_pos, line_sublabels[ri], va='center', ha='right', color='#444444', fontsize=8, transform=sublabel_offset
+            ax.err_lines[ri].sublabel = ax.text(
+                0,
+                y_pos,
+                line_sublabels[ri],
+                va='center',
+                ha='right',
+                color='#444444',
+                fontsize=8,
+                transform=sublabel_offset,
             )
 
     # add estimates labels
     if estimate_labels is not None:
         estimate_labels = np.array(estimate_labels)
         for ri, y_pos in enumerate(line_ys):
-            ax.text(expected[ri], y_pos, estimate_labels[ri], va='top', ha='center', fontsize=8, transform=estimate_label_offset)
+            ax.text(
+                expected[ri],
+                y_pos,
+                estimate_labels[ri],
+                va='top',
+                ha='center',
+                fontsize=8,
+                transform=estimate_label_offset,
+            )
 
     # add pvalue
     if p_values is not None:
         p_values = np.array(p_values)
         for ri, y_pos in enumerate(line_ys):
-           pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
-           ax.text(1, y_pos, f'p={p_values[ri]:0.1g}', va='center', ha='left', color=pval_color, fontsize=8, transform=pval_offset)
+            pval_color = 'red' if p_values[ri] <= 0.05 else 'gray'
+            ax.text(
+                1,
+                y_pos,
+                f'p={p_values[ri]:0.1g}',
+                va='center',
+                ha='left',
+                color=pval_color,
+                fontsize=8,
+                transform=pval_offset,
+            )
 
     return ax
 
@@ -256,7 +295,7 @@ def add_counts_to_legend(ax, counts, text_format='{label:s} (n={count:d})', **kw
 
 def text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='points', ax=None, **kwargs):
     """Adds a text using a give offset
-    
+
     Example:
     df4plt = (
         pd.DataFrame()
@@ -286,7 +325,7 @@ def text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='poi
     trans_offset = mpl_transforms.offset_copy(transformer, x=offsets[0], y=offsets[1], units=units, fig=ax.get_figure())
 
     # set default text params
-    kwargs = dict(va='top', ha='center', transform=trans_offset) | kwargs # fontsize=8, color='black', 
+    kwargs = dict(va='top', ha='center', transform=trans_offset) | kwargs  # fontsize=8, color='black',
 
     # draw the text
     text_hndl = ax.text(x, y, text, **kwargs)
@@ -297,7 +336,7 @@ def adjust_brightness(color, rate=1.0):
     # source: https://stackoverflow.com/a/49601444/1397843
     import matplotlib.colors as mpl_colors
     import colorsys
-    
+
     # convert color name to RGB hex code, if needed
     if color in mpl_colors.cnames:
         color = mpl_colors.cnames[color]
@@ -306,27 +345,26 @@ def adjust_brightness(color, rate=1.0):
     color_hls = colorsys.rgb_to_hls(*mpl_colors.to_rgb(color))
 
     # adjust lightness according to rate (while clipping between 0 and 1), and convert back to RGB
-    return colorsys.hls_to_rgb(
-        color_hls[0],
-        max(0, min(1, rate * color_hls[1])),
-        color_hls[2]
-    )
+    return colorsys.hls_to_rgb(color_hls[0], max(0, min(1, rate * color_hls[1])), color_hls[2])
+
 
 def jitter(values, n_bins=10, max_spread=0.9, seed=None):
     if seed is None:
         seed = 42
     rng = np.random.default_rng(seed=seed)
-    
+
     # categorize values into bins
-    bin_membership = pd.cut(values, bins=n_bins, duplicates='drop') # duplicate bins should be merged to properly count their members
+    bin_membership = pd.cut(
+        values, bins=n_bins, duplicates='drop'
+    )  # duplicate bins should be merged to properly count their members
     bin_n_member = bin_membership.value_counts(sort=False)
     if bin_n_member.empty or bin_n_member.max() == 0:
         # fallback to uniform small jitter
-        return rng.uniform(- max_spread / 10.0, max_spread / 10.0, size=len(values))
-    
+        return rng.uniform(-max_spread / 10.0, max_spread / 10.0, size=len(values))
+
     # normalize to max_spread (largest bin interval will have `max_spread` space)
     spreads = (bin_n_member / bin_n_member.max()) * max_spread
-    
+
     # assign per-value offsets based on its bin’s spread
     offsets = np.zeros(len(values), dtype=float)
     for bin_interval in bin_n_member.index:
@@ -334,23 +372,24 @@ def jitter(values, n_bins=10, max_spread=0.9, seed=None):
         if idx.sum() <= 1:
             continue
         space = spreads.at[bin_interval]
-        offsets[idx] = rng.uniform(- space / 2.0, space / 2.0, size=idx.sum())
+        offsets[idx] = rng.uniform(-space / 2.0, space / 2.0, size=idx.sum())
     return offsets
 
-#%%
+
+# %%
 def to_colors(
     values,
-    cmap="viridis",
-    scale="linear",           # "linear", "log", or "diverging"
+    cmap='viridis',
+    scale='linear',  # "linear", "log", or "diverging"
     vmin=None,
     vmax=None,
-    vcenter=None,             # required for "diverging"
-    include_alpha=False,       # return #RRGGBB or #RRGGBBAA
+    vcenter=None,  # required for "diverging"
+    include_alpha=False,  # return #RRGGBB or #RRGGBBAA
     default='#808080',
 ):
     """
     Convert a list/array of numbers or strings to hex color strings using a matplotlib colormap.
-    
+
     Parameters
     ----------
     values : array-like
@@ -374,122 +413,121 @@ def to_colors(
     -------
     list[str]
         Hex color strings corresponding to input values.
-        
+
     Examples
     --------
     >>> # Linear scale (numeric)
     >>> colors = to_colors([1, 2, 3, 4, 5], cmap="viridis")
-    
+
     >>> # Log scale (numeric)
     >>> colors = to_colors([1, 10, 100, 1000], scale="log", cmap="plasma")
-    
+
     >>> # Diverging scale centered at zero (numeric)
     >>> colors = to_colors([-5, -2, 0, 2, 5], scale="diverging", vcenter=0, cmap="RdBu")
-    
+
     >>> # Categorical strings
     >>> colors = to_colors(['apple', 'banana', 'apple', 'cherry', 'banana'], cmap="Set3")
     """
 
     # Input validation
     values = np.asarray(values)
-    
+
     # Handle empty arrays
     if values.size == 0:
         return []
-    
+
     # Get colormap
     try:
         cmap_obj = plt.get_cmap(cmap)
     except ValueError as e:
         raise ValueError(f"Invalid colormap name '{cmap}'. {str(e)}")
-    cmap_obj.set_bad(color=default) # set color for NaN values
-    
+    cmap_obj.set_bad(color=default)  # set color for NaN values
+
     # Check if values are strings (categorical)
     is_categorical = np.issubdtype(values.dtype, np.str_) or np.issubdtype(values.dtype, np.object_)
-    
+
     if is_categorical:
         # Categorical/string mapping
         unique_values = np.unique(values[~pd.isna(values)])
         n_unique = len(unique_values)
-        
+
         if n_unique == 0:
-            raise ValueError("All values are NaN/None. Cannot determine color mapping.")
-        
+            raise ValueError('All values are NaN/None. Cannot determine color mapping.')
+
         # Create discrete color mapping
         # Use evenly spaced points from the colormap
         color_indices = np.linspace(0, 1, n_unique)
-        color_map = {val: mpl_colors.to_hex(cmap_obj(idx), keep_alpha=include_alpha) 
-                     for val, idx in zip(unique_values, color_indices)}
-        
+        color_map = {
+            val: mpl_colors.to_hex(cmap_obj(idx), keep_alpha=include_alpha)
+            for val, idx in zip(unique_values, color_indices)
+        }
+
         # Map each value to its color (use default for NaN/None)
         hex_colors = [color_map.get(val, default) for val in values]
-        
+
         return hex_colors
-    
+
     # Handle numeric values
-    
+
     # Handle all-NaN arrays
     if np.all(np.isnan(values)):
-        raise ValueError("All values are NaN. Cannot determine color mapping.")
-    
+        raise ValueError('All values are NaN. Cannot determine color mapping.')
+
     # Validate scale parameter
-    valid_scales = ["linear", "log", "diverging"]
+    valid_scales = ['linear', 'log', 'diverging']
     if scale not in valid_scales:
         raise ValueError(f"scale must be one of {valid_scales}, got '{scale}'.")
-    
+
     # Validate diverging scale requirements
-    if scale == "diverging" and vcenter is None:
+    if scale == 'diverging' and vcenter is None:
         raise ValueError("scale='diverging' requires vcenter parameter (e.g., vcenter=0).")
-    
+
     # Infer vmin/vmax if not provided
     if vmin is None:
         vmin = np.nanmin(values)
     if vmax is None:
         vmax = np.nanmax(values)
-    
+
     # Validate that vmin and vmax are finite
     if not np.isfinite(vmin) or not np.isfinite(vmax):
-        raise ValueError(f"vmin and vmax must be finite. Got vmin={vmin}, vmax={vmax}.")
-    
+        raise ValueError(f'vmin and vmax must be finite. Got vmin={vmin}, vmax={vmax}.')
+
     # Handle constant arrays (vmin == vmax)
     if vmin == vmax:
         # For constant arrays, create a narrow range to avoid normalization issues
-        if scale == "log":
+        if scale == 'log':
             if vmin <= 0:
-                raise ValueError(f"Constant array with value {vmin} cannot use log scale (requires values > 0).")
+                raise ValueError(f'Constant array with value {vmin} cannot use log scale (requires values > 0).')
             vmin = vmin * 0.999
             vmax = vmax * 1.001
         else:
             vmin = vmin - 0.5
             vmax = vmax + 0.5
-    
+
     # Create normalization based on scale
-    if scale == "linear":
+    if scale == 'linear':
         norm = mpl_colors.Normalize(vmin=vmin, vmax=vmax, clip=True)
-        
-    elif scale == "log":
+
+    elif scale == 'log':
         # Validate log scale requirements
         if vmin <= 0 or vmax <= 0:
             raise ValueError(
-                f"Log scaling requires vmin > 0 and vmax > 0. Got vmin={vmin}, vmax={vmax}. "
-                f"Consider filtering out non-positive values or using a different scale."
+                f'Log scaling requires vmin > 0 and vmax > 0. Got vmin={vmin}, vmax={vmax}. '
+                f'Consider filtering out non-positive values or using a different scale.'
             )
-        
+
         if np.any(values[np.isfinite(values)] <= 0):
             raise ValueError(
-                "Log scaling requires all finite values to be > 0. "
-                "Consider filtering out non-positive values or using a different scale."
+                'Log scaling requires all finite values to be > 0. '
+                'Consider filtering out non-positive values or using a different scale.'
             )
-        
+
         norm = mpl_colors.LogNorm(vmin=vmin, vmax=vmax, clip=True)
-        
-    elif scale == "diverging":
+
+    elif scale == 'diverging':
         # Validate that vcenter is within range
         if not (vmin <= vcenter <= vmax):
-            raise ValueError(
-                f"vcenter must be between vmin and vmax. "
-                f"Got vmin={vmin}, vcenter={vcenter}, vmax={vmax}."
-            )
+            raise ValueError(f'vcenter must be between vmin and vmax. Got vmin={vmin}, vcenter={vcenter}, vmax={vmax}.')
         norm = mpl_colors.TwoSlopeNorm(vmin=vmin, vcenter=vcenter, vmax=vmax)
 
     # Map values to RGBA and convert to hex
@@ -499,7 +537,7 @@ def to_colors(
     return hex_colors
 
 
-#%%
+# %%
 if __name__ == '__main__':
     pass
 
@@ -514,9 +552,8 @@ if __name__ == '__main__':
         link_h = link([0, 1], text='test p-value = string', y_left=y, y_right=y + 40, ax=ax)
 
         coords_disp = link_h.text.get_window_extent()
-        coords_disp.y1 += 0 # offset +10 points to the last p-value text, in display coordinates
-        coords_data = ax.transData.inverted().transform(coords_disp) # transform from display to data coordinates
+        coords_disp.y1 += 0  # offset +10 points to the last p-value text, in display coordinates
+        coords_data = ax.transData.inverted().transform(coords_disp)  # transform from display to data coordinates
         # ax.plot([0, 4], coords_data[1, [1, 1]])
         y = coords_data[1, 1]
     plt.show()
-

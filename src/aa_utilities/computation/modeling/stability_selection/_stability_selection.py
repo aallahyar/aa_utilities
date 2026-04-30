@@ -10,7 +10,7 @@ from joblib import Parallel, delayed
 from ._subsampling import BaseSampler
 
 
-T = TypeVar("T")
+T = TypeVar('T')
 
 
 @dataclass
@@ -22,6 +22,7 @@ class SelectorResult(Generic[T]):
     - failure: None if fit/selection succeeded; otherwise an error message string.
     - meta: metadata such as iteration, subfit_id (0..), iter_seed, subset_size, and optional origin.
     """
+
     output: T | None
     sample_idxs: np.ndarray | None = None
     failure: str | None = None
@@ -43,6 +44,7 @@ class StabilitySelectionConfig:
     - cap_threads: whether to cap threads for BLAS/OpenMP backends within the parallel block.
     - *_num_threads: thread caps applied only inside the parallel block and restored afterward.
     """
+
     n_iterations: int = 200
     random_state: int | None = 42
     n_jobs: int = 1
@@ -62,6 +64,7 @@ class StabilitySelectionRun(Generic[T]):
     - feature_names: optional list aligned to n_features.
     - config, n_samples, n_features: run-level metadata for auditability.
     """
+
     results: list[SelectorResult[T]]
     feature_names: list[str] | None
     config: StabilitySelectionConfig
@@ -107,16 +110,16 @@ class StabilitySelector(Generic[T]):
     # -------------------------
     def _apply_thread_caps(self) -> dict[str, str | None]:
         prev = {
-            "OMP_NUM_THREADS": os.environ.get("OMP_NUM_THREADS"),
-            "MKL_NUM_THREADS": os.environ.get("MKL_NUM_THREADS"),
-            "OPENBLAS_NUM_THREADS": os.environ.get("OPENBLAS_NUM_THREADS"),
-            "NUMEXPR_NUM_THREADS": os.environ.get("NUMEXPR_NUM_THREADS"),
+            'OMP_NUM_THREADS': os.environ.get('OMP_NUM_THREADS'),
+            'MKL_NUM_THREADS': os.environ.get('MKL_NUM_THREADS'),
+            'OPENBLAS_NUM_THREADS': os.environ.get('OPENBLAS_NUM_THREADS'),
+            'NUMEXPR_NUM_THREADS': os.environ.get('NUMEXPR_NUM_THREADS'),
         }
         if self.config.cap_threads:
-            os.environ["OMP_NUM_THREADS"] = str(self.config.omp_num_threads)
-            os.environ["MKL_NUM_THREADS"] = str(self.config.mkl_num_threads)
-            os.environ["OPENBLAS_NUM_THREADS"] = str(self.config.openblas_num_threads)
-            os.environ["NUMEXPR_NUM_THREADS"] = str(self.config.numexpr_num_threads)
+            os.environ['OMP_NUM_THREADS'] = str(self.config.omp_num_threads)
+            os.environ['MKL_NUM_THREADS'] = str(self.config.mkl_num_threads)
+            os.environ['OPENBLAS_NUM_THREADS'] = str(self.config.openblas_num_threads)
+            os.environ['NUMEXPR_NUM_THREADS'] = str(self.config.numexpr_num_threads)
         return prev
 
     def _restore_thread_caps(self, prev: dict[str, str | None]) -> None:
@@ -145,7 +148,7 @@ class StabilitySelector(Generic[T]):
         try:
             estimator = self.estimator_factory(iter_seed)
         except TypeError:
-            estimator = self.estimator_factory(None)
+            estimator = self.estimator_factory()
 
         try:
             X_sub = X[sample_idxs, :]
@@ -169,10 +172,10 @@ class StabilitySelector(Generic[T]):
             meta = sel_result.meta or {}
             meta.update(
                 {
-                    "iteration": it,
-                    "subfit_id": subfit_id,
-                    "iter_seed": iter_seed,
-                    "subset_size": len(sample_idxs),
+                    'iteration': it,
+                    'subfit_id': subfit_id,
+                    'iter_seed': iter_seed,
+                    'subset_size': len(sample_idxs),
                 }
             )
             sel_result.meta = meta
@@ -183,10 +186,10 @@ class StabilitySelector(Generic[T]):
                 sample_idxs=sample_idxs,
                 failure=str(e),
                 meta={
-                    "iteration": it,
-                    "subfit_id": subfit_id,
-                    "iter_seed": iter_seed,
-                    "subset_size": len(sample_idxs),
+                    'iteration': it,
+                    'subfit_id': subfit_id,
+                    'iter_seed': iter_seed,
+                    'subset_size': len(sample_idxs),
                 },
             )
 
@@ -211,12 +214,12 @@ class StabilitySelector(Generic[T]):
         n_samples, n_features = X.shape
 
         if feature_names is not None and len(feature_names) != n_features:
-            raise ValueError("feature_names length must match X.shape[1].")
+            raise ValueError('feature_names length must match X.shape[1].')
 
         if y is not None:
             y = np.asarray(y)
             if y.shape[0] != n_samples:
-                raise ValueError("y must have the same number of samples as X.")
+                raise ValueError('y must have the same number of samples as X.')
 
         base_seed = self.config.random_state
         iterations = list(range(self.config.n_iterations))
@@ -253,11 +256,11 @@ class StabilitySelector(Generic[T]):
                         tasks.append((it, sub_id, sample_idxs, iter_seed))
 
                 if self.config.verbose > 0:
-                    print(f"Starting stability selection: {len(tasks)} fits across {self.config.n_jobs} cores ...")
+                    print(f'Starting stability selection: {len(tasks)} fits across {self.config.n_jobs} cores ...')
                 job_pool = Parallel(
                     n_jobs=self.config.n_jobs,
-                    backend="loky",
-                    verbose=self.config.verbose > 0,
+                    backend='loky',
+                    verbose=self.config.verbose,
                 )
                 results = job_pool(
                     delayed(self._subfit_task)(
@@ -282,4 +285,3 @@ class StabilitySelector(Generic[T]):
             n_samples=n_samples,
             n_features=n_features,
         )
-

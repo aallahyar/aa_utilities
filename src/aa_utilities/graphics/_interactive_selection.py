@@ -1,5 +1,3 @@
-
-
 import numpy as np
 
 import matplotlib
@@ -11,10 +9,10 @@ from matplotlib.widgets import LassoSelector
 class InteractiveSelection:
     """
     source: https://matplotlib.org/stable/gallery/event_handling/lasso_demo.html
-    Select indices from a matplotlib collection (i.e. plotted points) using 
+    Select indices from a matplotlib collection (i.e. plotted points) using
     `LassoSelector`.
 
-    Selected indices are saved in the `selected_indices` attribute. This tool 
+    Selected indices are saved in the `selected_indices` attribute. This tool
     fades out the points that are not part of the selection (i.e., reduces their alpha
     values). If your collection has alpha < 1, this tool will permanently
     alter the alpha values.
@@ -34,7 +32,7 @@ class InteractiveSelection:
     """
 
     def __init__(self, collection, ax=None, alpha_other=0.3):
-        
+
         if matplotlib.get_backend() not in ['ipympl', 'widget', 'module://ipympl.backend_nbagg']:
             raise ValueError(
                 """Place `%matplotlib ipympl` in the begining of 
@@ -46,7 +44,7 @@ class InteractiveSelection:
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.alpha_other = alpha_other
-        
+
         self.collection = collection
         self.points = collection.get_offsets()
         self.n_points = len(self.points)
@@ -76,26 +74,23 @@ class InteractiveSelection:
         self.canvas.draw_idle()
 
     def on_click(self, event):
-        if event.key == "enter":
+        if event.key == 'enter':
             self.disconnect()
             self.ax.set_title(
-                f"{len(self.selected_indices)} points are selected\n"
-                f"See `selector.selected_indices` for indices"
+                f'{len(self.selected_indices)} points are selected\nSee `selector.selected_indices` for indices'
             )
             self.canvas.draw()
             # print("Selected points:")
             # print(selector.points[selector.selected_indices])
 
     def __str__(self):
-        return (
-            f'{len(self.selected_indices):,d} indices are selected. '
-            f'See `self.selected_indices` for the full list.'
-        )
+        return f'{len(self.selected_indices):,d} indices are selected. See `self.selected_indices` for the full list.'
+
 
 if __name__ == '__main__':
-    
     # initialization
     import matplotlib
+
     matplotlib.use('ipympl')
 
     import numpy as np
@@ -107,12 +102,12 @@ if __name__ == '__main__':
 
     fig = plt.figure(figsize=(5, 5))
     ax = fig.gca()
-    
+
     collection = ax.scatter(data[:, 0], data[:, 1], s=30)
     # `collection` is also located at: ax.collections[0]
     selector = InteractiveSelection(collection=collection, ax=ax)
 
-    fig.canvas.mpl_connect("key_press_event", func=selector.on_click)
-    ax.set_title("Press <Enter> to accept selected points.")
+    fig.canvas.mpl_connect('key_press_event', func=selector.on_click)
+    ax.set_title('Press <Enter> to accept selected points.')
 
     plt.show()

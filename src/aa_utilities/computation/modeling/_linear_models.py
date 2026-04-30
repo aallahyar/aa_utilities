@@ -3,11 +3,11 @@ import pandas as pd
 
 from ...storage import Container
 
-class LinearModel:
 
+class LinearModel:
     def __init__(self, space=None):
         self.R = space
-        
+
         self.R("""
             library(tidyverse)
             
@@ -25,18 +25,18 @@ class LinearModel:
             if (!requireNamespace("emmeans", quietly=TRUE)) stop("Package 'emmeans' is not installed.")
             if (!requireNamespace("mmrm", quietly=TRUE)) stop("Package 'mmrm' is not installed.")
         """)
-        
+
         self.results = Container(
             # is_factored=False,
         )
         self.results._pp.display_width = 175
 
-    @staticmethod # the function does not need the instantiated object
+    @staticmethod  # the function does not need the instantiated object
     def get_dummy(n=500, n_visit=5, seed=42):
         # prepare a dummy data
         rng = np.random.default_rng(seed=seed)
         n_subj = n // n_visit
-        
+
         dummy_df = (
             pd.DataFrame()
             .assign(
@@ -71,7 +71,7 @@ class LinearModel:
     def set_data(self, df, remove_categories=True, preserve_na=True, factorize=True):
 
         # data adjustments
-        df = df.copy() # make a local copy
+        df = df.copy()  # make a local copy
         if remove_categories:
             for col in df.select_dtypes(include='category').columns:
                 is_na = df[col].isna()
@@ -86,7 +86,7 @@ class LinearModel:
 
     # @staticmethod # used when no other methods/variables of the Class are needed
     def factorize(self, columns: list[str] = None):
-        if columns is None: # Factorize all columns of type object (string)
+        if columns is None:  # Factorize all columns of type object (string)
             self.R("""
                 data <- data %>% mutate(across(where(is.character), as.factor))
             """)
@@ -95,7 +95,7 @@ class LinearModel:
             self.R("""
                 data <- data %>% mutate(across(to_factor, as.factor))
             """)
-    
+
     def set_reference(self, references: dict):
         # example: {'TRT01P': 'Placebo', 'AVISIT': 'Week 0'}
         self.R['factor_references'] = self.R.ro.ListVector(references)
@@ -119,7 +119,7 @@ class LinearModel:
             # model_formula <- capture.output(print(formula(fit)))
             model_formula <- deparse(formula(fit))
         """)
-        if isinstance(self.R['model_formula'], (str, )):
+        if isinstance(self.R['model_formula'], (str,)):
             formula = self.R['model_formula']
         else:
             formula = ' '.join(line.strip() for line in self.R['model_formula'])
@@ -150,7 +150,7 @@ class LinearModel:
             broom_params = f'conf.int = FALSE'
         else:
             broom_params = f'conf.int = TRUE, conf.level = {ci:0.2f}'
-            
+
         self.R(f"""
             fit <- glm(
                 formula = {formula}, 
@@ -191,22 +191,27 @@ class LinearModel:
         coef_df <- as.data.frame(summary(fit)$coefficients)
         conf_df <- as.data.frame(confint(fit, level = {ci:0.2f}))
         """)
-        assert self.R['coef_df'].index.equals(self.R['conf_df'].index), "Mismatch in coefficient indices between coef_df and conf_df."
-        assert self.R['conf_df'].shape[1] == 2, "conf_df should have exactly two columns for confidence intervals."
+        assert self.R['coef_df'].index.equals(self.R['conf_df'].index), (
+            'Mismatch in coefficient indices between coef_df and conf_df.'
+        )
+        assert self.R['conf_df'].shape[1] == 2, 'conf_df should have exactly two columns for confidence intervals.'
         fit_coefs = (
             self.R['coef_df']
-            .assign(**{
-                'conf.low': self.R['conf_df'].iloc[:, 0],
-                'conf.high': self.R['conf_df'].iloc[:, 1],
-            })
-            .rename(columns={
-                'Estimate': 'estimate',
-                'Std. Error': 'std.error',
-                't value': 'statistic',
-                'Pr(>|t|)': 'p.value',
-            })
-            .rename_axis(index='term')
-            [['estimate', 'std.error', 'df', 'conf.low', 'conf.high', 'statistic', 'p.value']]
+            .assign(
+                **{
+                    'conf.low': self.R['conf_df'].iloc[:, 0],
+                    'conf.high': self.R['conf_df'].iloc[:, 1],
+                }
+            )
+            .rename(
+                columns={
+                    'Estimate': 'estimate',
+                    'Std. Error': 'std.error',
+                    't value': 'statistic',
+                    'Pr(>|t|)': 'p.value',
+                }
+            )
+            .rename_axis(index='term')[['estimate', 'std.error', 'df', 'conf.low', 'conf.high', 'statistic', 'p.value']]
         )
 
         self.results['model_name'] = 'mmrm'
@@ -216,12 +221,12 @@ class LinearModel:
         self.results['fit_coefs'] = fit_coefs
 
     def fit_negbin(self, formula, exponentiate=True, ci=0.95):
-        # e.g., formula = 'EXACN ~ offset(log(TMEXRISK)) + TRT01P'
         """Fits a negative binomial regression model using the MASS::glm.nb function in R.
         The mean-variance relation is Var(Y) = μ + μ²/θ, so larger θ means less overdispersion.
 
         Parameters:
             formula (str): The model formula as a string.
+                E.g., ``'EXACN ~ offset(log(TMEXRISK)) + TRT01P'``.
             exponentiate (bool): Whether to exponentiate the coefficients (to get incidence rate ratios).
             ci (float): Confidence interval level (e.g., 0.95 for 95% CI).
         """
@@ -262,7 +267,7 @@ class LinearModel:
         #  fish       29.8 1.09 23     27.6     32.1
         #  soy        39.1 1.47 23     36.2     42.3
         #  skim       44.6 1.75 23     41.1     48.3
-        
+
         # ls.means <- emmeans::regrid(ls.means, transform = "response")
         # pw_diff <- emmeans::contrast(ls.means, method="revpairwise", type='link', adjust='none')
         # print(pw_diff)
@@ -271,7 +276,7 @@ class LinearModel:
         #  skim - fish    14.76 2.08 23   7.098  <.0001
         #  skim - soy      5.41 2.23 23   2.424  0.0236
         # """
-        
+
         self.R(f"""
             # type:
             #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model).
@@ -306,16 +311,20 @@ class LinearModel:
         """)
 
         if append:
-            if 'contrasts' not in self.results: # initialize an empty DataFrame, if it does not exist
+            if 'contrasts' not in self.results:  # initialize an empty DataFrame, if it does not exist
                 self.results['contrasts'] = pd.DataFrame()
-            
-            self.results['contrasts'] = pd.concat([
-                self.results['contrasts'],
-                self.R['emm_diff_td'].set_index('contrast'),
-            ], axis=0, ignore_index=False)
+
+            self.results['contrasts'] = pd.concat(
+                [
+                    self.results['contrasts'],
+                    self.R['emm_diff_td'].set_index('contrast'),
+                ],
+                axis=0,
+                ignore_index=False,
+            )
         else:
             self.results['contrasts'] = self.R['emm_diff_td'].set_index('contrast')
-        
+
         # extracting details per Arm and Timepoint
         # self.R['pw_diff_td'].contrast.str.extract(
         #     r'^(?P<Arm>Teze 210 mg Q4W|Placebo)' # named groups
@@ -325,13 +334,12 @@ class LinearModel:
         # )
 
     def __repr__(self):
-        out = f"LinearModel"
+        out = f'LinearModel'
         meta = []
         if 'model_name' in self.results:
-            meta.append(f"model_name={self.results['model_name']}")
+            meta.append(f'model_name={self.results["model_name"]}')
         if 'formula' in self.results:
-            meta.append(f"formula={self.results['formula']}")
+            meta.append(f'formula={self.results["formula"]}')
         if len(meta) != 0:
-            out += "(" + ", ".join(meta) + ")"
+            out += '(' + ', '.join(meta) + ')'
         return out
-

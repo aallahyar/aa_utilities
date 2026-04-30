@@ -25,6 +25,7 @@ from matplotlib.axes import Axes
 # Internal data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _Label:
     idx: int
@@ -33,13 +34,14 @@ class _Label:
     width: float
     height: float
     text: str
-    bbox: np.ndarray | None = None   # [x0, y0, x1, y1] display coords
+    bbox: np.ndarray | None = None  # [x0, y0, x1, y1] display coords
     cand_rank: int = -1
 
 
 # ---------------------------------------------------------------------------
 # Candidate generation
 # ---------------------------------------------------------------------------
+
 
 def _generate_candidates(
     cx: float,
@@ -94,6 +96,7 @@ def _generate_candidates(
 # Overlap helpers
 # ---------------------------------------------------------------------------
 
+
 def _boxes_overlap(a: np.ndarray, bs: np.ndarray, margin: float) -> np.ndarray:
     """Return bool array — True where box *a* (4,) overlaps a row in *bs* (N,4)."""
     return (
@@ -108,21 +111,18 @@ def _box_hits_points(box: np.ndarray, pts: np.ndarray | None, margin: float) -> 
     """True if *box* (4,) overlaps any point in *pts* (N,2)."""
     if pts is None or len(pts) == 0:
         return False
-    return bool(np.any(
-        (box[0] - margin < pts[:, 0])
-        & (box[2] + margin > pts[:, 0])
-        & (box[1] - margin < pts[:, 1])
-        & (box[3] + margin > pts[:, 1])
-    ))
+    return bool(
+        np.any(
+            (box[0] - margin < pts[:, 0])
+            & (box[2] + margin > pts[:, 0])
+            & (box[1] - margin < pts[:, 1])
+            & (box[3] + margin > pts[:, 1])
+        )
+    )
 
 
 def _in_bounds(box: np.ndarray, xlim: tuple, ylim: tuple) -> bool:
-    return (
-        box[0] >= xlim[0]
-        and box[2] <= xlim[1]
-        and box[1] >= ylim[0]
-        and box[3] <= ylim[1]
-    )
+    return box[0] >= xlim[0] and box[2] <= xlim[1] and box[1] >= ylim[0] and box[3] <= ylim[1]
 
 
 def _segments_cross(a0, a1, b0, b1) -> bool:
@@ -203,6 +203,7 @@ def _extract_obstacles(artists, renderer):
 # Core placement
 # ---------------------------------------------------------------------------
 
+
 def _first_valid(
     cands: np.ndarray,
     placed: np.ndarray,
@@ -252,8 +253,13 @@ def _place_labels(
 
     all_cands = [
         _generate_candidates(
-            lb.x_disp, lb.y_disp, lb.width, lb.height,
-            min_dist, max_dist, n_cands,
+            lb.x_disp,
+            lb.y_disp,
+            lb.width,
+            lb.height,
+            min_dist,
+            max_dist,
+            n_cands,
         )
         for lb in labels
     ]
@@ -266,8 +272,8 @@ def _place_labels(
         placed = np.empty((0, 4))
         n_fixed = 0
 
-    placed_order: list[int] = []      # label indices in placement order
-    arrows: list[tuple] = []          # (center, anchor) display-coord segments
+    placed_order: list[int] = []  # label indices in placement order
+    arrows: list[tuple] = []  # (center, anchor) display-coord segments
 
     def _anchor(i):
         return (labels[i].x_disp, labels[i].y_disp)
@@ -277,8 +283,15 @@ def _place_labels(
 
     for i, lb in enumerate(labels):
         rank = _first_valid(
-            all_cands[i], placed, scatter, margin, xlim, ylim,
-            anchor=_anchor(i), arrows=arrows, n_fixed=n_fixed,
+            all_cands[i],
+            placed,
+            scatter,
+            margin,
+            xlim,
+            ylim,
+            anchor=_anchor(i),
+            arrows=arrows,
+            n_fixed=n_fixed,
         )
 
         if rank >= 0:
@@ -296,12 +309,19 @@ def _place_labels(
             j = placed_order[j_slot]
 
             tmp_placed = np.delete(placed, n_fixed + j_slot, axis=0)
-            tmp_arrows = arrows[:j_slot] + arrows[j_slot + 1:]
+            tmp_arrows = arrows[:j_slot] + arrows[j_slot + 1 :]
 
             # Can *i* be placed without *j*?
             ri = _first_valid(
-                all_cands[i], tmp_placed, scatter, margin, xlim, ylim,
-                anchor=_anchor(i), arrows=tmp_arrows, n_fixed=n_fixed,
+                all_cands[i],
+                tmp_placed,
+                scatter,
+                margin,
+                xlim,
+                ylim,
+                anchor=_anchor(i),
+                arrows=tmp_arrows,
+                n_fixed=n_fixed,
             )
             if ri < 0:
                 continue
@@ -311,8 +331,15 @@ def _place_labels(
             arrow_i = (_center(all_cands[i][ri]), _anchor(i))
             tmp_arrows2 = tmp_arrows + [arrow_i]
             rj = _first_valid(
-                all_cands[j], tmp2, scatter, margin, xlim, ylim,
-                anchor=_anchor(j), arrows=tmp_arrows2, n_fixed=n_fixed,
+                all_cands[j],
+                tmp2,
+                scatter,
+                margin,
+                xlim,
+                ylim,
+                anchor=_anchor(j),
+                arrows=tmp_arrows2,
+                n_fixed=n_fixed,
             )
             if rj < 0:
                 continue
@@ -349,6 +376,7 @@ def _place_labels(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def repel_text(
     ax: Axes,
@@ -411,7 +439,7 @@ def repel_text(
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     if len(x) != len(y) or len(x) != len(texts):
-        raise ValueError("x, y, and texts must have the same length")
+        raise ValueError('x, y, and texts must have the same length')
 
     fig = ax.get_figure()
     try:
@@ -440,35 +468,44 @@ def repel_text(
     ylim_d = (ax_bbox.y0, ax_bbox.y1)
 
     # Force centre alignment so bbox centres map predictably.
-    for key in ("ha", "va", "horizontalalignment", "verticalalignment"):
+    for key in ('ha', 'va', 'horizontalalignment', 'verticalalignment'):
         text_kwargs.pop(key, None)
 
     # ---- measure text sizes ---------------------------------------------------
     labels: list[_Label] = []
     for i, txt in enumerate(texts):
-        t = ax.text(0, 0, txt, ha="center", va="center", **text_kwargs)
+        t = ax.text(0, 0, txt, ha='center', va='center', **text_kwargs)
         bb = t.get_window_extent(renderer)
-        labels.append(_Label(
-            idx=i,
-            x_disp=anchors_disp[i, 0],
-            y_disp=anchors_disp[i, 1],
-            width=bb.width,
-            height=bb.height,
-            text=txt,
-        ))
+        labels.append(
+            _Label(
+                idx=i,
+                x_disp=anchors_disp[i, 0],
+                y_disp=anchors_disp[i, 1],
+                width=bb.width,
+                height=bb.height,
+                text=txt,
+            )
+        )
         t.remove()
 
     # ---- run placement --------------------------------------------------------
     _place_labels(
-        labels, scatter_disp, obstacle_boxes, margin,
-        min_distance, max_distance, n_candidates,
-        xlim_d, ylim_d, max_backtrack,
+        labels,
+        scatter_disp,
+        obstacle_boxes,
+        margin,
+        min_distance,
+        max_distance,
+        n_candidates,
+        xlim_d,
+        ylim_d,
+        max_backtrack,
     )
 
     # ---- draw -----------------------------------------------------------------
     inv = trans.inverted()
 
-    default_arrow = dict(arrowstyle="-", color="0.5", lw=0.75, shrinkA=0, shrinkB=0)
+    default_arrow = dict(arrowstyle='-', color='0.5', lw=0.75, shrinkA=0, shrinkB=0)
     default_arrow.update(arrow_kwargs)
 
     results = []
@@ -481,8 +518,8 @@ def repel_text(
             lb.text,
             xy=(x[lb.idx], y[lb.idx]),
             xytext=(cx_data, cy_data),
-            ha="center",
-            va="center",
+            ha='center',
+            va='center',
             arrowprops=default_arrow if draw_arrows else None,
             **text_kwargs,
         )

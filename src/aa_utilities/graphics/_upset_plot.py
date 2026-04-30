@@ -54,14 +54,15 @@ class UpsetPlot:
 
     def __init__(self, sets, mode='inclusive'):
         if mode not in ('inclusive', 'exclusive'):
-            raise ValueError(
-                f"mode must be 'inclusive' or 'exclusive', got {mode!r}"
-            )
+            raise ValueError(f"mode must be 'inclusive' or 'exclusive', got {mode!r}")
 
-        self.sets = pd.DataFrame({
-            'members': [set(s) for s in sets.values()],
-            'size': [len(s) for s in sets.values()],
-        }, index=sets.keys())
+        self.sets = pd.DataFrame(
+            {
+                'members': [set(s) for s in sets.values()],
+                'size': [len(s) for s in sets.values()],
+            },
+            index=sets.keys(),
+        )
 
         self.intersections = self._generate_intersections(mode)
 
@@ -88,15 +89,10 @@ class UpsetPlot:
         for r in range(1, len(set_names) + 1):
             for combo in combinations(set_names, r):
                 included = set(combo)
-                rows.append(
-                    {name: (1 if name in included else non_member)
-                     for name in set_names}
-                )
+                rows.append({name: (1 if name in included else non_member) for name in set_names})
 
         ixs = pd.DataFrame(rows)
-        ixs['_size'] = ixs.apply(
-            lambda row: self._compute_size(row, set_names), axis=1
-        )
+        ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_names), axis=1)
         ixs = self._refresh_meta(ixs, set_names)
         ixs.index = self._derive_labels(ixs, set_names)
         ixs.index.name = None
@@ -155,9 +151,7 @@ class UpsetPlot:
 
         # Sizes
         if update_stats or '_size' not in ixs.columns:
-            ixs['_size'] = ixs.apply(
-                lambda row: self._compute_size(row, set_cols), axis=1
-            )
+            ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_cols), axis=1)
 
         self.intersections = self._refresh_meta(ixs, set_cols)
         return self
@@ -174,9 +168,7 @@ class UpsetPlot:
             *(self.sets.loc[included, 'members'].tolist()),
         )
         if excluded:
-            result = result - set.union(
-                *(self.sets.loc[excluded, 'members'].tolist())
-            )
+            result = result - set.union(*(self.sets.loc[excluded, 'members'].tolist()))
         return len(result)
 
     @staticmethod
@@ -258,10 +250,7 @@ class UpsetPlot:
             For method chaining.
         """
         c = {**self._DEFAULT_COLORS, **(colors or {})}
-        set_cols = [
-            col for col in self.intersections.columns
-            if col in self.set_names
-        ]
+        set_cols = [col for col in self.intersections.columns if col in self.set_names]
         n_sets = len(set_cols)
         n_ints = len(self.intersections)
         int_labels = self.intersections.index.tolist()
@@ -275,7 +264,8 @@ class UpsetPlot:
 
         # ---- layout --------------------------------------------------
         self.fig, axes = plt.subplots(
-            2, 2,
+            2,
+            2,
             figsize=figsize,
             gridspec_kw=dict(
                 width_ratios=width_ratios,
@@ -284,7 +274,7 @@ class UpsetPlot:
                 wspace=0.05,
             ),
         )
-        axes[0, 0].axis('off')                          # spacer
+        axes[0, 0].axis('off')  # spacer
         self.ax_intersection_sizes = axes[0, 1]
         self.ax_set_sizes = axes[1, 0]
         self.ax_matrix = axes[1, 1]
@@ -301,7 +291,11 @@ class UpsetPlot:
 
         # ---- intersection-size bars -----------------------------------
         self._plot_intersection_sizes(
-            int_labels, sizes, c, bar_labels, _add,
+            int_labels,
+            sizes,
+            c,
+            bar_labels,
+            _add,
         )
 
         # ---- set-size bars --------------------------------------------
@@ -309,8 +303,14 @@ class UpsetPlot:
 
         # ---- matrix ---------------------------------------------------
         self._plot_matrix(
-            set_cols, int_labels, c,
-            marker_scale, figsize, row_stripe, col_stripe, _add,
+            set_cols,
+            int_labels,
+            c,
+            marker_scale,
+            figsize,
+            row_stripe,
+            col_stripe,
+            _add,
         )
 
         # ---- build artists Series ------------------------------------
@@ -319,12 +319,17 @@ class UpsetPlot:
             names=['set', 'intersection', 'element'],
         )
         self.artists = pd.Series(
-            [a for _, _, _, a in entries], index=idx,
+            [a for _, _, _, a in entries],
+            index=idx,
         )
 
         self.fig.subplots_adjust(
-            hspace=0.05, wspace=0.05,
-            left=0.1, right=0.95, bottom=0.15, top=0.95,
+            hspace=0.05,
+            wspace=0.05,
+            left=0.1,
+            right=0.95,
+            bottom=0.15,
+            top=0.95,
         )
 
         if show:
@@ -334,7 +339,12 @@ class UpsetPlot:
     # ---- plot helpers (private) ----------------------------------------
 
     def _plot_intersection_sizes(
-        self, int_labels, sizes, c, bar_labels, _add,
+        self,
+        int_labels,
+        sizes,
+        c,
+        bar_labels,
+        _add,
     ):
         ax = self.ax_intersection_sizes
         n_ints = len(sizes)
@@ -347,8 +357,12 @@ class UpsetPlot:
         if bar_labels:
             for i in range(n_ints):
                 txt = ax.text(
-                    xp[i], sizes[i], str(int(sizes[i])),
-                    ha='center', va='bottom', fontsize=8,
+                    xp[i],
+                    sizes[i],
+                    str(int(sizes[i])),
+                    ha='center',
+                    va='bottom',
+                    fontsize=8,
                 )
                 _add('', int_labels[i], 'bar_label', txt)
 
@@ -375,8 +389,15 @@ class UpsetPlot:
             ax.spines[spine].set_visible(False)
 
     def _plot_matrix(
-        self, set_cols, int_labels, c,
-        marker_scale, figsize, row_stripe, col_stripe, _add,
+        self,
+        set_cols,
+        int_labels,
+        c,
+        marker_scale,
+        figsize,
+        row_stripe,
+        col_stripe,
+        _add,
     ):
         ax = self.ax_matrix
         n_sets = len(set_cols)
@@ -392,7 +413,7 @@ class UpsetPlot:
             * 0.3
             * marker_scale
         )
-        dot_area = base ** 2
+        dot_area = base**2
 
         color_map = {1: c['member'], -1: c['excluded'], 0: c['ignored']}
 
@@ -401,26 +422,38 @@ class UpsetPlot:
         if row_stripe:
             for i in range(0, n_sets, 2):
                 ax.axhspan(
-                    i - 0.5, i + 0.5,
-                    facecolor=row_stripe, edgecolor='none',
-                    alpha=0.5, zorder=0,
+                    i - 0.5,
+                    i + 0.5,
+                    facecolor=row_stripe,
+                    edgecolor='none',
+                    alpha=0.5,
+                    zorder=0,
                 )
                 self.ax_set_sizes.axhspan(
-                    i - 0.5, i + 0.5,
-                    facecolor=row_stripe, edgecolor='none',
-                    alpha=0.5, zorder=0,
+                    i - 0.5,
+                    i + 0.5,
+                    facecolor=row_stripe,
+                    edgecolor='none',
+                    alpha=0.5,
+                    zorder=0,
                 )
         if col_stripe:
             for i in range(0, n_ints, 2):
                 ax.axvspan(
-                    i - 0.5, i + 0.5,
-                    facecolor=col_stripe, edgecolor='none',
-                    alpha=0.5, zorder=0,
+                    i - 0.5,
+                    i + 0.5,
+                    facecolor=col_stripe,
+                    edgecolor='none',
+                    alpha=0.5,
+                    zorder=0,
                 )
                 self.ax_intersection_sizes.axvspan(
-                    i - 0.5, i + 0.5,
-                    facecolor=col_stripe, edgecolor='none',
-                    alpha=0.5, zorder=0,
+                    i - 0.5,
+                    i + 0.5,
+                    facecolor=col_stripe,
+                    edgecolor='none',
+                    alpha=0.5,
+                    zorder=0,
                 )
 
         # Dots and connectors — draw non-member dots first (lower zorder),
@@ -433,7 +466,8 @@ class UpsetPlot:
                     member_ys.append(sx)
                     continue  # draw member dots after the connector
                 dot = ax.scatter(
-                    ix, sx,
+                    ix,
+                    sx,
                     s=dot_area,
                     c=color_map[val],
                     marker='o',
@@ -457,7 +491,8 @@ class UpsetPlot:
             # Member dots on top of connector
             for sx in member_ys:
                 dot = ax.scatter(
-                    ix, sx,
+                    ix,
+                    sx,
                     s=dot_area,
                     c=c['member'],
                     marker='o',
@@ -470,7 +505,10 @@ class UpsetPlot:
         xp = np.arange(n_ints)
         ax.set_xticks(xp)
         ax.set_xticklabels(
-            int_labels, rotation=90, ha='center', fontsize=8,
+            int_labels,
+            rotation=90,
+            ha='center',
+            fontsize=8,
         )
         ax.set_xlim(-0.5, n_ints - 0.5)
         ax.set_ylim(n_sets - 0.5, -0.5)  # inverted y
@@ -484,4 +522,3 @@ class UpsetPlot:
         """Display the figure via ``plt.show()``."""
         if self.fig is not None:
             plt.show()
-

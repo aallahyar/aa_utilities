@@ -5,6 +5,7 @@ import pickle
 import os
 import stat
 
+
 class Checkpoint:
     def __init__(self, path=None, verbose=True):
         self.verbose = verbose
@@ -27,7 +28,7 @@ class Checkpoint:
                     print(f'Warning, destination file is overwritten: {fpath}')
         with gzip.open(fpath, mode='wb', compresslevel=5) as file:
             pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
-        
+
         # Get size after write
         if self.verbose:
             size_bytes = os.path.getsize(fpath)
@@ -54,45 +55,51 @@ class Checkpoint:
     def human_readable_size(size, decimal_places=1):
         for unit in ['B', 'KB', 'MB', 'GB', 'TB', 'PB']:
             if size < 1024.0 or unit == 'PB':
-                return f"{size:.{decimal_places}f} {unit}"
+                return f'{size:.{decimal_places}f} {unit}'
             size /= 1024.0
 
     def list(self, pattern='*.pkl.gz', extended=True):
         entries = []
         for fpath in self.path.glob(pattern):
             if not extended:
-                entries.append({
-                    'name': fpath.name,
-                    'path': fpath,
-                })
+                entries.append(
+                    {
+                        'name': fpath.name,
+                        'path': fpath,
+                    }
+                )
                 continue
             st = fpath.stat()
             mode = st.st_mode
-            perms = ''.join([
-                'd' if fpath.is_dir() else '-',
-                'r' if mode & stat.S_IRUSR else '-',
-                'w' if mode & stat.S_IWUSR else '-',
-                'x' if mode & stat.S_IXUSR else '-',
-                'r' if mode & stat.S_IRGRP else '-',
-                'w' if mode & stat.S_IWGRP else '-',
-                'x' if mode & stat.S_IXGRP else '-',
-                'r' if mode & stat.S_IROTH else '-',
-                'w' if mode & stat.S_IWOTH else '-',
-                'x' if mode & stat.S_IXOTH else '-',
-            ])
+            perms = ''.join(
+                [
+                    'd' if fpath.is_dir() else '-',
+                    'r' if mode & stat.S_IRUSR else '-',
+                    'w' if mode & stat.S_IWUSR else '-',
+                    'x' if mode & stat.S_IXUSR else '-',
+                    'r' if mode & stat.S_IRGRP else '-',
+                    'w' if mode & stat.S_IWGRP else '-',
+                    'x' if mode & stat.S_IXGRP else '-',
+                    'r' if mode & stat.S_IROTH else '-',
+                    'w' if mode & stat.S_IWOTH else '-',
+                    'x' if mode & stat.S_IXOTH else '-',
+                ]
+            )
             mtime_str = datetime.fromtimestamp(st.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
-            entries.append({
-                'name': fpath.name,
-                'path': fpath,
-                'size': st.st_size,
-                'size_human': self.human_readable_size(st.st_size),
-                'mtime': st.st_mtime,
-                'mtime_str': mtime_str,
-                'perms': perms,
-            })
+            entries.append(
+                {
+                    'name': fpath.name,
+                    'path': fpath,
+                    'size': st.st_size,
+                    'size_human': self.human_readable_size(st.st_size),
+                    'mtime': st.st_mtime,
+                    'mtime_str': mtime_str,
+                    'perms': perms,
+                }
+            )
         if self.verbose and extended:
             for e in entries:
-                print(f"{e['perms']}  {e['size_human']:>10}  {e['mtime_str']:<20}  {e['name']}")
+                print(f'{e["perms"]}  {e["size_human"]:>10}  {e["mtime_str"]:<20}  {e["name"]}')
         return entries
 
     def __repr__(self):

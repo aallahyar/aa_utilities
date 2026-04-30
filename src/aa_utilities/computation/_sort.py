@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 
@@ -6,20 +5,23 @@ import pandas as pd
 def code_natsorted(srs):
     from natsort import index_natsorted
 
-    if not isinstance(srs, (pd.core.series.Series, )):
+    if not isinstance(srs, (pd.core.series.Series,)):
         srs = pd.Series(srs)
 
     natsort_idx = np.argsort(index_natsorted(srs))
     return srs.groupby(by=srs).transform(lambda grp: natsort_idx[grp.index].min())
 
+
 if __name__ == '__main__':
     # import numpy as np
     import pandas as pd
 
-    df = pd.DataFrame({
-        'col1': ['A', 'B', 'A', 'A', 'A'],
-        'col2': ['W1', 'W3', 'W17', 'W11', 'W2'],
-    })
+    df = pd.DataFrame(
+        {
+            'col1': ['A', 'B', 'A', 'A', 'A'],
+            'col2': ['W1', 'W3', 'W17', 'W11', 'W2'],
+        }
+    )
     print(df)
     #   col1 col2
     # 0    A   W1

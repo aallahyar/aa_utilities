@@ -1,4 +1,3 @@
-
 class IterativeStats:
     def __init__(self):
         self.count = 0
@@ -22,8 +21,10 @@ class IterativeStats:
     def std(self):
         return (self.var()) ** 0.5
 
+
 if __name__ == '__main__':
     import numpy as np
+
     rng = np.random.default_rng(seed=42)
     data = rng.integers(-100, 100, size=1000)
     # print(data)
