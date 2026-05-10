@@ -43,3 +43,7 @@ print(R)
 assert R['model_coef'].equals(R('fit$coef'))
 assert R['model_matrix'].equals(R('model.matrix(fit)'))
 
+# adding a Dict to R
+R['my_dict'] = {'a': [1, 2, 3], 'b': [20, 30, 40, 50], 'c': list('ABCDEF')}
+print(R('print(my_dict)'))
+

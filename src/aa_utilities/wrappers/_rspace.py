@@ -62,6 +62,9 @@ class RSpace:
         if isinstance(value, (dict,)):
             value = rlc.NamedList.from_items(value)
             ro.r.assign(name, value)
+            self(f'''
+            {name} <- lapply({name}, unlist, use.names=FALSE, recursive=FALSE)
+            ''')  # Convert each value to regular list in R to avoid rpy2 issues with NamedList
         else:
             with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
                 value_r = ro.conversion.get_conversion().py2rpy(value)
