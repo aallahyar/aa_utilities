@@ -1,3 +1,7 @@
+## [0.0.46] - 2026-05-10
+### Added:
+- `computation.pairwise_associations` to compute pairwise sample associations depending on the type of pairs being compared.
+
 ## [0.0.46] - 2026-04-22
 ### Added:
 - `computation.pairwise_distances` to compute pairwise sample distances via multi-core implementation.

@@ -497,12 +497,15 @@ def _is_jupyter():
         return False  # Plain Python interpreter
 
 
-def _render(df, title):
+def _render(df, title, renderer='auto'):
     """Render a DataFrame using display() in Jupyter or print() otherwise."""
 
     print(f'===  {title}')
 
-    if _is_jupyter():
+    if renderer == 'auto':
+        renderer = 'display' if _is_jupyter() else 'print'
+
+    if renderer == 'display':
         from IPython.display import display
 
         display(df)
@@ -510,7 +513,7 @@ def _render(df, title):
         print(df.to_string())
 
 
-def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=False):
+def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=False, renderer='auto'):
     """
     Enhanced pandas.DataFrame.describe() that splits the summary into two focused tables:
     - Numeric table: standard describe() stats + dtype
@@ -526,6 +529,12 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
         Whether to display the numeric summary table.
     show_categorical : bool
         Whether to display the categorical/string summary table.
+    return_dfs : bool
+        If True, return the numeric and categorical summary tables as DataFrames instead 
+        of printing them.
+    renderer : str
+        Renderer to use for displaying the tables. 'auto' (default) uses 'display' in 
+        Jupyter and 'print' otherwise. Can also be explicitly set to 'display' or 'print'.
 
     Returns
     -------
@@ -606,10 +615,10 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
     #  Display                                                             #
     # ------------------------------------------------------------------ #
     if show_numeric and numeric_df is not None:
-        _render(numeric_df, 'NUMERIC SUMMARY')
+        _render(numeric_df, 'NUMERIC SUMMARY', renderer=renderer)
 
     if show_categorical and categorical_df is not None:
-        _render(categorical_df, 'CATEGORICAL SUMMARY')
+        _render(categorical_df, 'CATEGORICAL SUMMARY', renderer=renderer)
 
     if return_dfs:
         return numeric_df, categorical_df
