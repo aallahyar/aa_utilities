@@ -74,15 +74,15 @@ class UpsetPlot:
         self.artists = None
 
     @property
-    def set_names(self):
+    def get_set_names(self):
         """Set names, in display order."""
-        return self.sets.index
+        return list(self.sets.index)
 
     # ------------------------------------------------------------------ data
 
     def _generate_intersections(self, mode):
         """Build the full intersection matrix (2^n - 1 rows)."""
-        set_names = list(self.set_names)
+        set_names = self.get_set_names
         non_member = -1 if mode == 'exclusive' else 0
 
         rows = []
@@ -132,7 +132,7 @@ class UpsetPlot:
             For method chaining.
         """
         ixs = fn(self.intersections.copy())
-        set_cols = [c for c in ixs.columns if c in self.set_names]
+        set_cols = [c for c in ixs.columns if c in self.get_set_names]
 
         # Preserve _size before dropping meta (used when update_stats=False)
         if not update_stats and '_size' in ixs.columns:
@@ -250,7 +250,7 @@ class UpsetPlot:
             For method chaining.
         """
         c = {**self._DEFAULT_COLORS, **(colors or {})}
-        set_cols = [col for col in self.intersections.columns if col in self.set_names]
+        set_cols = [col for col in self.intersections.columns if col in self.get_set_names]
         n_sets = len(set_cols)
         n_ints = len(self.intersections)
         int_labels = self.intersections.index.tolist()

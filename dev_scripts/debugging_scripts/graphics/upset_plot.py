@@ -22,8 +22,10 @@ print(up_ex.intersections)
 up_ex.plot(col_stripe="#7dc1f1", colors={'excluded': '#cc3333'})
 
 # ── 3. Filter: keep only intersections with size >= 1, sorted by size ──
-up_filt = UpsetPlot(sets, mode='exclusive')
-up_filt.filter(lambda ix: ix[ix['_size'] >= 1].sort_values('_size', ascending=False))
+up_filt = (
+    UpsetPlot(sets, mode='exclusive')
+    .filter(lambda ix: ix[ix['_size'] >= 1].sort_values('_size', ascending=False))
+)
 print('\n=== filtered (exclusive, size >= 1) ===')
 print(up_filt.intersections)
 up_filt.plot(row_stripe="#efe0a2", col_stripe='#f0f0ff')
@@ -34,16 +36,20 @@ def drop_set_d(df):
     df[df == 0] = -1  # make exclusive
     return df[df['_size'] >= 1]
 
-up_drop = UpsetPlot(sets)
-up_drop.filter(drop_set_d)
+up_drop = (
+    UpsetPlot(sets)
+    .filter(drop_set_d)
+)
 print('\n=== after dropping Gene Set D ===')
 print(up_drop.intersections)
 up_drop.plot()
 
 # ── 5. Deferred render + artist customisation ───────────────────────────
-up_custom = UpsetPlot(sets, mode='exclusive')
-up_custom.filter(lambda df: df[df['_size'] >= 1])
-up_custom.plot(show=False)
+up_custom = (
+    UpsetPlot(sets, mode='exclusive')
+    .filter(lambda df: df[df['_size'] >= 1])
+    .plot(show=False)
+)
 up_custom.ax_intersection_sizes.set_ylabel('Count')
 up_custom.ax_intersection_sizes.set_title('My UpSet Plot')
 up_custom.show()
