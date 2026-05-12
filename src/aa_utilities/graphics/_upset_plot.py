@@ -73,28 +73,23 @@ class UpsetPlot:
         self.ax_matrix = None
         self.artists = None
 
-    @property
-    def get_set_names(self):
-        """Set names, in display order."""
-        return list(self.sets.index)
-
     # ------------------------------------------------------------------ data
 
     def _generate_intersections(self, mode):
         """Build the full intersection matrix (2^n - 1 rows)."""
-        set_names = self.get_set_names
+        set_labels = list(self.sets.index)
         non_member = -1 if mode == 'exclusive' else 0
 
         rows = []
-        for r in range(1, len(set_names) + 1):
-            for combo in combinations(set_names, r):
+        for r in range(1, len(set_labels) + 1):
+            for combo in combinations(set_labels, r):
                 included = set(combo)
-                rows.append({name: (1 if name in included else non_member) for name in set_names})
+                rows.append({name: (1 if name in included else non_member) for name in set_labels})
 
         ixs = pd.DataFrame(rows)
-        ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_names), axis=1)
-        ixs = self._refresh_meta(ixs, set_names)
-        ixs.index = self._derive_labels(ixs, set_names)
+        ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_labels), axis=1)
+        ixs = self._refresh_meta(ixs, set_labels)
+        ixs.index = self._derive_labels(ixs, set_labels)
         ixs.index.name = None
         return ixs
 
@@ -132,7 +127,7 @@ class UpsetPlot:
             For method chaining.
         """
         ixs = fn(self.intersections.copy())
-        set_cols = [c for c in ixs.columns if c in self.get_set_names]
+        set_cols = [c for c in ixs.columns if c in self.sets.index]
 
         # Preserve _size before dropping meta (used when update_stats=False)
         if not update_stats and '_size' in ixs.columns:
@@ -250,7 +245,7 @@ class UpsetPlot:
             For method chaining.
         """
         c = {**self._DEFAULT_COLORS, **(colors or {})}
-        set_cols = [col for col in self.intersections.columns if col in self.get_set_names]
+        set_cols = [col for col in self.intersections.columns if col in self.sets.index]
         n_sets = len(set_cols)
         n_ints = len(self.intersections)
         int_labels = self.intersections.index.tolist()
@@ -286,8 +281,8 @@ class UpsetPlot:
         # ---- artist collection ----------------------------------------
         entries = []  # (set, intersection, element_type, artist)
 
-        def _add(set_name, int_name, elem_type, artist):
-            entries.append((set_name, int_name, elem_type, artist))
+        def _add(set_label, int_label, elem_type, artist):
+            entries.append((set_label, int_label, elem_type, artist))
 
         # ---- intersection-size bars -----------------------------------
         self._plot_intersection_sizes(
@@ -508,7 +503,7 @@ class UpsetPlot:
             int_labels,
             rotation=90,
             ha='center',
-            fontsize=8,
+            fontsize=10,
         )
         ax.set_xlim(-0.5, n_ints - 0.5)
         ax.set_ylim(n_sets - 0.5, -0.5)  # inverted y
@@ -521,4 +516,4 @@ class UpsetPlot:
     def show(self):
         """Display the figure via ``plt.show()``."""
         if self.fig is not None:
-            plt.show()
+            self.fig.show()

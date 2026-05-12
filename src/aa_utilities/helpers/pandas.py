@@ -588,7 +588,7 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
                 row = {
                     'dtype': series.dtype,
                     'count': series.count(),
-                    'n_unique': series.nunique(),
+                    'n_unique': series.nunique(dropna=False),
                 }
 
                 # Gracefully handle fewer unique values than n
