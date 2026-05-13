@@ -185,10 +185,13 @@ class UpsetPlot:
             included = [c for c in set_cols if row[c] == 1]
             excluded = [c for c in set_cols if row[c] == -1]
 
-            parts = ' & '.join(included) if included else ''
-            for ex in excluded:
-                parts += f' \\ {ex}'
-            labels.append(parts.strip() or '(empty)')
+            if not included: # empty intersection
+                labels.append('(empty)')
+            else:
+                parts = ' & '.join(included)
+                for ex in excluded:
+                    parts += f' \\ {ex}'
+                labels.append(parts)
         return labels
 
     # ------------------------------------------------------------------ plot
@@ -219,8 +222,8 @@ class UpsetPlot:
         Parameters
         ----------
         show : bool, default True
-            Call :meth:`show` immediately.  Pass ``False`` to customise
-            axes / artists before rendering.
+            Call :meth:`show` immediately.  Pass ``False`` to defer rendering which in turn allows 
+            access and customization of axes / artists before rendering.
         row_stripe : str or None, default '#f5f5f5'
             Alternating row-stripe colour.  ``None`` disables.
         col_stripe : str or None, default None
@@ -259,14 +262,12 @@ class UpsetPlot:
 
         # ---- layout --------------------------------------------------
         self.fig, axes = plt.subplots(
-            2,
-            2,
+            ncols=2,
+            nrows=2,
             figsize=figsize,
             gridspec_kw=dict(
                 width_ratios=width_ratios,
                 height_ratios=height_ratios,
-                hspace=0.05,
-                wspace=0.05,
             ),
         )
         axes[0, 0].axis('off')  # spacer
@@ -378,6 +379,7 @@ class UpsetPlot:
 
         ax.set_yticks(yp)
         ax.set_yticklabels(set_cols)
+        ax.set_ylim(n_sets - 0.5, -0.5)
         ax.invert_xaxis()
         ax.set_xlabel('Set size')
         for spine in ('top', 'right', 'left'):
@@ -410,7 +412,7 @@ class UpsetPlot:
         )
         dot_area = base**2
 
-        color_map = {1: c['member'], -1: c['excluded'], 0: c['ignored']}
+        color_map = {-1: c['excluded'], 0: c['ignored']} # members (1) are handled separately
 
         # Stripes — use alpha so row and column stripes blend where they
         # overlap instead of one fully overwriting the other.
@@ -516,4 +518,6 @@ class UpsetPlot:
     def show(self):
         """Display the figure via ``plt.show()``."""
         if self.fig is not None:
-            self.fig.show()
+            # if interactive backend, this will render all figures; 
+            # in that case, use self.fig.show()
+            plt.show()

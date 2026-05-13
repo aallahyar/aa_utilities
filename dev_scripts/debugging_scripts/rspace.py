@@ -33,6 +33,12 @@ model_coef <- coef(fit)
 print(model_coef)
 """)
 print(R('fit$coef'))
+# prints:
+# (Intercept)    0.825833
+# treat1YES      1.495000
+# treat2YES      2.375000
+# dtype: float64
+
 print(R['model_matrix'])
 print(type(R['model_matrix']))
 print(R['model_coef'])
@@ -46,4 +52,11 @@ assert R['model_matrix'].equals(R('model.matrix(fit)'))
 # adding a Dict to R
 R['my_dict'] = {'a': [1, 2, 3], 'b': [20, 30, 40, 50], 'c': list('ABCDEF')}
 print(R('print(my_dict)'))
+# prints:
+# $a
+# [1] 1 2 3
+# $b
+# [1] 20 30 40 50
+# $c
+# [1] "A" "B" "C" "D" "E" "F"
 
