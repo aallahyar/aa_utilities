@@ -389,6 +389,7 @@ def to_colors(
 ):
     """
     Convert a list/array of numbers or strings to hex color strings using a matplotlib colormap.
+    NaN/None values are mapped to a default color (gray by default).
 
     Parameters
     ----------
@@ -429,16 +430,21 @@ def to_colors(
     >>> colors = to_colors(['apple', 'banana', 'apple', 'cherry', 'banana'], cmap="Set3")
     """
 
-    # Input validation
+    # make sure default's format matches include_alpha so output lengths are consistent
+    default_hex = mpl_colors.to_hex(mpl_colors.to_rgba(default), keep_alpha=include_alpha)
+
+    # Input validation and preprocessing
     values = np.asarray(values)
-
-    # Handle empty arrays
-    if values.size == 0:
+    if values.size == 0:  # handle empty input
         return []
+    if values.ndim > 1:
+        raise ValueError(f'values must be a 1D vector, got shape {values.shape}.')
+    if np.all(pd.isna(values)):  # all-NaN/None: return default color for every position
+        return [default_hex] * len(values)
 
-    # Get colormap
+    # Get colormap (copy to avoid mutating the globally registered colormap)
     try:
-        cmap_obj = plt.get_cmap(cmap)
+        cmap_obj = plt.get_cmap(cmap).copy()
     except ValueError as e:
         raise ValueError(f"Invalid colormap name '{cmap}'. {str(e)}")
     cmap_obj.set_bad(color=default)  # set color for NaN values
@@ -446,13 +452,11 @@ def to_colors(
     # Check if values are strings (categorical)
     is_categorical = np.issubdtype(values.dtype, np.str_) or np.issubdtype(values.dtype, np.object_)
 
+    # ------- Handle categorical/string values -----------
     if is_categorical:
         # Categorical/string mapping
         unique_values = np.unique(values[~pd.isna(values)])
         n_unique = len(unique_values)
-
-        if n_unique == 0:
-            raise ValueError('All values are NaN/None. Cannot determine color mapping.')
 
         # Create discrete color mapping
         # Use evenly spaced points from the colormap
@@ -462,16 +466,12 @@ def to_colors(
             for val, idx in zip(unique_values, color_indices)
         }
 
-        # Map each value to its color (use default for NaN/None)
-        hex_colors = [color_map.get(val, default) for val in values]
+        # Map each value to its color (use default_hex for NaN/None)
+        hex_colors = [color_map.get(val, default_hex) for val in values]
 
         return hex_colors
 
-    # Handle numeric values
-
-    # Handle all-NaN arrays
-    if np.all(np.isnan(values)):
-        raise ValueError('All values are NaN. Cannot determine color mapping.')
+    # ------- Handle numeric values -----------
 
     # Validate scale parameter
     valid_scales = ['linear', 'log', 'diverging']

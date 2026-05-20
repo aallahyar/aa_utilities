@@ -399,8 +399,8 @@ def search(
 def reorder_by_similarity(
     df: pd.DataFrame,
     axis: Literal['both', 'rows', 'columns'] = 'both',
-    row_kws=None,
-    col_kws=None,
+    row_kws: dict | None = None,
+    col_kws: dict | None = None,
 ) -> pd.DataFrame:
     """Reorder rows and columns of a numeric DataFrame by hierarchical clustering,
     similar to what ``sns.clustermap()`` does internally.
@@ -459,9 +459,8 @@ def reorder_by_similarity(
         raise TypeError(f'All columns must be numeric, but the following are not: {non_numeric}')
 
     # Check for NaN values and raise an error if any are found
-    assert df.notna().all().all(), (
-        'DataFrame contains NaN values! Please handle them before reordering (e.g., by imputation or dropping).'
-    )
+    if df.isna().any().any():
+        raise ValueError('DataFrame contains NaN values! Please handle them before reordering (e.g., by imputation or dropping).')
 
     # Cluster rows
     if cluster_rows and df.shape[0] >= 2:
@@ -482,8 +481,15 @@ def reorder_by_similarity(
         col_order = np.arange(df.shape[1])
 
     # Reorder the DataFrame
-    # equivalent to: df.iloc[np.ix_(row_order, col_order)], but more readable
-    df_reordered = df.iloc[row_order, :].iloc[:, col_order].copy()
+    # equivalent to: df.iloc[np.ix_(row_order, col_order)]
+    # I preferred this way for readability, but it creates an extra copy of the data. 
+    # If performance is a concern, consider using np.ix_ instead.
+    df_reordered = (
+        df
+        .iloc[row_order, :]
+        .iloc[:, col_order]
+        .copy()
+    )
 
     return df_reordered
 
