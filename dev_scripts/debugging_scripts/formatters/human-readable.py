@@ -1,4 +1,4 @@
-from aa_utilities.helpers import (
+from aa_utilities.helpers.formatters import (
     human_readable_number,
     human_readable_size,
 )
