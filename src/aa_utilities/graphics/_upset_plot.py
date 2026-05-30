@@ -46,7 +46,9 @@ class UpsetPlot:
     artists : pd.Series or None
         Multi-indexed ``(set, intersection, element)`` Series of matplotlib
         artists.  ``element`` values are ``'dot'``, ``'bar'``,
-        ``'bar_label'``, and ``'connector'`` (lines joining member dots).
+        ``'intersection_size_label'`` (intersection-size bar labels, top panel),
+        ``'set_size_label'`` (set-size bar labels, left panel), and
+        ``'connector'`` (lines joining member dots).
         Useful for post-hoc customization via pandas slicing.
     """
 
@@ -360,7 +362,7 @@ class UpsetPlot:
                     va='bottom',
                     fontsize=8,
                 )
-                _add('', int_labels[i], 'bar_label', txt)
+                _add('', int_labels[i], 'intersection_size_label', txt)
 
         ax.set_ylabel('Intersection size')
         ax.tick_params(bottom=False, labelbottom=False)
@@ -377,10 +379,23 @@ class UpsetPlot:
         for i, bar in enumerate(bars):
             _add(set_cols[i], '', 'bar', bar)
 
+        for i, (bar, size) in enumerate(zip(bars, ss)):
+            txt = ax.text(
+                bar.get_width(),
+                yp[i],
+                f'{int(size)} ',
+                ha='right',
+                va='center',
+                fontsize=8,
+                zorder=3,
+            )
+            _add(set_cols[i], '', 'set_size_label', txt)
+
         ax.set_yticks(yp)
         ax.set_yticklabels(set_cols)
         ax.set_ylim(n_sets - 0.5, -0.5)
         ax.invert_xaxis()
+        ax.set_xlim(left=max(ss) * 1.15)  # padding so size labels don't overlap set names
         ax.set_xlabel('Set size')
         for spine in ('top', 'right', 'left'):
             ax.spines[spine].set_visible(False)

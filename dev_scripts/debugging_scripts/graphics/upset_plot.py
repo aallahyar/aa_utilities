@@ -53,3 +53,9 @@ up_custom = (
 up_custom.ax_intersection_sizes.set_ylabel('Count')
 up_custom.ax_intersection_sizes.set_title('My UpSet Plot')
 up_custom.show()
+
+# --- 6. sort sets by size ───────────────────────────────────────────────────────
+up_sorted = UpsetPlot(sets)
+sorted_cols = up_sorted.sets.sort_values('size', ascending=False).index.tolist()
+up_sorted.filter(lambda ix: ix[sorted_cols])
+up_sorted.plot()

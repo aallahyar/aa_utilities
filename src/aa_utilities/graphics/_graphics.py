@@ -284,9 +284,7 @@ def forest_plot(
 
 def add_counts_to_legend(ax, counts, text_format='{label:s} (n={count:d})', **kwargs):
     handles, labels = ax.get_legend_handles_labels()
-    n_elements = len(labels)
-
-    for ei in range(n_elements):
+    for ei in range(len(labels)):
         if labels[ei] in counts:
             labels[ei] = text_format.format(label=labels[ei], count=counts[labels[ei]])
     ax.legend(handles, labels, **kwargs)
