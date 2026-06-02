@@ -29,6 +29,14 @@ class UpsetPlot:
     max_included_sets : int or None, default None
         Maximum number of included sets (value ``1``) allowed for an
         intersection to be generated/kept. ``None`` means no upper bound.
+    min_intersection_size : int or None, default None
+        Minimum overlap size (cardinality of the intersection) required
+        for an intersection to be generated/kept. ``None`` means no
+        lower bound.
+    max_intersection_size : int or None, default None
+        Maximum overlap size (cardinality of the intersection) allowed
+        for an intersection to be generated/kept. ``None`` means no
+        upper bound.
 
     Attributes
     ----------
@@ -66,6 +74,8 @@ class UpsetPlot:
         mode='inclusive',
         min_included_sets=None,
         max_included_sets=None,
+        min_intersection_size=None,
+        max_intersection_size=None,
     ):
         if mode not in ('inclusive', 'exclusive'):
             raise ValueError(f"mode must be 'inclusive' or 'exclusive', got {mode!r}")
@@ -81,6 +91,10 @@ class UpsetPlot:
         self.min_included_sets, self.max_included_sets = self._validate_included_set_limits(
             min_included_sets,
             max_included_sets,
+        )
+        self.min_intersection_size, self.max_intersection_size = self._validate_intersection_size_limits(
+            min_intersection_size,
+            max_intersection_size,
         )
 
         self.intersections = self._generate_intersections(mode)
@@ -117,6 +131,55 @@ class UpsetPlot:
             return n_set_cols
         return min(self.max_included_sets, n_set_cols)
 
+    @staticmethod
+    def _validate_intersection_size_limits(min_intersection_size, max_intersection_size):
+        """Validate constructor arguments controlling overlap-size bounds."""
+        if min_intersection_size is not None and not isinstance(min_intersection_size, int):
+            raise ValueError('min_intersection_size must be an integer or None')
+        if max_intersection_size is not None and not isinstance(max_intersection_size, int):
+            raise ValueError('max_intersection_size must be an integer or None')
+        if min_intersection_size is not None and min_intersection_size < 0:
+            raise ValueError('min_intersection_size must be >= 0 when provided')
+        if max_intersection_size is not None and max_intersection_size < 0:
+            raise ValueError('max_intersection_size must be >= 0 when provided')
+        if (
+            min_intersection_size is not None
+            and max_intersection_size is not None
+            and min_intersection_size > max_intersection_size
+        ):
+            raise ValueError('min_intersection_size must be <= max_intersection_size')
+        return min_intersection_size, max_intersection_size
+
+    def _is_intersection_size_allowed(self, size):
+        """Check whether an overlap cardinality is inside configured bounds."""
+        if self.min_intersection_size is not None and size < self.min_intersection_size:
+            return False
+        if self.max_intersection_size is not None and size > self.max_intersection_size:
+            return False
+        return True
+
+    def _apply_intersection_size_limits(self, ixs):
+        """Keep rows within configured overlap-size bounds."""
+        if '_size' not in ixs.columns:
+            return ixs
+
+        keep = pd.Series(True, index=ixs.index)
+        if self.min_intersection_size is not None:
+            keep &= ixs['_size'] >= self.min_intersection_size
+        if self.max_intersection_size is not None:
+            keep &= ixs['_size'] <= self.max_intersection_size
+        return ixs.loc[keep].copy()
+
+    def _compute_size_from_parts(self, included, excluded):
+        """Compute overlap cardinality from included/excluded set labels."""
+        if not included:
+            return 0
+
+        result = set.intersection(*(self.sets.loc[list(included), 'members'].tolist()))
+        if excluded:
+            result = result - set.union(*(self.sets.loc[list(excluded), 'members'].tolist()))
+        return len(result)
+
     def _apply_included_set_limits(self, ixs, set_cols):
         """Keep rows within configured included-set bounds."""
         if not set_cols:
@@ -132,6 +195,7 @@ class UpsetPlot:
         """Build the full intersection matrix (2^n - 1 rows)."""
         set_labels = list(self.sets.index)
         non_member = -1 if mode == 'exclusive' else 0
+        all_labels = set(set_labels)
         min_k = self.min_included_sets
         max_k = self._effective_max_included_sets(len(set_labels))
 
@@ -139,10 +203,16 @@ class UpsetPlot:
         for r in range(min_k, max_k + 1):
             for combo in combinations(set_labels, r):
                 included = set(combo)
-                rows.append({name: (1 if name in included else non_member) for name in set_labels})
+                excluded = all_labels - included if mode == 'exclusive' else set()
+                size = self._compute_size_from_parts(included, excluded)
+                if not self._is_intersection_size_allowed(size):
+                    continue
 
-        ixs = pd.DataFrame(rows, columns=set_labels)
-        ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_labels), axis=1)
+                row = {name: (1 if name in included else non_member) for name in set_labels}
+                row['_size'] = size
+                rows.append(row)
+
+        ixs = pd.DataFrame(rows, columns=[*set_labels, '_size'])
         ixs = self._refresh_meta(ixs, set_labels)
         ixs.index = self._derive_labels(ixs, set_labels)
         ixs.index.name = None
@@ -205,6 +275,9 @@ class UpsetPlot:
         # Sizes
         if update_stats or '_size' not in ixs.columns:
             ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_cols), axis=1)
+
+        # Respect overlap-size bounds configured at construction.
+        ixs = self._apply_intersection_size_limits(ixs)
 
         self.intersections = self._refresh_meta(ixs, set_cols)
         return self

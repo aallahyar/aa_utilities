@@ -64,3 +64,7 @@ up_sorted.plot()
 # --- 7. Limit number of sets included ───────────────────────────────────────────────────────
 up_limited = UpsetPlot(sets, min_included_sets=2)
 up_limited.plot()
+
+# --- 8. Limit number of intersections included ──────────────────────────────────────────────
+up_limited_intersections = UpsetPlot(sets, min_intersection_size=3, max_intersection_size=20)
+up_limited_intersections.plot()
