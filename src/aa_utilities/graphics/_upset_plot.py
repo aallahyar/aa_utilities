@@ -23,6 +23,12 @@ class UpsetPlot:
 
         - ``'inclusive'``: non-member sets are ``0`` (don't care).
         - ``'exclusive'``: non-member sets are ``-1`` (explicitly excluded).
+    min_included_sets : int or None, default None
+        Minimum number of included sets (value ``1``) required for an
+        intersection to be generated/kept. ``None`` defaults to ``1``.
+    max_included_sets : int or None, default None
+        Maximum number of included sets (value ``1``) allowed for an
+        intersection to be generated/kept. ``None`` means no upper bound.
 
     Attributes
     ----------
@@ -54,7 +60,13 @@ class UpsetPlot:
 
     # ------------------------------------------------------------------ init
 
-    def __init__(self, sets, mode='inclusive'):
+    def __init__(
+        self,
+        sets,
+        mode='inclusive',
+        min_included_sets=None,
+        max_included_sets=None,
+    ):
         if mode not in ('inclusive', 'exclusive'):
             raise ValueError(f"mode must be 'inclusive' or 'exclusive', got {mode!r}")
 
@@ -64,6 +76,11 @@ class UpsetPlot:
                 'size': [len(s) for s in sets.values()],
             },
             index=sets.keys(),
+        )
+
+        self.min_included_sets, self.max_included_sets = self._validate_included_set_limits(
+            min_included_sets,
+            max_included_sets,
         )
 
         self.intersections = self._generate_intersections(mode)
@@ -77,18 +94,54 @@ class UpsetPlot:
 
     # ------------------------------------------------------------------ data
 
+    @staticmethod
+    def _validate_included_set_limits(min_included_sets, max_included_sets):
+        """Validate constructor arguments controlling included-set bounds."""
+        if min_included_sets is None:
+            min_included_sets = 1
+        if max_included_sets is not None and not isinstance(max_included_sets, int):
+            raise ValueError('max_included_sets must be an integer or None')
+        if not isinstance(min_included_sets, int):
+            raise ValueError('min_included_sets must be an integer or None')
+        if min_included_sets < 1:
+            raise ValueError('min_included_sets must be >= 1')
+        if max_included_sets is not None and max_included_sets < 1:
+            raise ValueError('max_included_sets must be >= 1 when provided')
+        if max_included_sets is not None and min_included_sets > max_included_sets:
+            raise ValueError('min_included_sets must be <= max_included_sets')
+        return min_included_sets, max_included_sets
+
+    def _effective_max_included_sets(self, n_set_cols):
+        """Upper bound capped by available set columns."""
+        if self.max_included_sets is None:
+            return n_set_cols
+        return min(self.max_included_sets, n_set_cols)
+
+    def _apply_included_set_limits(self, ixs, set_cols):
+        """Keep rows within configured included-set bounds."""
+        if not set_cols:
+            return ixs.iloc[0:0].copy()
+
+        min_k = self.min_included_sets
+        max_k = self._effective_max_included_sets(len(set_cols))
+        n_included = (ixs[set_cols] == 1).sum(axis=1)
+        keep = (n_included >= min_k) & (n_included <= max_k)
+        return ixs.loc[keep].copy()
+
     def _generate_intersections(self, mode):
         """Build the full intersection matrix (2^n - 1 rows)."""
         set_labels = list(self.sets.index)
         non_member = -1 if mode == 'exclusive' else 0
+        min_k = self.min_included_sets
+        max_k = self._effective_max_included_sets(len(set_labels))
 
         rows = []
-        for r in range(1, len(set_labels) + 1):
+        for r in range(min_k, max_k + 1):
             for combo in combinations(set_labels, r):
                 included = set(combo)
                 rows.append({name: (1 if name in included else non_member) for name in set_labels})
 
-        ixs = pd.DataFrame(rows)
+        ixs = pd.DataFrame(rows, columns=set_labels)
         ixs['_size'] = ixs.apply(lambda row: self._compute_size(row, set_labels), axis=1)
         ixs = self._refresh_meta(ixs, set_labels)
         ixs.index = self._derive_labels(ixs, set_labels)
@@ -145,6 +198,9 @@ class UpsetPlot:
         # Deduplicate (keep first occurrence)
         # : improves readability by making it clear that we're dropping duplicate rows, not columns
         ixs = ixs.loc[~ixs.index.duplicated(keep='first'), :]
+
+        # Respect included-set bounds configured at construction.
+        ixs = self._apply_included_set_limits(ixs, set_cols)
 
         # Sizes
         if update_stats or '_size' not in ixs.columns:

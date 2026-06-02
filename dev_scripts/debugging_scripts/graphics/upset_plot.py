@@ -59,3 +59,8 @@ up_sorted = UpsetPlot(sets)
 sorted_cols = up_sorted.sets.sort_values('size', ascending=False).index.tolist()
 up_sorted.filter(lambda ix: ix[sorted_cols])
 up_sorted.plot()
+
+
+# --- 7. Limit number of sets included ───────────────────────────────────────────────────────
+up_limited = UpsetPlot(sets, min_included_sets=2)
+up_limited.plot()
