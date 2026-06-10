@@ -1,6 +1,12 @@
-## [0.0.46] - 2026-05-10
+## [0.0.48] - 2026-06-10
+### Added:
+- Added tests to prove that concurrency is possible in `RSpace`.
+
+
+## [0.0.47] - 2026-05-10
 ### Added:
 - `computation.pairwise_associations` to compute pairwise sample associations depending on the type of pairs being compared.
+- `RSpace` now returns `None` for R NULL values, irrespective of calling `R[]` or `R()`.
 
 ## [0.0.46] - 2026-04-22
 ### Added:
