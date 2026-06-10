@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 import numpy as np
 import pandas as pd
 from rpy2 import (
@@ -98,20 +96,15 @@ class RSpace:
 
         return self._to_python_atom(value)
 
-    def __getitem__(self, name):
-
-        # fetch raw R object first (no conversion)
-        try:
-            r_obj = ri.globalenv.find(name)  # returns an rinterface-level object, no conversion yet
-        except Exception as exc:
-            raise KeyError(name) from exc
+    def _r_to_py(self, r_obj):
+        """Convert a raw rpy2 rinterface object to a Python value. 
+        Returns `None` for R NULL."""
+        if r_obj == ro.rinterface.NULL:
+            return None
 
         # performing type conversions
         with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
-            value_rpy = ro.conversion.get_conversion().rpy2py(ro.globalenv[name])
-
-        if r_obj == ro.rinterface.NULL:
-            return None
+            value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
 
         # get R functions for type checking and metadata retrieval
         r_is_atomic = ri.globalenv.find('is.atomic')
@@ -165,6 +158,13 @@ class RSpace:
 
         return value_py
 
+    def __getitem__(self, name):
+        try:
+            r_obj = ri.globalenv.find(name)  # returns an rinterface-level object, no conversion yet
+        except Exception as exc:
+            raise KeyError(name) from exc
+        return self._r_to_py(r_obj)
+
     def __call__(self, r_snippet, convert=True):
         self.warnings = []  # Reset warnings before execution
 
@@ -183,18 +183,11 @@ class RSpace:
         if len(self.warnings) != 0:  # If there were any warnings, log them
             self.logger.warning('Warning(s) issued during execution. Check `self.warnings` for details.')
 
-        # try to convert the result to Python if possible, otherwise return the raw R object
-        if convert and returned_object is not None and returned_object != ro.rinterface.NULL:
-            temp_varname = f'__returned_object_{uuid4().hex}'
+        if convert:
             try:
-                self[temp_varname] = returned_object
-                result_py = self[temp_varname]  # This will trigger the conversion logic in __getitem__
-                return result_py
+                return self._r_to_py(returned_object)
             except Exception as e:
                 raise RuntimeError(f'Failed to convert the returned object to Python: {e}.') from e
-            finally:
-                if temp_varname in ro.globalenv:
-                    ro.r(f'base::rm(list="{temp_varname}")')
         return returned_object
 
     def __repr__(self):
