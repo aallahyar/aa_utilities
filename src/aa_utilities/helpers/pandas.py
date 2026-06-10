@@ -5,6 +5,7 @@ from typing import (
     Literal,
 )
 
+import copy as _copy
 import numpy as np
 import pandas as pd
 
@@ -187,8 +188,6 @@ def store(data: Any, namespace: dict, name: str = 'stored_data', copy=True) -> A
         print('>test4\n', test4)
         print('>test5\n', test5)
     """
-    import copy as _copy
-
     if copy:
         namespace[name] = _copy.deepcopy(data)
     else:
@@ -330,7 +329,8 @@ def search(
     # restricting to columns that can contain the value
     is_num = isinstance(value, (int, np.integer, float, np.floating))
     is_str = isinstance(value, str)
-    assert is_num or is_str, 'Unsupported value type for search'
+    if not (is_num or is_str):
+        raise TypeError(f'Unsupported value type for search: expected numeric or string, got {type(value).__name__}')
     if is_num:
         selected_cols = [
             c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) or 'mixed' in pd.api.types.infer_dtype(df[c])

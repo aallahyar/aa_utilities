@@ -69,10 +69,11 @@ def _pearson_numpy(A, B):
 
 
 def spearman(A, B=None, low_memory=False):
+    rank_A = rank(A)
     if B is None:
-        return _pearson_numba(rank(A), rank(A), low_memory=low_memory)
+        return _pearson_numba(rank_A, rank_A, low_memory=low_memory)
     else:
-        return _pearson_numba(rank(A), rank(B), low_memory=low_memory)
+        return _pearson_numba(rank_A, rank(B), low_memory=low_memory)
 
 
 if __name__ == '__main__':

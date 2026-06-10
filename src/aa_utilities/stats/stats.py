@@ -1,8 +1,9 @@
 class IterativeStats:
-    def __init__(self):
+    def __init__(self, ddof=0):
         self.count = 0
         self.mean_ = 0.0
         self.M2_ = 0.0
+        self.ddof = ddof
 
     def include(self, value):
         # Welford's online algorithm
@@ -16,10 +17,11 @@ class IterativeStats:
         return self.mean_
 
     def var(self):
-        return self.M2_ / self.count if self.count > 0 else float('nan')
+        n = self.count - self.ddof
+        return self.M2_ / n if n > 0 else float('nan')
 
     def std(self):
-        return (self.var()) ** 0.5
+        return self.var() ** 0.5
 
 
 if __name__ == '__main__':

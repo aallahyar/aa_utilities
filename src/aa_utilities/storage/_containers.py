@@ -210,9 +210,4 @@ class Container(dict):
     def __eq__(self, other):
         if isinstance(other, (pd.Series, dict, Container)):
             return dict(self) == dict(other)
-        else:
-            return False
-            # raise NotImplementedError(
-            #     'Can only compare `Container`, `pd.Series()` instance.'
-            #     f' Got {type(other)} instead.'
-            #     )
+        return NotImplemented

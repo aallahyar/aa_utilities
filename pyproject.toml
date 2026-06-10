@@ -37,7 +37,6 @@ extras = [
     "ipympl", # if interactive visualization is needed
     "statsmodels", # for expression level correction
     "patsy", # for expression level correction
-    "statsmodels", # for expression level correction
     "rpy2>=3.5.15", # for R integration
 ]
 

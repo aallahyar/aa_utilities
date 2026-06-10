@@ -8,7 +8,6 @@ import json
 
 # from datetime import datetime
 # from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 
 # Optional: colorized logs in terminal (requires 'colorama')
 try:

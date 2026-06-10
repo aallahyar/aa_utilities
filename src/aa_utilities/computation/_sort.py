@@ -5,7 +5,7 @@ import pandas as pd
 def code_natsorted(srs):
     from natsort import index_natsorted
 
-    if not isinstance(srs, (pd.core.series.Series,)):
+    if not isinstance(srs, (pd.Series, )):
         srs = pd.Series(srs)
 
     natsort_idx = np.argsort(index_natsorted(srs))
