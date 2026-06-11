@@ -28,6 +28,20 @@ class RSpace:
 
     """
 
+    _converter = ro.default_converter + numpy2ri.converter + pandas2ri.converter
+    _ATOMIC_RTYPES = frozenset({
+        ri.RTYPES.LGLSXP,
+        ri.RTYPES.INTSXP,
+        ri.RTYPES.REALSXP,
+        ri.RTYPES.CPLXSXP,
+        ri.RTYPES.STRSXP,
+        ri.RTYPES.RAWSXP,
+    })
+    _r_names = ri.globalenv.find('names')
+    _r_dim = ri.globalenv.find('dim')
+    _r_rownames = ri.globalenv.find('rownames')
+    _r_colnames = ri.globalenv.find('colnames')
+
     def __init__(self, ipython=False):
         """Initiates an `R` environment.
 
@@ -61,7 +75,7 @@ class RSpace:
             return ro.ListVector({k: self._py_to_r(v) for k, v in value.items()})
         if isinstance(value, list):
             return ro.ListVector([self._py_to_r(v) for v in value])
-        with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
+        with self._converter.context():
             return ro.conversion.get_conversion().py2rpy(value)
 
     def __setitem__(self, name, value):
@@ -102,20 +116,12 @@ class RSpace:
             return None
 
         # performing type conversions
-        with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
+        with self._converter.context():
             value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
-
-        # get R functions for type checking and metadata retrieval
-        r_is_atomic = ri.globalenv.find('is.atomic')
-        r_length = ri.globalenv.find('length')
-        r_dim = ri.globalenv.find('dim')
-        r_names = ri.globalenv.find('names')
-        r_rownames = ri.globalenv.find('rownames')
-        r_colnames = ri.globalenv.find('colnames')
 
         # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
         # pure Python (with identically item types) scalar, but also lists/arrays (with length 1) would be caught here
-        if r_is_atomic(r_obj)[0] and r_length(r_obj)[0] == 1:
+        if r_obj.typeof in self._ATOMIC_RTYPES and len(r_obj) == 1:
             return self._coerce_atomic_scalar(value_rpy)
 
         # check if the variable is already typed properly
@@ -125,7 +131,7 @@ class RSpace:
         # R generic lists (named list → dict, unnamed list → list), fully recursive
         # note: data.frame is also a list in R, so the DataFrame check above must precede this
         if isinstance(value_rpy, ro.vectors.ListVector):
-            names = r_names(r_obj)
+            names = self._r_names(r_obj)
             elements = [self._r_to_py(r_obj[i]) for i in range(len(r_obj))]
             if names != ro.rinterface.NULL:
                 return dict(zip(list(names), elements))
@@ -142,8 +148,8 @@ class RSpace:
         # adding column names if present
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if r_dim(r_obj) == ro.rinterface.NULL or np.array(value_rpy).ndim == 1:
-            names = r_names(r_obj)
+        if self._r_dim(r_obj) == ro.rinterface.NULL:
+            names = self._r_names(r_obj)
             data_vec = [self._to_python_atom(v) for v in value_rpy]
             if names == ro.rinterface.NULL:
                 value_py = pd.Series(
@@ -159,10 +165,10 @@ class RSpace:
             value_py = pd.DataFrame(
                 data=value_rpy,
             )
-            if r_rownames(r_obj) != ro.rinterface.NULL:
-                value_py.index = list(r_rownames(r_obj))
-            if r_colnames(r_obj) != ro.rinterface.NULL:
-                value_py.columns = list(r_colnames(r_obj))
+            if self._r_rownames(r_obj) != ro.rinterface.NULL:
+                value_py.index = list(self._r_rownames(r_obj))
+            if self._r_colnames(r_obj) != ro.rinterface.NULL:
+                value_py.columns = list(self._r_colnames(r_obj))
 
         return value_py
 
