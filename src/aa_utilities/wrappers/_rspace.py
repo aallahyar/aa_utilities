@@ -128,14 +128,16 @@ class RSpace:
         # We branch on the R class attribute *before* calling rpy2py, because the pandas
         # converter would silently flatten a generic list into a pd.Series — losing structure.
         if typeof == ri.RTYPES.VECSXP:
+
+            # case: a data.frame
             if 'data.frame' in list(r_obj.rclass):
                 # data.frame → pd.DataFrame via the pandas converter
                 with self._converter.context():
                     return ro.conversion.get_conversion().rpy2py(r_obj)
-            # Generic lists → dict (named) or list (unnamed), fully recursive.
-            # Generic lists are heterogeneous/recursive by design, so dict/list are the natural
-            # Python analogues; atomic vectors are homogeneous typed arrays, so they map to
-            # pd.Series (see below).
+            
+            # case: a generic list (named: dict or unnamed: list), recursively convert elements
+            # heterogeneous list: dict/list
+            # homogeneous (atomic) vector: pd.Series
             names = self._r_names(r_obj)
             elements = [self._r_to_py(r_obj[i]) for i in range(len(r_obj))]
             if names != ro.rinterface.NULL:

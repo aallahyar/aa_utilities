@@ -62,6 +62,7 @@ plt.show()
 ## Running tests
 ```bash
 # run all tests
+# `pyproject.toml` already sets testpaths = ["tests"], so bare pytest knows where to look.
 python3 -m pytest
 
 # run only the RSpace tests
