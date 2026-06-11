@@ -2,6 +2,7 @@
 ### Added:
 - Added tests to prove that concurrency is possible in `RSpace`.
 - `RSpace` now converts R objects to Python objects recursively, so nested R objects are now properly converted to Python objects.
+- improved data conversion routes in `RSpace` to make it more efficient and robust.
 
 ## [0.0.47] - 2026-05-10
 ### Added:

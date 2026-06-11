@@ -128,13 +128,22 @@ class RSpace:
         if isinstance(value_rpy, (pd.DataFrame,)):
             return value_rpy
 
-        # R generic lists (named list → dict, unnamed list → list), fully recursive
-        # note: data.frame is also a list in R, so the DataFrame check above must precede this
+        # R generic lists → Python's dict (if named) or list (if unnamed), fully recursive.
+        # Note:
+        # - Generic lists are heterogeneous/recursive by design, so dict/list are the natural Python analogues;
+        # - Atomic vectors are homogeneous typed arrays, so they map to pd.Series (see below).
+        # - R's `data.frame` is also a list, so the DataFrame check above must precede this.
         if isinstance(value_rpy, ro.vectors.ListVector):
             names = self._r_names(r_obj)
             elements = [self._r_to_py(r_obj[i]) for i in range(len(r_obj))]
             if names != ro.rinterface.NULL:
-                return dict(zip(list(names), elements))
+                name_list = list(names)
+                if len(name_list) != len(set(name_list)):
+                    duplicates = {n for n in name_list if name_list.count(n) > 1}
+                    raise ValueError(
+                        f'R list has duplicate names {duplicates!r}, which cannot be represented as a Python dict.'
+                    )
+                return dict(zip(name_list, elements))
             return elements
 
         # do we have an array of Strings? No longer needed as is covered in pd.Series part
@@ -145,7 +154,8 @@ class RSpace:
         if isinstance(value_rpy, (np.ndarray,)) and value_rpy.ndim > 2:
             return value_rpy
 
-        # adding column names if present
+        # R atomic vectors → pd.Series (named index when names are present, RangeIndex otherwise).
+        # Atomic vectors are homogeneous typed arrays with optional names, making pd.Series the natural Python analogue.
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
         if self._r_dim(r_obj) == ro.rinterface.NULL:
