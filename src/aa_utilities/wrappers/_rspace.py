@@ -72,9 +72,9 @@ class RSpace:
     def _py_to_r(self, value):
         """Recursively convert a Python value to an rpy2 object."""
         if isinstance(value, dict):
-            return ro.ListVector({k: self._py_to_r(v) for k, v in value.items()})
+            return ro.r['list'](**{k: self._py_to_r(v) for k, v in value.items()})
         if isinstance(value, list):
-            return ro.ListVector([self._py_to_r(v) for v in value])
+            return ro.r['list'](*[self._py_to_r(v) for v in value])
         with self._converter.context():
             return ro.conversion.get_conversion().py2rpy(value)
 
@@ -110,30 +110,32 @@ class RSpace:
         return self._to_python_atom(value)
 
     def _r_to_py(self, r_obj):
-        """Convert a raw rpy2 rinterface object to a Python value. 
+        """Convert a raw rpy2 rinterface object to a Python value.
         Returns `None` for R NULL."""
-        if r_obj == ro.rinterface.NULL:
+        if r_obj is None or r_obj == ro.rinterface.NULL:
             return None
 
-        # performing type conversions
-        with self._converter.context():
-            value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
+        typeof = r_obj.typeof
 
-        # check if the variable is scalar: https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
-        # pure Python (with identically item types) scalar, but also lists/arrays (with length 1) would be caught here
-        if r_obj.typeof in self._ATOMIC_RTYPES and len(r_obj) == 1:
+        # Length-1 atomic scalar → Python scalar.
+        # https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
+        if typeof in self._ATOMIC_RTYPES and len(r_obj) == 1:
+            with self._converter.context():
+                value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
             return self._coerce_atomic_scalar(value_rpy)
 
-        # check if the variable is already typed properly
-        if isinstance(value_rpy, (pd.DataFrame,)):
-            return value_rpy
-
-        # R generic lists → Python's dict (if named) or list (if unnamed), fully recursive.
-        # Note:
-        # - Generic lists are heterogeneous/recursive by design, so dict/list are the natural Python analogues;
-        # - Atomic vectors are homogeneous typed arrays, so they map to pd.Series (see below).
-        # - R's `data.frame` is also a list, so the DataFrame check above must precede this.
-        if isinstance(value_rpy, ro.vectors.ListVector):
+        # VECSXP covers both data.frames and generic lists in R.
+        # We branch on the R class attribute *before* calling rpy2py, because the pandas
+        # converter would silently flatten a generic list into a pd.Series — losing structure.
+        if typeof == ri.RTYPES.VECSXP:
+            if 'data.frame' in list(r_obj.rclass):
+                # data.frame → pd.DataFrame via the pandas converter
+                with self._converter.context():
+                    return ro.conversion.get_conversion().rpy2py(r_obj)
+            # Generic lists → dict (named) or list (unnamed), fully recursive.
+            # Generic lists are heterogeneous/recursive by design, so dict/list are the natural
+            # Python analogues; atomic vectors are homogeneous typed arrays, so they map to
+            # pd.Series (see below).
             names = self._r_names(r_obj)
             elements = [self._r_to_py(r_obj[i]) for i in range(len(r_obj))]
             if names != ro.rinterface.NULL:
@@ -146,9 +148,9 @@ class RSpace:
                 return dict(zip(name_list, elements))
             return elements
 
-        # do we have an array of Strings? No longer needed as is covered in pd.Series part
-        # if isinstance(value_rpy, ro.vectors.StrVector):
-        #     return np.array(value_rpy)
+        # All remaining R types: apply the converter
+        with self._converter.context():
+            value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
 
         # check if the variable is more than 2D
         if isinstance(value_rpy, (np.ndarray,)) and value_rpy.ndim > 2:
@@ -162,24 +164,15 @@ class RSpace:
             names = self._r_names(r_obj)
             data_vec = [self._to_python_atom(v) for v in value_rpy]
             if names == ro.rinterface.NULL:
-                value_py = pd.Series(
-                    data=data_vec,
-                    index=range(len(data_vec)),
-                )
-            else:
-                value_py = pd.Series(
-                    data=data_vec,
-                    index=list(names),
-                )
-        else:
-            value_py = pd.DataFrame(
-                data=value_rpy,
-            )
-            if self._r_rownames(r_obj) != ro.rinterface.NULL:
-                value_py.index = list(self._r_rownames(r_obj))
-            if self._r_colnames(r_obj) != ro.rinterface.NULL:
-                value_py.columns = list(self._r_colnames(r_obj))
+                return pd.Series(data=data_vec, index=range(len(data_vec)))
+            return pd.Series(data=data_vec, index=list(names))
 
+        # 2D matrix → pd.DataFrame
+        value_py = pd.DataFrame(data=value_rpy)
+        if self._r_rownames(r_obj) != ro.rinterface.NULL:
+            value_py.index = list(self._r_rownames(r_obj))
+        if self._r_colnames(r_obj) != ro.rinterface.NULL:
+            value_py.columns = list(self._r_colnames(r_obj))
         return value_py
 
     def __getitem__(self, name):

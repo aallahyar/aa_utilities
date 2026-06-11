@@ -58,3 +58,21 @@ add_pvalue(
 )
 plt.show()
 ```
+
+## Running tests
+```bash
+# run all tests
+python3 -m pytest
+
+# run only the RSpace tests
+python3 -m pytest tests/wrappers/test_rspace.py
+
+# with verbose output (shows each test name)
+python3 -m pytest tests/wrappers/test_rspace.py -v
+
+# stop on first failure
+python3 -m pytest -x
+
+# run a single test by name
+python3 -m pytest tests/wrappers/test_rspace.py::test_named_list_of_dataframes_from_r
+```

@@ -3,6 +3,7 @@
 - Added tests to prove that concurrency is possible in `RSpace`.
 - `RSpace` now converts R objects to Python objects recursively, so nested R objects are now properly converted to Python objects.
 - improved data conversion routes in `RSpace` to make it more efficient and robust.
+- `RSpace` now has unified routes for data conversion. e.g., atomic vectors are now always converted to `pd.Series`, and lists are converted to `dict` or `list` depending on whether they are named or not.
 
 ## [0.0.47] - 2026-05-10
 ### Added:
