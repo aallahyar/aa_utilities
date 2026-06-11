@@ -92,6 +92,9 @@ def test_custom_callable_selects_loky_backend(sample_matrices, monkeypatch):
     class CapturingParallel(original_parallel):
         def __init__(self, **kwargs):
             captured['backend'] = kwargs.get('backend')
+            # Override to threading for execution: loky spawns subprocesses
+            # that may not inherit the venv on some CI environments.
+            kwargs['backend'] = 'threading'
             super().__init__(**kwargs)
 
     monkeypatch.setattr(dist_module, 'Parallel', CapturingParallel)
