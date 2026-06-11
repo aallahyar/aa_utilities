@@ -8,7 +8,6 @@ from rpy2.robjects import (
     numpy2ri,
     pandas2ri,
 )
-import rpy2.rlike.container as rlc
 from rpy2.rinterface_lib import callbacks as rpy2_callbacks
 
 from ..loggers import setup_logger
@@ -56,17 +55,17 @@ class RSpace:
             self.ipython_shell.run_line_magic('unload_ext', 'rpy2.ipython')
             self.ipython_loaded = False
 
+    def _py_to_r(self, value):
+        """Recursively convert a Python value to an rpy2 object."""
+        if isinstance(value, dict):
+            return ro.ListVector({k: self._py_to_r(v) for k, v in value.items()})
+        if isinstance(value, list):
+            return ro.ListVector([self._py_to_r(v) for v in value])
+        with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
+            return ro.conversion.get_conversion().py2rpy(value)
+
     def __setitem__(self, name, value):
-        if isinstance(value, (dict,)):
-            value = rlc.NamedList.from_items(value)
-            ro.r.assign(name, value)
-            self(f'''
-            {name} <- lapply({name}, unlist, use.names=FALSE, recursive=FALSE)
-            ''')  # Convert each value to regular list in R to avoid rpy2 issues with NamedList
-        else:
-            with (ro.default_converter + numpy2ri.converter + pandas2ri.converter).context():
-                value_r = ro.conversion.get_conversion().py2rpy(value)
-                ro.r.assign(name, value_r)
+        ro.r.assign(name, self._py_to_r(value))
 
     @staticmethod
     def _to_python_atom(value):
@@ -122,6 +121,15 @@ class RSpace:
         # check if the variable is already typed properly
         if isinstance(value_rpy, (pd.DataFrame,)):
             return value_rpy
+
+        # R generic lists (named list → dict, unnamed list → list), fully recursive
+        # note: data.frame is also a list in R, so the DataFrame check above must precede this
+        if isinstance(value_rpy, ro.vectors.ListVector):
+            names = r_names(r_obj)
+            elements = [self._r_to_py(r_obj[i]) for i in range(len(r_obj))]
+            if names != ro.rinterface.NULL:
+                return dict(zip(list(names), elements))
+            return elements
 
         # do we have an array of Strings? No longer needed as is covered in pd.Series part
         # if isinstance(value_rpy, ro.vectors.StrVector):
