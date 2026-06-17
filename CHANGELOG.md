@@ -4,6 +4,7 @@
 - `RSpace` now converts R objects to Python objects recursively, so nested R objects are now properly converted to Python objects.
 - improved data conversion routes in `RSpace` to make it more efficient and robust.
 - `RSpace` now has unified routes for data conversion. e.g., atomic vectors are now always converted to `pd.Series`, and lists are converted to `dict` or `list` depending on whether they are named or not.
+- Added `watermark` which generates and returns a watermark string with system and environment info, similar to `session_info()` in R or the `watermark` package in Python.
 
 ## [0.0.47] - 2026-05-10
 ### Added:

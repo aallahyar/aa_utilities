@@ -9,3 +9,6 @@ else:
     _logger.warning(
         'RSpace can not be loaded. RSpace requires `rpy2` package. You may install it with `pip3 install rpy2`'
     )
+
+
+from ._watermark import watermark
