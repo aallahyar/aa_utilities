@@ -11,4 +11,3 @@ else:
     )
 
 
-from ._watermark import watermark

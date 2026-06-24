@@ -10,3 +10,5 @@ from ..loggers._loggers import (
     RestrictedLogger,
     setup_logger,
 )
+
+from ._watermark import watermark

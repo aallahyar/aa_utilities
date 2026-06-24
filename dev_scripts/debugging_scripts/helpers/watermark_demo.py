@@ -1,6 +1,6 @@
-from aa_utilities.wrappers import watermark as aa_watermark
+from aa_utilities.helpers import watermark
 
-output_str = aa_watermark(
+output_str = watermark(
     author="Amin Allahyar",
     email='Amin.Allahyar@astrazeneca.com',
     timezone='Europe/Stockholm',
