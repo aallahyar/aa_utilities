@@ -15,7 +15,7 @@ class UpsetPlot:
 
     Parameters
     ----------
-    sets : dict[str, set]
+    sets : dict[str, set | list | iterable]
         Ordered dictionary of set names to sets of elements.
         The key order determines the display order of sets.
     mode : {'inclusive', 'exclusive'}, default 'inclusive'
@@ -100,7 +100,7 @@ class UpsetPlot:
         self.intersections = self._generate_intersections(mode)
 
         # Populated by plot()
-        self.fig = None
+        self.figure = None
         self.ax_set_sizes = None
         self.ax_intersection_sizes = None
         self.ax_matrix = None
@@ -392,7 +392,7 @@ class UpsetPlot:
             )
 
         # ---- layout --------------------------------------------------
-        self.fig, axes = plt.subplots(
+        self.figure, axes = plt.subplots(
             ncols=2,
             nrows=2,
             figsize=figsize,
@@ -450,7 +450,7 @@ class UpsetPlot:
             index=idx,
         )
 
-        self.fig.subplots_adjust(
+        self.figure.subplots_adjust(
             hspace=0.05,
             wspace=0.05,
             left=0.1,
@@ -661,7 +661,7 @@ class UpsetPlot:
 
     def show(self):
         """Display the figure via ``plt.show()``."""
-        if self.fig is not None:
+        if self.figure is not None:
             # if interactive backend, this will render all figures; 
             # in that case, use self.fig.show()
             plt.show()

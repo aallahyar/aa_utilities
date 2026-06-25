@@ -172,7 +172,13 @@ class TextWrapper(textwrap.TextWrapper):
 
 
 def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
-    """converting pd.Interval data type to a more readable string"""
+    """converting pd.Interval data type to a more readable string
+
+    Args:
+        interval: a pd.Interval, or array-like of intervals.
+        fmt: a format string (passed to str.format(left, right)) or a callable
+            with signature (left, right) -> str.
+    """
 
     # handle array-like input
     if isinstance(interval, (pd.IntervalIndex, np.ndarray, pd.Series, list, tuple)):
@@ -182,7 +188,13 @@ def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
     if pd.isna(interval):
         return np.nan
 
-    range_str = fmt.format(interval.left, interval.right)
+    # handle fmt as a callable or a format string
+    if callable(fmt):
+        range_str = fmt(interval.left, interval.right)
+    else:
+        range_str = fmt.format(interval.left, interval.right)
+    
+    # add brackets based on the closed attribute of the interval
     if interval.closed == 'both':
         output_str = '[' + range_str + ']'
     elif interval.closed == 'left':
