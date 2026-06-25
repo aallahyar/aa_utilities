@@ -180,8 +180,8 @@ def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
             with signature (left, right) -> str.
     """
 
-    # handle array-like input
-    if isinstance(interval, (pd.IntervalIndex, np.ndarray, pd.Series, list, tuple)):
+    # handle any iterable input
+    if hasattr(interval, '__iter__'):
         return [interval2str(intv, fmt=fmt) for intv in interval]
 
     # preserve NaNs
