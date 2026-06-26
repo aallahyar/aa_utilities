@@ -138,9 +138,26 @@ class Container(dict):
             # https://pandas.pydata.org/docs/reference/api/pandas.Series.copy.html
             return deepcopy(self)
         else:
-            new = Container(**self)
+            new = Container(**self)  # __init__ already creates a fresh _logger; only _pp carries user-set state
             super(Container, new).__setattr__('_pp', deepcopy(self._pp))
             return new
+    
+    def update(self, other=None, **kwargs):
+        """Return a new Container with the updates applied; does not mutate self.
+
+        Accepts an optional positional mapping or iterable of (key, value) pairs,
+        plus keyword arguments.
+        """
+        # non-mutating: copy first, then apply updates
+        new = self.copy(deep=False)
+        if other is not None:
+            # support both mapping and iterable-of-pairs, like dict.update
+            other_items = other.items() if hasattr(other, 'items') else other
+            for key, value in other_items:
+                new.__setattr__(key, value)
+        for key, value in kwargs.items():
+            new.__setattr__(key, value)
+        return new
 
     @classmethod
     def from_series(cls, series):
@@ -155,6 +172,7 @@ class Container(dict):
         return dict(self)
 
     def drop(self, regex=None, **kwargs):
+        # non-mutating: returns a new Container
         srs = self.to_series()
         if regex is None:
             result = srs.drop(**kwargs)
@@ -164,9 +182,11 @@ class Container(dict):
         return self.from_series(result)
 
     def filter(self, **kwargs):
+        # non-mutating: returns a new Container
         return self.from_series(self.to_series().filter(**kwargs))
 
     def __getattribute__(self, name):
+        # dict keys take priority over class attributes/methods (intentional)
         if name in self:
             return self[name]
         return super().__getattribute__(name)
@@ -178,11 +198,9 @@ class Container(dict):
                 f' that exists in this <{type(self).__name__}>.'
             )
         if name.startswith('_'):
-            super().__setattr__(
-                name, value
-            )  # would not appear in .items(); TODO: not very useful it seems. Need more time to figure out if this is useful
+            super().__setattr__(name, value)  # stored in __dict__: hidden from repr/items, used for internal state
         else:
-            self[name] = value
+            self[name] = value  # stored in the dict: visible in repr/items/to_series
 
     def __repr__(self):
 
