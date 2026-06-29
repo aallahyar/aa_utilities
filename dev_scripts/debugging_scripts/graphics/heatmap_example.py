@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt, colors
 import seaborn as sns
 
-from aa_utilities.graphics import heatmap, overlay_boxes
+from aa_utilities.graphics import heatmap as aa_heatmap, overlay_boxes
 
 # data preparation
 corr_df = pd.DataFrame(np.arange(-112, 113).reshape(15, 15) / 224)
@@ -16,7 +16,7 @@ sizes = corr_df.abs().values * 0.98 / corr_df.abs().values.max()
 linewidths = np.ones_like(corr_df, dtype=float) * 0.9
 
 #%% basic heatmap with boxes + legend
-# fig = heatmap(
+# fig = aa_heatmap(
 #     corr_df,
 #     box_kws={
 #         'background_alpha': 0.7,
@@ -43,7 +43,7 @@ linewidths = np.ones_like(corr_df, dtype=float) * 0.9
 # fig.show()
 
 # #%% legend with explicit bin values
-# fig = heatmap(
+# fig = aa_heatmap(
 #     corr_df,
 #     box_kws={
 #         'sizes': sizes,
@@ -64,7 +64,7 @@ linewidths = np.ones_like(corr_df, dtype=float) * 0.9
 # fig.show()
 
 # #%% legend with custom labels
-# fig = heatmap(
+# fig = aa_heatmap(
 #     corr_df,
 #     box_kws={
 #         'sizes': sizes,

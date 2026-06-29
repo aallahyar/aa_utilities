@@ -293,8 +293,8 @@ def overlay_boxes(
     ax_heat = clustermap_obj.ax_heatmap
 
     # .data is the original DataFrame passed to clustermap()
-    # .data2d has already been reordered to the clustered (visual) layout by seaborn's
-    # plot_matrix() before clustermap() returns, so it matches the heatmap's rendered order.
+    # .data2d has already been reordered to the clustered (visual) layout by seaborn 
+    # and matches the heatmap's rendered/drawn order.
     heatmap_df = clustermap_obj.data2d
 
     n_rows, n_cols = heatmap_df.shape

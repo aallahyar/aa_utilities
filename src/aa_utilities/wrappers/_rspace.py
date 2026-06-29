@@ -116,10 +116,14 @@ class RSpace:
             return None
 
         typeof = r_obj.typeof
+        is_named = self._r_names(r_obj) != ro.rinterface.NULL
+        is_atomic = typeof in self._ATOMIC_RTYPES
 
-        # Length-1 atomic scalar → Python scalar.
+        # Length-1 atomic scalar → Python scalar, but only when unnamed.
+        # Named length-1 vectors (e.g. c(CSE = "0.0")) must fall through to the
+        # pd.Series path below so the name is preserved.
         # https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
-        if typeof in self._ATOMIC_RTYPES and len(r_obj) == 1:
+        if is_atomic and len(r_obj) == 1 and not is_named:
             with self._converter.context():
                 value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
             return self._coerce_atomic_scalar(value_rpy)

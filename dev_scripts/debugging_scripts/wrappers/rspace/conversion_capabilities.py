@@ -31,7 +31,13 @@ fit <- lm(formula='expression ~ treat1 + treat2', data=data)
 model_matrix <- model.matrix(fit)
 model_coef <- coef(fit)
 print(model_coef)
+
+vec1 <- c(CSE = "0.0")
+vec2 <- c(CSE = "0.0", aIL33 = "buffer")
 """)
+print(R('vec1'))
+print(R('vec2'))
+
 print(R('fit$coef'))
 # prints:
 # (Intercept)    0.825833
