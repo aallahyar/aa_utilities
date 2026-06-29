@@ -1,3 +1,7 @@
+## [0.0.49] - 2026-06-29
+### Fixed:
+- `RSpace` now properly converts length(1) R objects to Pandas series.
+
 ## [0.0.48] - 2026-06-10
 ### Added:
 - Added tests to prove that concurrency is possible in `RSpace`.
