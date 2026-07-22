@@ -22,10 +22,11 @@ def _rgba2hex(rgba_arr):
     )
 
 
-def _extract_face_colors(ax, n_rows, n_cols):
+def _extract_face_colors(ax):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
 
     quad_mesh = ax.collections[0]
+    n_rows, n_cols = quad_mesh.get_array().shape
 
     # Force a canvas draw so that QuadMesh expands broadcast colors to per-cell
     # values before we read them.  Without this, a second call (e.g. two
@@ -54,7 +55,7 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
 
     edgecolors = box_kws.get('edgecolors')
     if edgecolors is None:
-        edgecolors = np.full(heatmap_df.shape, fill_value='#000000')
+        edgecolors = np.full(heatmap_df.shape, fill_value='none')  # no edge color
     linewidths = box_kws.get('linewidths')
     if linewidths is None:
         linewidths = np.ones(heatmap_df.shape, dtype=float) * 1.5
@@ -278,7 +279,7 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
 
     # Overlay boxes
     n_rows, n_cols = matrix_df.shape
-    face_colors = _extract_face_colors(heat_ax, n_rows, n_cols)
+    face_colors = _extract_face_colors(heat_ax)
     sizes = box_kws.get('sizes', np.ones((n_rows, n_cols)) * 0.8)
     _overlay_boxes(heat_ax, matrix_df, face_colors, sizes, box_kws)
 
@@ -362,7 +363,7 @@ def overlay_boxes(
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 
     if facecolors is None:
-        facecolors = _extract_face_colors(heat_ax, n_rows, n_cols)
+        facecolors = _extract_face_colors(heat_ax)
         # Already in clustered (visual) order — no reordering needed.
         facecolors_reordered = facecolors
     else:
@@ -372,7 +373,7 @@ def overlay_boxes(
 
     if edgecolors is None:
         # default to no edge color
-        edgecolors = np.full((n_rows, n_cols), fill_value='#000000')
+        edgecolors = np.full((n_rows, n_cols), fill_value='none') # no edge color
     edgecolors = np.asarray(edgecolors)  # ensure it's a numpy array for indexing
     # Reorder edgecolors from original data order to the visual (clustered) order.
     edgecolors_reordered = edgecolors[np.ix_(row_order, col_order)]

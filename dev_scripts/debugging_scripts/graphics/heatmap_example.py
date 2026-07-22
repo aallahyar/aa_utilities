@@ -109,7 +109,7 @@ clsmap = sns.clustermap(
 )
 clsmap.figure.canvas.manager.set_window_title('Clustermap with box overlays')
 
-
+# 1st overlay: boxes with varying edge colors and linewidths, and a legend
 overlay_boxes(
     clsmap,
     sizes=sizes,
@@ -118,7 +118,7 @@ overlay_boxes(
     edgecolors=np.where(corr_df.le(0), '#000000', "#039E6D"),
     
     linewidths=np.linspace(3, 0.1, corr_df.size).reshape(corr_df.shape), # example of varying linewidths
-    background_alpha=0.6,
+    background_alpha=0.5,
     legend={
         'bins': [0.1, 0.3, 0.6, 0.9],
         'title': 'Correlation',
@@ -126,15 +126,18 @@ overlay_boxes(
     },
 )
 
-# # note: as we dont provide `background_alpha`, the inferred alpha will be 0.1 (set by 
-# # the previous call) x 0.1
+# 2nd overlay: additional boxes with full size and black edge color,
+# increasing the background alpha to 0.9, and add no additional legend
 overlay_boxes(
     clsmap,
     sizes=np.ones_like(corr_df) * 0.98,  # using the percentage of cells expressing the marker as box size
     linewidths=np.full(shape=corr_df.shape, fill_value=1),  # black edge color for all boxes
     facecolors=np.full(shape=corr_df.shape, fill_value='none'),  # transparent fill color for all boxes
     edgecolors=np.full(shape=corr_df.shape, fill_value='#000000'),  # edge color based on marker status
+    background_alpha=0.9,
 )
 
 # clsmap.figure.show()
 plt.show()
+
+# %%
