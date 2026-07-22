@@ -2,11 +2,30 @@ import textwrap
 
 import numpy as np
 import seaborn as sns
-from matplotlib import pyplot as plt
+from matplotlib import (
+    pyplot as plt,
+    colors as mpl_colors,
+)
 
 
-def _extract_face_colors(ax, heatmap_df):
+from ..loggers import setup_logger
+
+logger = setup_logger('Heatmap', level='DEBUG')
+
+
+def _rgba2hex(rgba_arr):
+    return np.apply_along_axis(
+        mpl_colors.to_hex, 
+        axis=1, 
+        arr=rgba_arr, 
+        keep_alpha=True,
+    )
+
+
+def _extract_face_colors(ax, n_rows, n_cols):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
+
+    quad_mesh = ax.collections[0]
 
     # Force a canvas draw so that QuadMesh expands broadcast colors to per-cell
     # values before we read them.  Without this, a second call (e.g. two
@@ -14,10 +33,18 @@ def _extract_face_colors(ax, heatmap_df):
     # one row per cell.
     ax.get_figure().canvas.draw()
 
-    face_colors = ax.collections[0].get_facecolors()
+    face_colors = quad_mesh.get_facecolors()
     if face_colors is None or len(face_colors) == 0:
-        face_colors = ax.collections[0]._facecolors
-    return face_colors.reshape(*heatmap_df.shape, 4)
+        face_colors = quad_mesh._facecolors
+
+    face_colors_hex = np.apply_along_axis(
+        mpl_colors.to_hex, 
+        axis=1, 
+        arr=face_colors, 
+        keep_alpha=True,
+    )
+
+    return face_colors_hex.reshape(n_rows, n_cols)
 
 
 def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
@@ -25,9 +52,17 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
     from matplotlib import patches
     from matplotlib.collections import PatchCollection
 
-    edgecolors = box_kws.get('edgecolors', np.empty_like(heatmap_df, dtype=object))
-    linewidths = box_kws.get('linewidths', np.ones_like(heatmap_df, dtype=float) * 1.5)
+    edgecolors = box_kws.get('edgecolors')
+    if edgecolors is None:
+        edgecolors = np.full(heatmap_df.shape, fill_value='#000000')
+    linewidths = box_kws.get('linewidths')
+    if linewidths is None:
+        linewidths = np.ones(heatmap_df.shape, dtype=float) * 1.5
+
+    # Dim the original heatmap mesh by setting its alpha to the specified background_alpha.
     background_alpha = box_kws.get('background_alpha', 0.1)
+    quad_mesh = ax.collections[0]
+    quad_mesh.set_alpha(background_alpha)
 
     rectangles = []
     for ri in range(heatmap_df.shape[0]):
@@ -43,24 +78,26 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
                 )
             )
     patch_collection = PatchCollection(rectangles, match_original=True)
-    # Keep a reference to the original QuadMesh before adding the new collection.
-    quad_mesh = ax.collections[0]
     ax.add_collection(patch_collection)
-    quad_mesh.set_alpha(background_alpha)
 
     return patch_collection
 
 
-def _draw_box_legend(ax, sizes, legend_kws):
+def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
     """Draw a marker-range legend showing representative box sizes.
 
-    The marker axes xlim/ylim are set proportionally to the heatmap axes
-    so that 1 data-unit maps to the same physical size on both.  A v×v
-    rectangle drawn here is pixel-identical to one on the heatmap.
+    The legend axes xlim/ylim are derived from the *rendered* pixel size
+    of ``ax`` and ``ax_heat`` (via ``get_window_extent``), so that 1
+    data-unit maps to the same physical (pixel) size on both, regardless
+    of how ``ax`` was created (GridSpec cell, ``inset_axes``, a
+    user-supplied axes anywhere in the figure, ...) and even if
+    ``ax_heat``'s plotted area doesn't fill its full allocated box (e.g.
+    an equal-aspect heatmap that got letterboxed). A v×v rectangle drawn
+    here is pixel-identical to one on the heatmap.
 
     Args:
-        ax: Axes to draw into (a GridSpec subplot).  Must share a figure
-            with an axes labelled ``'heatmap'``.
+        ax: Axes to draw the legend into.
+        ax_heat: The heatmap axes to match scale against.
         sizes (np.ndarray): The per-cell sizes matrix (values in [0, 1]).
         legend_kws (dict): Configuration dict. Keys:
             - bins (int or array-like): Number of evenly spaced sizes or
@@ -84,26 +121,37 @@ def _draw_box_legend(ax, sizes, legend_kws):
     n_bins = len(bin_values)
 
     labels = legend_kws.get('labels', None)
-    label_fmt = legend_kws.get('label_fmt', '{:.2f}')
     if labels is None:
+        label_fmt = legend_kws.get('label_fmt', '{:.2f}')
         labels = [label_fmt.format(v) for v in bin_values]
+    else:
+        assert 'label_fmt' not in legend_kws, 'Cannot specify both `labels` and `label_fmt` in legend_kws'
+    assert len(labels) == n_bins, f'Number of labels ({len(labels)}) must match number of bins ({n_bins})'
 
     facecolor = legend_kws.get('facecolor', '#cccccc')
     edgecolor = legend_kws.get('edgecolor', '#333333')
-    fontsize = legend_kws.get('fontsize', 8)
-    title_fontsize = legend_kws.get('title_fontsize', 9)
-    title = legend_kws.get('title', None)
     linewidth = legend_kws.get('linewidth', 1)
+    fontsize = legend_kws.get('fontsize', 8)
+    title = legend_kws.get('title', None)
+    title_fontsize = legend_kws.get('title_fontsize', 9)
 
     # Match data-to-pixel scale with the heatmap so v×v boxes look identical.
-    ax_heat = next(a for a in ax.get_figure().axes if a.get_label() == 'heatmap')
-    gs = ax.get_subplotspec().get_gridspec()
-    w_ratios, h_ratios = gs.get_width_ratios(), gs.get_height_ratios()
+    # Uses actual rendered pixel size (not GridSpec ratios) so this works
+    # regardless of how `ax` was positioned relative to `ax_heat`.
+    fig = ax.get_figure()
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+
+    heat_bbox = ax_heat.get_window_extent(renderer)
+    legend_bbox = ax.get_window_extent(renderer)
 
     heat_xrange = np.abs(np.diff(ax_heat.get_xlim()))[0]
     heat_yrange = np.abs(np.diff(ax_heat.get_ylim()))[0]
-    marker_xmax = heat_xrange * w_ratios[1] / w_ratios[0]
-    marker_ymax = heat_yrange * h_ratios[1] / sum(h_ratios)
+    pixels_per_unit_x = heat_bbox.width / heat_xrange
+    pixels_per_unit_y = heat_bbox.height / heat_yrange
+
+    marker_xmax = legend_bbox.width / pixels_per_unit_x
+    marker_ymax = legend_bbox.height / pixels_per_unit_y
 
     ax.set_xlim(0, marker_xmax)
     ax.set_ylim(marker_ymax, 0)
@@ -154,7 +202,7 @@ def _draw_box_legend(ax, sizes, legend_kws):
     ax.patch.set_visible(False)
 
 
-def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
+def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
     """Plot a heatmap with sized rectangles per cell and a marker-range legend.
 
     Creates a figure with a 2x2 GridSpec::
@@ -187,33 +235,14 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
             ``fig.add_gridspec()``.  Use this to control the layout, e.g.
             ``{'width_ratios': [10, 0.5], 'height_ratios': [1, 1],
             'wspace': 0.3, 'hspace': 0.5}``.
-        **kwargs: Forwarded to ``sns.heatmap()``.  The ``ax`` key is ignored;
+        **heat_kws: Forwarded to ``sns.heatmap()``.  The ``ax`` key is ignored;
             ``cbar_ax`` is overridden to point at the colorbar subplot.
 
     Returns:
         matplotlib.figure.Figure
 
-    Example::
-
-        import numpy as np, pandas as pd
-        from matplotlib import colors
-
-        corr = pd.DataFrame(np.arange(-112, 113).reshape(15, 15) / 224)
-        cmap = colors.LinearSegmentedColormap.from_list(
-            'BuWtRd', ['blue', 'white', 'red'], N=8)
-        fig = heatmap(
-            corr,
-            box_kws={
-                'sizes': corr.abs().values * 0.98 / corr.values.max(),
-                'linewidths': np.ones_like(corr, dtype=float) * 0.9,
-                'background_alpha': 0.7,
-                'edgecolors': np.where(corr.le(0), '#000000', None),
-                'legend': {'bins': 4, 'title': 'Box size'},
-            },
-            cmap=cmap,
-            cbar_kws={'label': 'Correlation'},
-        )
-        fig.show()
+    
+    Example: See ``dev_scripts/debugging_scripts/graphics/heatmap_example.py`` for usage examples.
     """
 
     gs_kws = dict(gs_kws or {})
@@ -226,30 +255,38 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **kwargs):
         fig = plt.figure(figsize=(10, 8))
     gs = fig.add_gridspec(2, 2, **gs_kws)
 
-    ax_heat = fig.add_subplot(gs[:, 0])
-    ax_cbar = fig.add_subplot(gs[0, 1])
-    ax_marker = fig.add_subplot(gs[1, 1])
+    heat_ax = fig.add_subplot(gs[:, 0])
+    cbar_ax = fig.add_subplot(gs[0, 1])
+    marker_ax = fig.add_subplot(gs[1, 1])
 
-    ax_heat.set_label('heatmap')
-    ax_cbar.set_label('colorbar')
-    ax_marker.set_label('marker_legend')
+    heat_ax.set_label('heatmap')
+    cbar_ax.set_label('colorbar')
+    marker_ax.set_label('marker_legend')
 
     # Redirect colorbar to its dedicated axes; ignore user-supplied ax
-    kwargs.pop('ax', None)
-    kwargs['cbar_ax'] = ax_cbar
+    if 'ax' in heat_kws or 'cbar_ax' in heat_kws:
+        logger.warning(
+            '`ax` and `cbar_ax` arguments are ignored; this function produces its own heatmap, '
+            'colorbar, and marker-legend axes. You may provide a pre-created figure'
+            ' via the `fig` argument, or adjust the layout via `gs_kws`.'
+        )
+        heat_kws.pop('ax', None)
+        heat_kws.pop('cbar_ax', None)
 
-    sns.heatmap(data=matrix_df, ax=ax_heat, **kwargs)
+    # Produce the heatmap
+    sns.heatmap(data=matrix_df, ax=heat_ax, cbar_ax=cbar_ax, **heat_kws)
 
     # Overlay boxes
-    face_colors = _extract_face_colors(ax_heat, matrix_df)
-    sizes = box_kws.get('sizes', np.ones(matrix_df.shape) * 0.8)
-    _overlay_boxes(ax_heat, matrix_df, face_colors, sizes, box_kws)
+    n_rows, n_cols = matrix_df.shape
+    face_colors = _extract_face_colors(heat_ax, n_rows, n_cols)
+    sizes = box_kws.get('sizes', np.ones((n_rows, n_cols)) * 0.8)
+    _overlay_boxes(heat_ax, matrix_df, face_colors, sizes, box_kws)
 
     # Draw marker legend
     legend_kws = box_kws.get('legend', {})
     if legend_kws is None:
         legend_kws = {}
-    _draw_box_legend(ax_marker, sizes, legend_kws)
+    _draw_box_legend(marker_ax, heat_ax, sizes, legend_kws)
 
     return fig
 
@@ -261,6 +298,7 @@ def overlay_boxes(
     edgecolors=None,
     linewidths=None,
     background_alpha=0.1,
+    legend=None,
 ):
     """Overlay sized rectangles on an existing seaborn clustermap's heatmap.
 
@@ -281,6 +319,13 @@ def overlay_boxes(
             Default: 1.5 uniform.
         background_alpha (float): Heatmap mesh alpha after dimming.
             Default: 0.1.
+        legend (dict, optional): Marker legend config, passed to
+            ``_draw_box_legend`` (see that function for keys such as
+            ``bins``, ``labels``, ``title``, ...). If ``None`` (default),
+            no legend is drawn. If a dict is given without an ``'ax'``
+            key, a narrow inset axes is created just outside the
+            heatmap's bottom-right corner; pass ``{'ax': my_ax}`` to draw
+            into an axes of your own instead.
 
     Returns:
         matplotlib.collections.PatchCollection: The overlay patch collection.
@@ -290,14 +335,13 @@ def overlay_boxes(
         ``sns.clustermap()``, the corresponding dendrogram is ``None`` and
         the original row/column order is used as-is.
     """
-    ax_heat = clustermap_obj.ax_heatmap
+    heat_ax = clustermap_obj.ax_heatmap
 
     # .data is the original DataFrame passed to clustermap()
     # .data2d has already been reordered to the clustered (visual) layout by seaborn 
     # and matches the heatmap's rendered/drawn order.
-    heatmap_df = clustermap_obj.data2d
-
-    n_rows, n_cols = heatmap_df.shape
+    heat_df = clustermap_obj.data2d
+    n_rows, n_cols = heat_df.shape
 
     # Resolve row/col clustering order, falling back to identity when a
     # dendrogram is absent (row_cluster=False or col_cluster=False).
@@ -311,29 +355,31 @@ def overlay_boxes(
     else:
         col_order = list(range(n_cols))
 
+    # Reorder relevant data from original data order to the visual (clustered) order.
     if sizes is None:
-        sizes = np.ones((n_rows, n_cols)) * 0.8
-    # Reorder sizes from original data order to the visual (clustered) order.
+            sizes = np.ones((n_rows, n_cols)) * 0.8
     sizes = np.array(sizes)  # ensure it's a numpy array for indexing
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 
     if facecolors is None:
-        facecolors = _extract_face_colors(ax_heat, heatmap_df)
+        facecolors = _extract_face_colors(heat_ax, n_rows, n_cols)
         # Already in clustered (visual) order — no reordering needed.
         facecolors_reordered = facecolors
     else:
         # Reorder from original data order to the visual (clustered) order.
         facecolors = np.array(facecolors)
-        facecolors_reordered = facecolors[row_order, :, :][:, col_order, :]
+        facecolors_reordered = facecolors[row_order, :][:, col_order] # alternative to `np.ix_()` approach
 
     if edgecolors is None:
         # default to no edge color
-        edgecolors = np.empty((n_rows, n_cols), dtype=object)
+        edgecolors = np.full((n_rows, n_cols), fill_value='#000000')
+    edgecolors = np.asarray(edgecolors)  # ensure it's a numpy array for indexing
     # Reorder edgecolors from original data order to the visual (clustered) order.
     edgecolors_reordered = edgecolors[np.ix_(row_order, col_order)]
 
     if linewidths is None:
         linewidths = np.ones((n_rows, n_cols)) * 1.5
+    linewidths = np.asarray(linewidths, dtype=float)  # ensure it's a numpy array for indexing
     # Reorder linewidths from original data order to the visual (clustered) order.
     linewidths_reordered = linewidths[np.ix_(row_order, col_order)]
 
@@ -343,12 +389,22 @@ def overlay_boxes(
         'background_alpha': background_alpha,
     }
 
+    # Draw the boxes on top of the heatmap mesh
     patch_collection = _overlay_boxes(
-        ax=ax_heat,
-        heatmap_df=heatmap_df,
+        ax=heat_ax,
+        heatmap_df=heat_df,
         face_colors=facecolors_reordered,
         sizes=sizes_reordered,
         box_kws=box_kws,
     )
+
+    if legend is not None:
+        legend_kws = dict(legend)
+        ax_legend = legend_kws.get('ax')
+        if ax_legend is None:
+            # Narrow column just outside the heatmap's bottom-right corner.
+            ax_legend = heat_ax.inset_axes([1.05, 0, 0.15, 0.3])
+        ax_legend.set_label('marker_legend')
+        _draw_box_legend(ax_legend, heat_ax, sizes_reordered, legend_kws)
 
     return patch_collection
