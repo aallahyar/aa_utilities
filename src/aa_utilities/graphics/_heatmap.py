@@ -22,6 +22,24 @@ def _rgba2hex(rgba_arr):
     )
 
 
+def _resolve_legend_bins(sizes, bins):
+    if np.ndim(bins) == 0:
+        if not isinstance(bins, (int, np.integer)):
+            raise ValueError('legend `bins` must be a positive integer or a non-empty array-like of numeric values')
+        if bins <= 0:
+            raise ValueError('legend `bins` must be a positive integer')
+        return np.linspace(sizes.min(), sizes.max(), int(bins))
+
+    bin_values = np.asarray(bins)
+    if bin_values.size == 0:
+        raise ValueError('legend `bins` must be a non-empty array-like of numeric values')
+
+    try:
+        return bin_values.astype(float)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('legend `bins` must contain only numeric values') from exc
+
+
 def _extract_face_colors(ax):
     """Extract per-cell RGBA colors from the seaborn heatmap QuadMesh."""
 
@@ -34,9 +52,14 @@ def _extract_face_colors(ax):
     # one row per cell.
     ax.get_figure().canvas.draw()
 
-    face_colors = quad_mesh.get_facecolors()
-    if face_colors is None or len(face_colors) == 0:
-        face_colors = quad_mesh._facecolors
+    # Prefer colors stashed before any _overlay_boxes() dimming; otherwise a
+    # later call would extract this mesh's already-dimmed (background_alpha)
+    # state instead of the true original colors.
+    face_colors = getattr(quad_mesh, '_facecolors_pristine', None)
+    if face_colors is None:
+        face_colors = quad_mesh.get_facecolors()
+        if face_colors is None or len(face_colors) == 0:
+            face_colors = quad_mesh._facecolors
 
     face_colors_hex = np.apply_along_axis(
         mpl_colors.to_hex, 
@@ -63,6 +86,11 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
     # Dim the original heatmap mesh by setting its alpha to the specified background_alpha.
     background_alpha = box_kws.get('background_alpha', 0.1)
     quad_mesh = ax.collections[0]
+    # Stash the pristine (pre-dimming) colors once, so a later call's automatic
+    # face-color extraction (facecolors=None) doesn't inherit this dimming.
+    if not hasattr(quad_mesh, '_facecolors_pristine'):
+        ax.get_figure().canvas.draw()
+        quad_mesh._facecolors_pristine = quad_mesh.get_facecolors().copy()
     quad_mesh.set_alpha(background_alpha)
 
     rectangles = []
@@ -115,10 +143,7 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
     from matplotlib import patches
 
     bins = legend_kws.get('bins', 4)
-    if np.ndim(bins) == 0:
-        bin_values = np.linspace(sizes.min(), sizes.max(), int(bins))
-    else:
-        bin_values = np.asarray(bins)
+    bin_values = _resolve_legend_bins(sizes, bins)
     n_bins = len(bin_values)
 
     labels = legend_kws.get('labels', None)
@@ -126,8 +151,10 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
         label_fmt = legend_kws.get('label_fmt', '{:.2f}')
         labels = [label_fmt.format(v) for v in bin_values]
     else:
-        assert 'label_fmt' not in legend_kws, 'Cannot specify both `labels` and `label_fmt` in legend_kws'
-    assert len(labels) == n_bins, f'Number of labels ({len(labels)}) must match number of bins ({n_bins})'
+        if 'label_fmt' in legend_kws:
+            raise ValueError('Cannot specify both `labels` and `label_fmt` in legend_kws')
+    if len(labels) != n_bins:
+        raise ValueError(f'Number of labels ({len(labels)}) must match number of bins ({n_bins})')
 
     facecolor = legend_kws.get('facecolor', '#cccccc')
     edgecolor = legend_kws.get('edgecolor', '#333333')
@@ -228,8 +255,8 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
             - linewidths (np.ndarray): Per-cell border widths. Default: 1.5 uniform.
             - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.1.
             - legend (dict): Marker legend config passed to
-              ``_draw_box_legend``.  Default: ``{}`` (draws a 4-bin auto
-              legend).
+                            ``_draw_box_legend``. Omit the key or pass ``{}`` to draw the
+                            default 4-bin auto legend. Pass ``None`` to suppress the legend.
         fig (matplotlib.figure.Figure, optional): Pre-created figure to draw
             into.  If ``None``, a new ``(10, 8)`` figure is created.
         gs_kws (dict): Keyword arguments forwarded to
@@ -285,9 +312,8 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
 
     # Draw marker legend
     legend_kws = box_kws.get('legend', {})
-    if legend_kws is None:
-        legend_kws = {}
-    _draw_box_legend(marker_ax, heat_ax, sizes, legend_kws)
+    if legend_kws is not None:
+        _draw_box_legend(marker_ax, heat_ax, sizes, legend_kws)
 
     return fig
 
@@ -358,7 +384,7 @@ def overlay_boxes(
 
     # Reorder relevant data from original data order to the visual (clustered) order.
     if sizes is None:
-            sizes = np.ones((n_rows, n_cols)) * 0.8
+        sizes = np.ones((n_rows, n_cols)) * 0.8
     sizes = np.array(sizes)  # ensure it's a numpy array for indexing
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 

@@ -7,5 +7,5 @@ seaborn
 numba>=0.59.0
 natsort>=8.4.0
 scikit-learn
-watermark
+statsmodels
 rpy2; python_version >= "3.6"
