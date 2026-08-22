@@ -168,35 +168,34 @@ class RestrictedLogger(logging.Logger):
 
     def loggable(self, record):
         """Returns True if the log should be displayed. For customization, the record can be modified in place."""
-        self._lock.acquire()
-        loggable_time = True
-        loggable_count = True
-        if self.name == record.name:  # its the main logger
-            name = record.levelname  # or logging.getLevelName(10)
-        else:  # its the sub-logger
-            name = re.sub(f'^{self.name}_', '', record.name)
-        stats = self._stats[name]
+        with self._lock:  # ensures the lock is released even if an exception occurs below
+            loggable_time = True
+            loggable_count = True
+            if self.name == record.name:  # its the main logger
+                name = record.levelname  # or logging.getLevelName(10)
+            else:  # its the sub-logger
+                name = re.sub(f'^{self.name}_', '', record.name)
+            stats = self._stats[name]
 
-        # check count limit
-        if self._count_limit is not None:
-            total_attempted = stats['n_printed'] + stats['n_ignored']
-            if total_attempted % self._count_limit != 0:
-                loggable_count = False
+            # check count limit
+            if self._count_limit is not None:
+                total_attempted = stats['n_printed'] + stats['n_ignored']
+                if total_attempted % self._count_limit != 0:
+                    loggable_count = False
 
-        # check time limit
-        if self._time_limit is not None:
-            if time.time() < stats['last_print'] + self._time_limit:
-                loggable_time = False
+            # check time limit
+            if self._time_limit is not None:
+                if time.time() < stats['last_print'] + self._time_limit:
+                    loggable_time = False
 
-        is_printable = loggable_count and loggable_time
-        if is_printable:
-            stats['n_printed'] += 1
-            stats['last_print'] = time.time()
-        else:
-            stats['n_ignored'] += 1
+            is_printable = loggable_count and loggable_time
+            if is_printable:
+                stats['n_printed'] += 1
+                stats['last_print'] = time.time()
+            else:
+                stats['n_ignored'] += 1
 
-        self._lock.release()
-        return is_printable
+            return is_printable
 
     def stdout(self, record):
         return self.to_stdout.info(record)

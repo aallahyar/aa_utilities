@@ -1,5 +1,4 @@
 pytest
-tomli; python_version < "3.11"
 numpy #>=1.26.4
 pandas #>=2.2.0
 matplotlib>=3.8.2
@@ -8,4 +7,4 @@ numba>=0.59.0
 natsort>=8.4.0
 scikit-learn
 statsmodels
-rpy2; python_version >= "3.6"
+rpy2

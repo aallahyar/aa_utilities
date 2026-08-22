@@ -37,18 +37,18 @@ The further details about this is explained [here](https://stackoverflow.com/que
 
 ## How to use
 
-#### `add_pvalue`:
+#### `link`:
 Adds a link and a string (e.g., p-value) over a given pair of `x_ticks`.
 
 **Example**:
 ```python
 
-from aa_utilities.graphics import add_pvalue
+from aa_utilities.graphics import link
 
 fig = plt.figure()
 ax = fig.gca()
 ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
-add_pvalue(
+link(
     x_ticks=[0, 1], 
     text='test p-value = string', 
     y_left=130, 

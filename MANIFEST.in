@@ -1,1 +1,4 @@
-include src/aa_utilities/*.toml
+# No extra non-Python files currently need bundling into the sdist.
+# (pyproject.toml, README.md, and LICENSE are included automatically by setuptools;
+# requirements.txt is pulled in via the `[tool.setuptools.dynamic]` dependencies reference.)
+

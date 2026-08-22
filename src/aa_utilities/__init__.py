@@ -2,7 +2,7 @@
 import importlib.metadata as _metadata
 __version__ = _metadata.version('aa_utilities')
 
-# Read URL of the Real Python feed from config file
+# expose package-wide configuration (repository URL, logging level, etc.)
 from ._configurations import configs
 
 

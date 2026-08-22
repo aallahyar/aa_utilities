@@ -39,9 +39,9 @@ def is_true(
 
     Args:
         data (any): The object to be returned, if the condition is True.
-        condition (bool): The condition to be tested
+        condition (bool, callable): The condition to be tested, or a callable of `data` returning bool.
         message (str, func, optional): Messsage to be shown
-            if the condition is False. Defaults to 'Condition is False!'.
+            if the condition is False. Defaults to 'The `condition` argument is False!'.
 
     Returns:
         any: The `data` as it is provided (i.e., no modification).
@@ -344,8 +344,8 @@ def search(
 
     # performing the search
     if is_num:
-        # NaN search: match NaNs
-        if isinstance(value, float) and np.isnan(value):
+        # NaN search: match NaNs (np.isnan rejects ints, so this is safe for all numeric `value` types)
+        if isinstance(value, (float, np.floating)) and np.isnan(value):
             mask = sub.isna()
         else:
             # Integer or no tolerance: exact equality

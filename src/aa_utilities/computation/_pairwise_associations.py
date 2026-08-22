@@ -79,11 +79,11 @@ def pairwise_associations(df, enforced_dtypes=None):
         # ── Continuous × Continuous: Spearman ρ ──────────────────────────
         # range: -1 (perfect negative) to 1 (perfect positive), 0 means no monotonic association
         if not a_is_cat and not b_is_cat:
-            result.update(test='spearman')
+            result = result.update(test='spearman')
             # if either variable is constant, correlation is undefined
             if pair[col_a].std() > 0 and pair[col_b].std() > 0:
                 res = scipy_stats.spearmanr(pair[col_a], pair[col_b])
-                result.update(
+                result = result.update(
                     statistic=res.statistic,
                     effect_size=res.statistic,
                     p_value=res.pvalue,
@@ -102,7 +102,7 @@ def pairwise_associations(df, enforced_dtypes=None):
             # This is conservative and inflates p-values for larger samples.
             chi2, p_value, _, _ = scipy_stats.chi2_contingency(ct, correction=True)
             v = np.sqrt(chi2 / (n_samples * (min(r, c_dim) - 1)))
-            result.update(
+            result = result.update(
                 test='chi2',
                 statistic=chi2,
                 effect_size=np.clip(v, 0.0, 1.0),
@@ -143,7 +143,7 @@ def pairwise_associations(df, enforced_dtypes=None):
             # comparable to Spearman |ρ| and Cramér's V
             # this scaling is somewhat arbitrary (and not a standard convention)
             eps = np.sqrt(eps2) if not np.isnan(eps2) else np.nan
-            result.update(
+            result = result.update(
                 test='kruskal_wallis', 
                 statistic=H, 
                 effect_size=eps, 

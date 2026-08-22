@@ -180,8 +180,8 @@ def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
             with signature (left, right) -> str.
     """
 
-    # handle any iterable input
-    if hasattr(interval, '__iter__'):
+    # handle any iterable input (excluding strings, which are iterable but not a valid interval container)
+    if not isinstance(interval, str) and hasattr(interval, '__iter__'):
         return [interval2str(intv, fmt=fmt) for intv in interval]
 
     # preserve NaNs
