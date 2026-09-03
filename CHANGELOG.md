@@ -1,3 +1,7 @@
+## [0.0.50] - 2026-09-03
+### Added:
+- Added `sankey` helper to create data needed for Sankey diagrams in plotly.
+
 ## [0.0.49] - 2026-06-29
 ### Fixed:
 - `RSpace` now properly converts length(1) R objects to Pandas series.
