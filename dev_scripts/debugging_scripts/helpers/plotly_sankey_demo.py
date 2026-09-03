@@ -69,9 +69,10 @@ node, link = build_sankey_data(node_df, link_df)
 fig = go.Figure(go.Sankey(
     textfont=dict(color='#000000', size=5),
     # orientation='v',   # vertical layout instead of the default horizontal
+    # valueformat='.1f', valuesuffix='B',   # built-in numeric formatting, alternative to the manual "$%{value}B" below
+    # arrangement='fixed',   # honor node_df['x']/['y'] exactly instead of letting Plotly nudge nodes to avoid overlap; options are: 'snap', 'perpendicular', 'freeform'
     node=dict(
         pad=35, thickness=20, line=dict(color='white', width=1),
-        # arrangement='fixed',   # honor node_df['x']/['y'] exactly instead of letting Plotly nudge nodes to avoid overlap; options are: 'snap', 'perpendicular', 'freeform'
         # hovertemplate='%{label}<extra></extra>',   # customize node hover text (default shows label + total flow)
         # customdata=node_df['label'],   # extra data available to node hovertemplate as '%{customdata}'
         # groups=[[17, 18, 19]],   # visually merge R&D/S&M/G&A (node_df row indices) into one collapsed node
@@ -79,7 +80,6 @@ fig = go.Figure(go.Sankey(
     ),
     link=dict(
         hovertemplate='%{source.label} \u2192 %{target.label}: $%{value}B<extra></extra>',
-        # valueformat='.1f', valuesuffix='B',   # built-in numeric formatting, alternative to the manual "$%{value}B" above
         # line=dict(color='white', width=0.5),   # border around each link band, mirroring node.line
         **link,
     ),
