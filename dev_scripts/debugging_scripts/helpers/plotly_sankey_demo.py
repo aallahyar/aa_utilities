@@ -40,6 +40,11 @@ link_color = ['LightSkyBlue', 'LightSkyBlue', 'LightSkyBlue', 'goldenrod', 'gold
               'PaleVioletRed', 'PaleVioletRed', 'lightgreen', 'PaleVioletRed', 'PaleVioletRed',
               'PaleVioletRed', 'PaleVioletRed', 'PaleVioletRed']
 
+# Optional short per-link text (distinct from hover), referenced via '%{label}' in link.hovertemplate.
+# link_label = ['Ad Revenue', 'Ad Revenue', 'Ad Revenue', 'Revenue', 'Revenue', 'Revenue', 'Revenue',
+#               'Gross Profit', 'Cost of Revenues', 'Operating Profit', 'Operating Expenses',
+#               'TAC', 'Others', 'Net Profit', 'Tax', 'Other', 'R&D', 'S&M', 'G&A']
+
 # `label` has duplicates here (e.g. two 'Other' nodes), so `id` must be a separate,
 # guaranteed-unique key rather than the label itself.
 node_df = pd.DataFrame({
@@ -54,15 +59,30 @@ link_df = pd.DataFrame({
     'target': target,   # must match a value in node_df['id']
     'value': value,
     'color': link_color,
+    # 'label': link_label,
 })
 
 # ------- producing the Sankey plot -------
 node, link = build_sankey_data(node_df, link_df)
+# link['label'] = link_label   # build_sankey_data doesn't pass this column through, so add it manually
 
 fig = go.Figure(go.Sankey(
     textfont=dict(color='#000000', size=5),
-    node=dict(pad=35, thickness=20, line=dict(color='white', width=1), **node),
-    link=dict(hovertemplate='%{source.label} \u2192 %{target.label}: $%{value}B<extra></extra>', **link),
+    # orientation='v',   # vertical layout instead of the default horizontal
+    node=dict(
+        pad=35, thickness=20, line=dict(color='white', width=1),
+        # arrangement='fixed',   # honor node_df['x']/['y'] exactly instead of letting Plotly nudge nodes to avoid overlap; options are: 'snap', 'perpendicular', 'freeform'
+        # hovertemplate='%{label}<extra></extra>',   # customize node hover text (default shows label + total flow)
+        # customdata=node_df['label'],   # extra data available to node hovertemplate as '%{customdata}'
+        # groups=[[17, 18, 19]],   # visually merge R&D/S&M/G&A (node_df row indices) into one collapsed node
+        **node,
+    ),
+    link=dict(
+        hovertemplate='%{source.label} \u2192 %{target.label}: $%{value}B<extra></extra>',
+        # valueformat='.1f', valuesuffix='B',   # built-in numeric formatting, alternative to the manual "$%{value}B" above
+        # line=dict(color='white', width=0.5),   # border around each link band, mirroring node.line
+        **link,
+    ),
 ))
 
 fig.update_layout(
