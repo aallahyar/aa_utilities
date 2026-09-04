@@ -62,6 +62,9 @@ link_df = pd.DataFrame({
     # 'label': link_label,
 })
 
+print(node_df.iloc[:5, :])
+print(link_df.iloc[:5, :])
+
 # ------- producing the Sankey plot -------
 node, link = build_sankey_data(node_df, link_df)
 # link['label'] = link_label   # build_sankey_data doesn't pass this column through, so add it manually

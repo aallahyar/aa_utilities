@@ -1,6 +1,6 @@
 import pandas as pd
 
-def build_sankey_data(node_df, link_df):
+def build_sankey_data(node_df: pd.DataFrame, link_df: pd.DataFrame) -> tuple[dict, dict]:
     """Turn a node table and a link table into the `node`/`link` dicts that
     `go.Sankey(node=..., link=...)` expects, so callers can work with
     human-readable, arbitrary node ids instead of manually managing the
@@ -8,8 +8,8 @@ def build_sankey_data(node_df, link_df):
 
     Args:
         node_df: One row per node, with columns:
-            - id (required): arbitrary, unique key (int, str, ...) used to
-              reference this node from `link_df['source']`/`['target']`.
+            - id (required): arbitrary, unique, hashable key (int, str, ...)
+              used to reference this node from `link_df['source']`/`['target']`.
               Row order in `node_df` determines the 0-based position each id
               is mapped to (i.e. node order as passed to `go.Sankey`).
             - label (required): text displayed on/for the node. Unlike `id`,
@@ -53,7 +53,7 @@ def build_sankey_data(node_df, link_df):
         link_df.loc[source_pos.isna(), 'source'],
         link_df.loc[target_pos.isna(), 'target'],
     ]).unique()
-    if len(unknown):
+    if len(unknown) > 0:
         raise ValueError(f"link_df references unknown node id(s): {list(unknown)}")
 
     node = dict(label=node_df['label'].tolist())
