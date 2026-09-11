@@ -395,7 +395,7 @@ def overlay_boxes(
     else:
         # Reorder from original data order to the visual (clustered) order.
         facecolors = np.array(facecolors)
-        facecolors_reordered = facecolors[row_order, :][:, col_order] # alternative to `np.ix_()` approach
+        facecolors_reordered = facecolors[np.ix_(row_order, col_order)] # alternative to `facecolors[row_order, :][:, col_order]` approach
 
     if edgecolors is None:
         # default to no edge color
