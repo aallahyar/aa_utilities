@@ -335,7 +335,8 @@ def overlay_boxes(
         sizes (np.ndarray, optional): Per-cell box sizes in [0, 1], in
             **original** data order (pre-clustering).
             Default: 0.8 uniform.
-        facecolors (np.ndarray, optional): Per-cell RGBA colors in the original
+        facecolors (np.ndarray, optional): Per-cell RGBA colors with shape either
+            `(n_rows, n_cols, 4)` or `(n_rows, n_cols)` in the original
             data order.  If not provided, colors are extracted from the heatmap
             mesh.  This is necessary if the heatmap was drawn with a custom colormap.
         edgecolors (np.ndarray, optional): Per-cell edge colors in any valid
