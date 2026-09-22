@@ -41,20 +41,23 @@ class LinearModel:
             pd.DataFrame()
             .assign(
                 idx=range(n),
-                SUBJID=lambda df: df.idx.map(lambda i: f'S{i % n_subj:04}'),
+                # SUBJID=lambda df: df.idx.map(lambda i: f'S{i % n_subj:04}'),
+                SUBJID=np.repeat(range(n_subj), n_visit),
                 USUBJID=np.repeat([f'S{si:04}' for si in range(n_subj)], n_visit),
                 TRT01P=lambda df: np.where(df.USUBJID.str[-1].astype(int) % 2 == 0, 'Placebo', 'Treatment'),
                 # TRT01P=lambda df: np.where(df.idx % 2 == 0, 'Placebo', 'Treatment'),
                 VISIT_idx=np.tile(range(n_visit), n // n_visit),
                 AVISIT=lambda df: df.VISIT_idx.map(lambda vi: f'Week {vi}'),
-                BASE=rng.normal(loc=1000, scale=500, size=n).astype(int),
+
+                # BASE=rng.normal(loc=1000, scale=500, size=n).astype(int),
                 # BASE=lambda df: rng.lognormal(5, 0.25, size=len(df)),
+                BASE=lambda df: df.groupby('USUBJID')['idx'].transform(lambda g: rng.normal(loc=1000, scale=500)).astype(int), # one random baseline draw per subject, broadcast across all of that subject's visits
                 AVAL=lambda df: df.BASE - df.BASE * (df.VISIT_idx / 10) * np.where(df.TRT01P == 'Placebo', 0.5, 1),
                 # AVAL=lambda df: np.where(df.TRT01P == 'Placebo', rng.lognormal(df.VISIT_idx, 0.3), rng.lognormal(df.VISIT_idx + 0.0, 0.3)),
                 CHANGE=lambda df: df.AVAL - df.BASE,
             )
             .assign(
-                BASE=lambda df: df.groupby('USUBJID').BASE.transform(lambda g: g.iat[0]),
+                # BASE=lambda df: df.groupby('USUBJID').BASE.transform(lambda g: g.iat[0]),
                 # AVAL=lambda df: np.where(df.AVISIT == 'V0', df.BASE, df.BASE + df.visit_idx + rng.uniform(0, 0.05, size=n)),
                 # AVAL=lambda df: np.where(df.AVISIT == 'V0', df.BASE, df.BASE * np.exp(1) + rng.uniform(0, 10.1, size=n)),
                 # AVAL=lambda df: np.where(df.AVISIT == 'V0', df.BASE, df.BASE + df.visit_idx + rng.uniform(0, 0.05, size=n)),
@@ -127,7 +130,6 @@ class LinearModel:
 
     def fit_lm(self, formula, ci=0.95):
         # e.g., formula = 'TRT01P'
-        # optional: family=gaussian(link = "identity") or gaussian(link = "log")
         self.R(f"""
             fit <- lm(
                 formula = {formula},
@@ -154,6 +156,7 @@ class LinearModel:
         self.R(f"""
             fit <- glm(
                 formula = {formula}, 
+                # other options: family=gaussian(link = "identity") or gaussian(link = "log")
                 family = binomial(link = "logit"), 
                 data = data
             )
@@ -281,7 +284,6 @@ class LinearModel:
             # type:
             #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model).
             #   * "link" :    # Estimates are shown on the linear predictor scale. For example, you see logits for logistic regression.
-            # exponentiate=TRUE # for logistic regression, exponentiates the log-odds to odds ratios.
             LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
             LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})
             # print(LSmeans_td)

@@ -1,7 +1,6 @@
 import re
 
 import numpy as np
-import pandas as pd
 import patsy
 import statsmodels.api as sm
 
@@ -13,9 +12,35 @@ logger = setup_logger(name=__name__, level=configs.log.level)
 
 
 def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=None, verbose=False):
+    """
+    Remove the effects of specified covariates from the response variable in a dataframe.
+
+    Parameters
+    ----------
+    dataframe : pd.DataFrame
+        The input dataframe containing the response and covariates.
+    response : str
+        The name of the response variable.
+    covs_all : list of str
+        The list of all covariates to include in the model.
+    covs_remove : list of str, optional
+        The list of covariates to remove from the response. Either `covs_remove` or `covs_keep` must be provided.
+    covs_keep : list of str, optional
+        The list of covariates to keep in the response. Either `covs_remove` or `covs_keep` must be provided.
+    verbose : bool, default False
+        If True, debug information will be logged.
+
+    Returns
+    -------
+    fit : statsmodels.regression.linear_model.RegressionResultsWrapper
+        The fitted model with an additional attribute `response_adjusted` containing the adjusted response.
+    """
+    
     assert (covs_remove is None) ^ (covs_keep is None), 'Provide either `covs_remove` or `covs_keep`, not both.'
     if covs_remove is not None:
         assert np.isin(covs_remove, covs_all).all(), 'Some covariates in `covs_remove` are not present in `covs_all`.'
+    if covs_keep is not None:
+        assert np.isin(covs_keep, covs_all).all(), 'Some covariates in `covs_keep` are not present in `covs_all`.'
 
     # fitting the model
     formula = f'{response} ~ ' + ' + '.join(covs_all)
@@ -34,14 +59,27 @@ def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=No
 
     # determine which columns to keep
     if covs_remove is not None:
-        columns_drop = X.filter(
-            regex=r'^(' + '|'.join(map(re.escape, covs_remove)) + ').*'
-        ).columns.tolist()  # column names are suffixed with their levels by patsy. So `.*` is needed to match them.
+        # guard against an empty list: '|'.join([]) is '', which would otherwise match every column name
+        if len(covs_remove) == 0:
+            columns_drop = []
+        else:
+            columns_drop = (
+                X
+                # column names are suffixed with their levels by patsy. So `.*` is needed to match them.
+                .filter(regex=r'^(' + '|'.join(map(re.escape, covs_remove)) + ').*')
+                .columns
+                .tolist()
+            )
         if verbose:
             logger.debug(f'Columns to drop: {columns_drop}')
         columns_keep = X.drop(columns=columns_drop).columns.tolist()
     else:
-        columns_keep = X.filter(regex=r'^(Intercept|' + '|'.join(map(re.escape, covs_keep)) + ').*').columns.tolist()
+        if len(covs_keep) == 0:
+            columns_keep = X.filter(regex=r'^Intercept.*')
+        else:
+            columns_keep = X.filter(regex=r'^(Intercept|' + '|'.join(map(re.escape, covs_keep)) + ').*')
+        columns_keep = columns_keep.columns.tolist()
+
     if verbose:
         logger.debug(f'Columns to keep: {columns_keep}')
 

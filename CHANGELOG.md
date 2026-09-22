@@ -1,3 +1,8 @@
+
+## [0.0.51] - 2026-09-22
+### Updated:
+- `computation.modeling` section with improved documentation and added guards.
+
 ## [0.0.50] - 2026-09-03
 ### Added:
 - Added `sankey` helper to create data needed for Sankey diagrams in plotly.
