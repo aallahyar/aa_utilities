@@ -25,9 +25,9 @@ x_pairs = [rng.choice(positions, replace=False, size=2) for _ in range(n_links)]
 result = links(
     x_left=[pair[0] for pair in x_pairs],
     x_right=[pair[1] for pair in x_pairs],
-    text=[f'test p-value = string {i}' for i in range(n_links)],
+    text=[f'links {x1}-{x2}' for x1, x2 in x_pairs],
     y_bases=y_bases,
-    # pad=10,
+    pad=10,
     ax=ax,
 )
 print('final y_bases:', result.y_bases)

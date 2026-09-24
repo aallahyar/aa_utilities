@@ -106,6 +106,7 @@ def links(
     x_right,
     text,
     y_bases=None,
+    auto_order=True,
     height=10,
     pad=5,
     top_space=10,
@@ -114,16 +115,15 @@ def links(
     line_kws=None,
     text_kws=None,
 ):
-    """Draws one or more comparison links, automatically stacking them so a link's bar
-    clears any position it visually spans over, and expands the y-axis at most once to fit
-    them all.
+    """Draws one or more comparison links, automatically stacking overlapping ones onto
+    different vertical levels so a link's bar always clears any position/link it visually
+    spans over, and expands the y-axis at most once to fit them all.
 
-    Each link's bar clears every known position between its `x_left` and `x_right`
-    (inclusive), not just its own two endpoints, so it never cuts through an intermediate
-    position's current height. After drawing, every position in that span is raised to the
-    link's rendered top (plus `top_space`), so later overlapping links stack correctly while
-    non-overlapping links stay independent. The y-axis only ever grows (never shrinks),
-    based only on positions actually used by a drawn link.
+    Levels are assigned via a greedy interval-packing algorithm: two links share a level only
+    if their `[x_left, x_right]` spans don't overlap; a link's bar height then only needs to
+    clear the real data in its own span plus any lower-level link whose span overlaps it - an
+    x-position's true height (from `y_bases`) is never overwritten by an unrelated link merely
+    passing over it, so the result doesn't depend on the order links are given in.
 
     Parameters:
     ----------
@@ -132,16 +132,21 @@ def links(
     text: array-like of str
         text placed above each link's bar, one entry per link.
     y_bases: Mapping, optional
-        x-position -> initial minimum height (e.g. a group's own data max). Any position not
+        x-position -> its real minimum height (e.g. a group's own data max). Any position not
         listed here defaults to the current `ax.get_ylim()[1]`.
+    auto_order: bool
+        if True (default), links are packed into levels narrowest-span-first, which tends to
+        minimize the number of levels used. If False, levels are assigned in the given input
+        order instead - this never reintroduces the flattening issue above, but may use more
+        levels (i.e. more stacking) than necessary.
     height: float
         vertical extent of a link's arms, in `units`, from its feet up to its horizontal bar.
     pad: float
         gap between a link's nominal y-values and where it is actually drawn, in `units` -
         keeps the bracket from visually touching the data/position it starts from.
     top_space: float
-        gap (in `units`) reserved above a link's rendered text before a later, overlapping
-        link (or the y-axis boundary) may start.
+        gap (in `units`) reserved above a link's rendered text before a higher-level,
+        overlapping link (or the y-axis boundary) may start.
     units: str
         units for `height`/`pad`/`top_space`. `'points'` (default) is resolution-independent
         (a fixed physical size); `'dots'` is a fixed pixel count, which looks like a different
@@ -154,7 +159,8 @@ def links(
     -------
     LinksResult(links, y_bases)
         `links`: list[LinkArtists], one per link, in input order.
-        `y_bases`: final per-position heights (initial values plus updates from drawn links).
+        `y_bases`: per-position ceiling reached by anything touching that position (its own
+        `y_bases` value, or the top of the tallest link spanning over it, whichever is higher).
     """
     if ax is None:
         ax = plt.gca()
@@ -172,38 +178,75 @@ def links(
     default_base = ax.get_ylim()[1]
     positions = sorted(set(x_left) | set(x_right) | set(given_bases))
     position_index = {p: i for i, p in enumerate(positions)}
-    current_base = {p: given_bases.get(p, default_base) for p in positions}
+    natural_base = {p: given_bases.get(p, default_base) for p in positions}
 
-    results = []
+    spans = [tuple(sorted((position_index[x_left[i]], position_index[x_right[i]]))) for i in range(n)]
+
+    def overlaps(a, b):
+        # inclusive: links that merely touch at a shared endpoint still can't share a level,
+        # since one's foot would otherwise sit right on top of the other's text
+        return max(a[0], b[0]) <= min(a[1], b[1])
+
+    # assign each link to the lowest level whose already-placed spans don't overlap it
+    assignment_order = sorted(range(n), key=lambda i: (spans[i][1] - spans[i][0], i)) if auto_order else range(n)
+    level_of = {}
+    level_spans = []
+    for i in assignment_order:
+        level = next((lv for lv, spans_at_level in enumerate(level_spans) if not any(overlaps(spans[i], s) for s in spans_at_level)), None)
+        if level is None:
+            level = len(level_spans)
+            level_spans.append([])
+        level_spans[level].append(spans[i])
+        level_of[i] = level
+
+    # compute each link's feet/bar height in level order, so lower levels are already known.
+    # a position's "ceiling" is its real base, raised to clear any *lower-level* bracket
+    # whose span covers it - this keeps a link's own arms from visually crossing through a
+    # lower bracket it shares an endpoint with, while leaving same-level neighbors alone.
+    results = [None] * n
+    covered = []  # (level, span, bar_top) for links already processed
+    final_heights = dict(natural_base)
     overall_top = None
     top_text_artist = None
-    for i in range(n):
-        lo, hi = sorted((position_index[x_left[i]], position_index[x_right[i]]))
-        span_positions = positions[lo : hi + 1]
-        span_max = max(current_base[p] for p in span_positions)
+
+    def ceiling(level, position_idx):
+        value = natural_base[positions[position_idx]]
+        for lower_level, (lo_j, hi_j), bar_top_j in covered:
+            if lower_level < level and lo_j <= position_idx <= hi_j:
+                value = max(value, bar_top_j)
+        return value
+
+    for i in sorted(range(n), key=lambda i: (level_of[i], i)):
+        lo, hi = spans[i]
+        level = level_of[i]
+        clearance_ref = max(ceiling(level, p) for p in range(lo, hi + 1))
+        foot_left = ceiling(level, position_index[x_left[i]])
+        foot_right = ceiling(level, position_index[x_right[i]])
 
         artists = _link(
             x_left=x_left[i],
             x_right=x_right[i],
             text=text[i],
-            y_left=current_base[x_left[i]],
-            y_right=current_base[x_right[i]],
-            y_top=_pixel_offset_to_data(ax, span_max, offset=height, units=units),
+            y_left=foot_left,
+            y_right=foot_right,
+            y_top=_pixel_offset_to_data(ax, clearance_ref, offset=height, units=units),
             pad=pad,
             units=units,
             ax=ax,
             line_kws=line_kws,
             text_kws=text_kws,
         )
-        results.append(artists)
+        results[i] = artists
 
         text_extent = _bbox_to_data(ax, artists.text.get_window_extent())
-        new_base = _pixel_offset_to_data(ax, text_extent.top, offset=top_space, units=units)
-        for p in span_positions:
-            current_base[p] = new_base
-        if overall_top is None or new_base > overall_top:
-            overall_top = new_base
+        bar_top = _pixel_offset_to_data(ax, text_extent.top, offset=top_space, units=units)
+        covered.append((level, spans[i], bar_top))
+        for p in positions[lo : hi + 1]:
+            final_heights[p] = max(final_heights[p], bar_top)
+        if overall_top is None or bar_top > overall_top:
+            overall_top = bar_top
             top_text_artist = artists.text
+
 
     if overall_top is not None:
         ax.set_ylim(top=max(overall_top, ax.get_ylim()[1]))
@@ -218,7 +261,7 @@ def links(
                 break
             ax.set_ylim(top=required_top)
 
-    return LinksResult(links=results, y_bases=current_base)
+    return LinksResult(links=results, y_bases=final_heights)
 
 
 # %%
@@ -252,6 +295,20 @@ if __name__ == '__main__':
         ax=ax2,
     )
     print('final y_bases:', result.y_bases)
+
+    # order-independence: (1-2) then (1-3), or (1-3) then (1-2), give the same layout
+    fig, (ax3, ax4) = plt.subplots(1, 2, figsize=(6, 4))
+    for ax, order in [(ax3, ['A', 'B']), (ax4, ['B', 'A'])]:
+        ax.boxplot(x=[np.linspace(1, 10)] * 3, positions=[1, 2, 3])
+        pairs = {'A': (1, 2), 'B': (1, 3)}
+        result = links(
+            x_left=[pairs[name][0] for name in order],
+            x_right=[pairs[name][1] for name in order],
+            text=order,
+            y_bases={1: 10, 2: 5, 3: 10},
+            ax=ax,
+        )
+        ax.set_title(f'input order: {order}')
 
     plt.show()
 

@@ -39,10 +39,13 @@ The further details about this is explained [here](https://stackoverflow.com/que
 
 #### `links`:
 Draws one or more comparison "links" (a bracket connecting two x-positions with a text, e.g.
-a p-value, above it), automatically stacking them so a link's bar always clears any position
-it spans over, and expanding the y-axis at most once to fit them all. `x_left`, `x_right`,
-and `text` are array-likes with one entry per link. `y_bases` is an optional mapping from
-x-position to its starting height - positions you don't list default to the current axis top.
+a p-value, above it), automatically packing overlapping ones onto separate vertical levels so
+a link's bar always clears any position/link it spans over, and expanding the y-axis at most
+once to fit them all. `x_left`, `x_right`, and `text` are array-likes with one entry per link.
+`y_bases` is an optional mapping from x-position to its real starting height - positions you
+don't list default to the current axis top. The level packing (and its results) don't depend
+on the order links are given in; pass `auto_order=False` to assign levels using the given
+input order instead of the narrowest-span-first packing.
 
 **Example**:
 ```python
