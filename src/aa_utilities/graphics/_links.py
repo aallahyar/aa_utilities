@@ -4,12 +4,23 @@ overlap.
 """
 
 from collections import namedtuple
+from dataclasses import dataclass, field
 
 from matplotlib import pyplot as plt, transforms as mpl_transforms
 
 from ._utilities import _pixel_offset_to_data, _bbox_to_data
 
 LinkArtists = namedtuple('LinkArtists', ['line', 'text', 'y_top'])
+
+
+@dataclass
+class LinksResult:
+    """Result of `links()`. A plain object (not a tuple) so new fields can be added later
+    without breaking existing attribute-based usage (`result.links`, `result.y_bases`, ...).
+    """
+
+    links: list = field(default_factory=list)
+    y_bases: dict = field(default_factory=dict)
 
 
 def _link(
@@ -94,8 +105,7 @@ def links(
     x_left,
     x_right,
     text,
-    y_left,
-    y_right=None,
+    y_bases=None,
     height=10,
     pad=5,
     top_space=10,
@@ -104,32 +114,37 @@ def links(
     line_kws=None,
     text_kws=None,
 ):
-    """Draws one or more comparison links, stacking them (in the given order) so that each
-    one clears the previously drawn ones, and expands the y-axis at most once to fit them all.
+    """Draws one or more comparison links, automatically stacking them so a link's bar
+    clears any position it visually spans over, and expands the y-axis at most once to fit
+    them all.
 
-    `x_left`, `x_right`, `text`, `y_left` (and `y_right`, if given) are array-likes with one
-    entry per link (e.g. `pd.Series`/columns of a DataFrame, lists, or numpy arrays) - all
-    must have the same length. Pass single-element array-likes to draw just one link.
-
-    Stacking is a simple running "high-water mark": each link's `y_left`/`y_right` is raised
-    to at least `top_space` `units` above the previously drawn link's rendered text, if that's
-    higher than the link's own given `y_left`/`y_right`. This means links are always stacked
-    in input order regardless of `x_left`/`x_right`, i.e. this does not detect whether two
-    links' x-ranges actually overlap - pass only genuinely-overlapping/related links together,
-    calling `links()` separately per independent group if some don't need to be stacked.
-
-    The y-axis is only ever expanded (never shrunk) to fit the topmost link, so any headroom
-    the caller already left in place is preserved.
+    Each link's bar clears every known position between its `x_left` and `x_right`
+    (inclusive), not just its own two endpoints, so it never cuts through an intermediate
+    position's current height. After drawing, every position in that span is raised to the
+    link's rendered top (plus `top_space`), so later overlapping links stack correctly while
+    non-overlapping links stay independent. The y-axis only ever grows (never shrinks),
+    based only on positions actually used by a drawn link.
 
     Parameters:
     ----------
-    height, pad, top_space, units, ax, line_kws, text_kws:
-        see `_link()`. `top_space` additionally sets the gap reserved between stacked links.
+    x_left, x_right: array-like
+        x-positions to link, one entry per link.
+    text: array-like of str
+        text placed above each link's bar, one entry per link.
+    y_bases: Mapping, optional
+        x-position -> initial minimum height (e.g. a group's own data max). Any position not
+        listed here defaults to the current `ax.get_ylim()[1]`.
+    height, pad, units, ax, line_kws, text_kws:
+        see `_link()`.
+    top_space: float
+        gap (in `units`) reserved above a link's rendered text before a later, overlapping
+        link (or the y-axis boundary) may start.
 
     Returns:
     -------
-    list[LinkArtists]
-        one entry per link, in input order.
+    LinksResult(links, y_bases)
+        `links`: list[LinkArtists], one per link, in input order.
+        `y_bases`: final per-position heights (initial values plus updates from drawn links).
     """
     if ax is None:
         ax = plt.gca()
@@ -137,36 +152,32 @@ def links(
     x_left = list(x_left)
     x_right = list(x_right)
     text = list(text)
-    y_left = list(y_left)
     n = len(x_left)
-    if not (len(x_right) == len(text) == len(y_left) == n):
+    if not (len(x_right) == len(text) == n):
         raise ValueError(
-            'x_left, x_right, text, and y_left must all have the same length. '
-            f'Got {len(x_left)}, {len(x_right)}, {len(text)}, {len(y_left)}.'
+            f'x_left, x_right, and text must all have the same length. Got {len(x_left)}, {len(x_right)}, {len(text)}.'
         )
-    if y_right is None:
-        y_right = list(y_left)
-    else:
-        y_right = list(y_right)
-        if len(y_right) != n:
-            raise ValueError(f'y_right must have the same length as the other arguments. Got {len(y_right)} vs {n}.')
+
+    given_bases = dict(y_bases) if y_bases is not None else {}
+    default_base = ax.get_ylim()[1]
+    positions = sorted(set(x_left) | set(x_right) | set(given_bases))
+    position_index = {p: i for i, p in enumerate(positions)}
+    current_base = {p: given_bases.get(p, default_base) for p in positions}
 
     results = []
-    min_next_y = None
+    overall_top = None
     for i in range(n):
-        row_y_left = y_left[i]
-        row_y_right = y_right[i]
-        if min_next_y is not None:
-            row_y_left = max(row_y_left, min_next_y)
-            row_y_right = max(row_y_right, min_next_y)
+        lo, hi = sorted((position_index[x_left[i]], position_index[x_right[i]]))
+        span_positions = positions[lo : hi + 1]
+        span_max = max(current_base[p] for p in span_positions)
 
         artists = _link(
             x_left=x_left[i],
             x_right=x_right[i],
             text=text[i],
-            y_left=row_y_left,
-            y_right=row_y_right,
-            height=height,
+            y_left=current_base[x_left[i]],
+            y_right=current_base[x_right[i]],
+            y_top=_pixel_offset_to_data(ax, span_max, offset=height, units=units),
             pad=pad,
             units=units,
             ax=ax,
@@ -176,30 +187,49 @@ def links(
         results.append(artists)
 
         text_extent = _bbox_to_data(ax, artists.text.get_window_extent())
-        min_next_y = _pixel_offset_to_data(ax, text_extent.top, offset=top_space, units=units)
+        new_base = _pixel_offset_to_data(ax, text_extent.top, offset=top_space, units=units)
+        for p in span_positions:
+            current_base[p] = new_base
+        overall_top = new_base if overall_top is None else max(overall_top, new_base)
 
-    if min_next_y is not None and min_next_y > ax.get_ylim()[1]:
-        ax.set_ylim(top=min_next_y)
+    if overall_top is not None and overall_top > ax.get_ylim()[1]:
+        ax.set_ylim(top=overall_top)
 
-    return results
+    return LinksResult(links=results, y_bases=current_base)
 
 
 # %%
 if __name__ == '__main__':
     import numpy as np
 
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
-    ax.set_yscale('log', base=10)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 
-    n_links = 10
+    # no y_bases given: every position starts at the current axis top
+    ax1.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
+    ax1.set_yscale('log', base=10)
+    n_links = 6
     links(
         x_left=[0] * n_links,
         x_right=[1] * n_links,
-        text=[f'test p-value = string {i}' for i in range(n_links)],
-        y_left=[100] * n_links,
-        y_right=[140] * n_links,
-        ax=ax,
+        text=[f'p-value {i}' for i in range(n_links)],
+        ax=ax1,
     )
+
+    # explicit y_bases: an untouched, tall middle position is still respected
+    ax2.boxplot(
+        x=[np.linspace(1, 100), np.linspace(10, 500), np.linspace(40, 140)],
+        positions=[0, 1, 2],
+    )
+    ax2.set_yscale('log', base=10)
+    result = links(
+        x_left=[0, 0],
+        x_right=[2, 1],
+        text=['0 vs 2', '0 vs 1'],
+        y_bases={0: 100, 1: 500, 2: 140},
+        ax=ax2,
+    )
+    print('final y_bases:', result.y_bases)
+
     plt.show()
+
+

@@ -39,13 +39,27 @@ The further details about this is explained [here](https://stackoverflow.com/que
 
 #### `links`:
 Draws one or more comparison "links" (a bracket connecting two x-positions with a text, e.g.
-a p-value, above it), stacking them automatically so they don't overlap, and expanding the
-y-axis at most once to fit them all. Each argument is an array-like with one entry per link.
+a p-value, above it), automatically stacking them so a link's bar always clears any position
+it spans over, and expanding the y-axis at most once to fit them all. `x_left`, `x_right`,
+and `text` are array-likes with one entry per link. `y_bases` is an optional mapping from
+x-position to its starting height - positions you don't list default to the current axis top.
 
 **Example**:
 ```python
+from aa_utilities.graphics import links
 
-
+fig = plt.figure()
+ax = fig.gca()
+ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
+result = links(
+    x_left=[0],
+    x_right=[1],
+    text=['test p-value = string'],
+    y_bases={0: 130, 1: 150},
+    ax=ax,
+)
+plt.show()
+```
 
 ## Running tests
 ```bash
