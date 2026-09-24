@@ -102,9 +102,9 @@ def _link(
 
 
 def links(
-    x_left,
-    x_right,
-    text,
+    x_lefts,
+    x_rights,
+    texts,
     y_bases=None,
     auto_order=True,
     height=10,
@@ -120,16 +120,16 @@ def links(
     spans over, and expands the y-axis at most once to fit them all.
 
     Levels are assigned via a greedy interval-packing algorithm: two links share a level only
-    if their `[x_left, x_right]` spans don't overlap; a link's bar height then only needs to
-    clear the real data in its own span plus any lower-level link whose span overlaps it - an
-    x-position's true height (from `y_bases`) is never overwritten by an unrelated link merely
-    passing over it, so the result doesn't depend on the order links are given in.
+    if their spans don't overlap; a link's bar height then only needs to clear the real data
+    in its own span plus any lower-level link whose span overlaps it - an x-position's true
+    height (from `y_bases`) is never overwritten by an unrelated link merely passing over it,
+    so the result doesn't depend on the order links are given in.
 
     Parameters:
     ----------
-    x_left, x_right: array-like
+    x_lefts, x_rights: array-like
         x-positions to link, one entry per link.
-    text: array-like of str
+    texts: array-like of str
         text placed above each link's bar, one entry per link.
     y_bases: Mapping, optional
         x-position -> its real minimum height (e.g. a group's own data max). Any position not
@@ -165,22 +165,23 @@ def links(
     if ax is None:
         ax = plt.gca()
 
-    x_left = list(x_left)
-    x_right = list(x_right)
-    text = list(text)
-    n = len(x_left)
-    if not (len(x_right) == len(text) == n):
+    x_lefts = list(x_lefts)
+    x_rights = list(x_rights)
+    texts = list(texts)
+    n = len(x_lefts)
+    if not (len(x_rights) == len(texts) == n):
         raise ValueError(
-            f'x_left, x_right, and text must all have the same length. Got {len(x_left)}, {len(x_right)}, {len(text)}.'
+            f'x_lefts, x_rights, and texts must all have the same length. '
+            f'Got {len(x_lefts)}, {len(x_rights)}, {len(texts)}.'
         )
 
     given_bases = dict(y_bases) if y_bases is not None else {}
     default_base = ax.get_ylim()[1]
-    positions = sorted(set(x_left) | set(x_right) | set(given_bases))
+    positions = sorted(set(x_lefts) | set(x_rights) | set(given_bases))
     position_index = {p: i for i, p in enumerate(positions)}
     natural_base = {p: given_bases.get(p, default_base) for p in positions}
 
-    spans = [tuple(sorted((position_index[x_left[i]], position_index[x_right[i]]))) for i in range(n)]
+    spans = [tuple(sorted((position_index[x_lefts[i]], position_index[x_rights[i]]))) for i in range(n)]
 
     def overlaps(a, b):
         # inclusive: links that merely touch at a shared endpoint still can't share a level,
@@ -220,13 +221,13 @@ def links(
         lo, hi = spans[i]
         level = level_of[i]
         clearance_ref = max(ceiling(level, p) for p in range(lo, hi + 1))
-        foot_left = ceiling(level, position_index[x_left[i]])
-        foot_right = ceiling(level, position_index[x_right[i]])
+        foot_left = ceiling(level, position_index[x_lefts[i]])
+        foot_right = ceiling(level, position_index[x_rights[i]])
 
         artists = _link(
-            x_left=x_left[i],
-            x_right=x_right[i],
-            text=text[i],
+            x_left=x_lefts[i],
+            x_right=x_rights[i],
+            text=texts[i],
             y_left=foot_left,
             y_right=foot_right,
             y_top=_pixel_offset_to_data(ax, clearance_ref, offset=height, units=units),

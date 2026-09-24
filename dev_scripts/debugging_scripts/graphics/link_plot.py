@@ -23,9 +23,9 @@ y_bases = {pos: values.max() for pos, values in zip(positions, data)}
 n_links = 10
 x_pairs = [rng.choice(positions, replace=False, size=2) for _ in range(n_links)]
 result = links(
-    x_left=[pair[0] for pair in x_pairs],
-    x_right=[pair[1] for pair in x_pairs],
-    text=[f'links {x1}-{x2}' for x1, x2 in x_pairs],
+    x_lefts=[pair[0] for pair in x_pairs],
+    x_rights=[pair[1] for pair in x_pairs],
+    texts=[f'links {x1}-{x2}' for x1, x2 in x_pairs],
     y_bases=y_bases,
     pad=10,
     ax=ax,
@@ -40,9 +40,9 @@ ax1.boxplot(x=[np.linspace(1, 100), np.linspace(40, 140)], positions=[0, 1])
 # ax1.set_yscale('log', base=10)
 n_links = 6
 links(
-    x_left=[0] * n_links,
-    x_right=[1] * n_links,
-    text=[f'p-value {i}' for i in range(n_links)],
+    x_lefts=[0] * n_links,
+    x_rights=[1] * n_links,
+    texts=[f'p-value {i}' for i in range(n_links)],
     ax=ax1,
 )
 
@@ -53,9 +53,9 @@ ax2.boxplot(
 )
 ax2.set_yscale('log', base=10)
 result = links(
-    x_left=[0, 0],
-    x_right=[2, 1],
-    text=['0 vs 2', '0 vs 1'],
+    x_lefts=[0, 0],
+    x_rights=[2, 1],
+    texts=['0 vs 2', '0 vs 1'],
     y_bases={0: 100, 1: 500, 2: 140},
     ax=ax2,
 )
@@ -67,9 +67,9 @@ for ax, order in [(ax3, ['A', 'B']), (ax4, ['B', 'A'])]:
     ax.boxplot(x=[np.linspace(1, 10)] * 3, positions=[1, 2, 3])
     pairs = {'A': (1, 2), 'B': (1, 3)}
     result = links(
-        x_left=[pairs[name][0] for name in order],
-        x_right=[pairs[name][1] for name in order],
-        text=order,
+        x_lefts=[pairs[name][0] for name in order],
+        x_rights=[pairs[name][1] for name in order],
+        texts=order,
         y_bases={1: 10, 2: 5, 3: 15},
         ax=ax,
     )

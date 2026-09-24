@@ -55,9 +55,9 @@ fig = plt.figure()
 ax = fig.gca()
 ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
 result = links(
-    x_left=[0],
-    x_right=[1],
-    text=['test p-value = string'],
+    x_lefts=[0],
+    x_rights=[1],
+    texts=['test p-value = string'],
     y_bases={0: 130, 1: 150},
     ax=ax,
 )
