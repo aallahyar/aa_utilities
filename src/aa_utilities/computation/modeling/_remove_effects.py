@@ -90,6 +90,13 @@ def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=No
     if verbose and not X.columns.equals(fit.params.index):
         logger.debug('Fitted parameters will be aligned to design matrix columns.')
     params_aligned = fit.params.reindex(X.columns).fillna(0)
-    fit.response_adjusted = X[columns_keep].mul(params_aligned[columns_keep], axis=1).sum(axis=1).add(fit.resid)
+    response_adjusted = X[columns_keep].mul(params_aligned[columns_keep], axis=1).sum(axis=1).add(fit.resid)
+
+    # storing the results
+    fit.formula = formula
+    fit.covs_all = X.columns.tolist()
+    fit.covs_kept = columns_keep
+    fit.covs_removed = [col for col in X.columns if col not in columns_keep]
+    fit.response_adjusted = response_adjusted
 
     return fit

@@ -37,27 +37,15 @@ The further details about this is explained [here](https://stackoverflow.com/que
 
 ## How to use
 
-#### `link`:
-Adds a link and a string (e.g., p-value) over a given pair of `x_ticks`.
+#### `links`:
+Draws one or more comparison "links" (a bracket connecting two x-positions with a text, e.g.
+a p-value, above it), stacking them automatically so they don't overlap, and expanding the
+y-axis at most once to fit them all. Each argument is an array-like with one entry per link.
 
 **Example**:
 ```python
 
-from aa_utilities.graphics import link
 
-fig = plt.figure()
-ax = fig.gca()
-ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
-link(
-    x_ticks=[0, 1], 
-    text='test p-value = string', 
-    y_left=130, 
-    y_top=170, 
-    y_right=150, 
-    ax=ax,
-)
-plt.show()
-```
 
 ## Running tests
 ```bash

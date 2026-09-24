@@ -5,7 +5,9 @@ matplotlib>=3.8.2
 seaborn
 plotly
 numba>=0.59.0
-natsort>=8.4.0
+ipython
 scikit-learn
 statsmodels
 rpy2
+natsort>=8.4.0
+

@@ -1,6 +1,6 @@
 import textwrap
 
-from aa_utilities.helpers import TextWrapper
+from aa_utilities.helpers.formatters import TextWrapper
 
 
 text = "line with   space,\n\n\n2nd paragraph with text\n3rd paragraph with a LOOOOOOOOOngWorddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
