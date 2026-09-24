@@ -1,5 +1,8 @@
 
-## [0.0.51] - 2026-09-22
+## [0.0.51] - 2026-09-24
+### Added:
+- `aa_utilities.graphics.links` now produces the whole set of links in one go, allowing better spacing between the links
+
 ### Updated:
 - `computation.modeling` section with improved documentation and added guards.
 
