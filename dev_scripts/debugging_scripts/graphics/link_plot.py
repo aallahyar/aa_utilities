@@ -27,9 +27,11 @@ result = links(
     x_rights=[pair[1] for pair in x_pairs],
     texts=[f'links {x1}-{x2}' for x1, x2 in x_pairs],
     y_bases=y_bases,
-    pad=10,
+    colors=['#ff0000', '#aaaaaa'] * (n_links // 2),
+    # pad=10,
     ax=ax,
 )
+print(result)
 print('final y_bases:', result.y_bases)
 
 

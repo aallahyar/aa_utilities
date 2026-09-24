@@ -11,6 +11,14 @@ from matplotlib import pyplot as plt, transforms as mpl_transforms
 DataExtent = namedtuple('DataExtent', ['left', 'right', 'bottom', 'top'])
 
 
+def _to_native(value):
+    """Converts a numpy scalar (e.g. np.float64, np.int64) to the equivalent native Python
+    type, so results don't leak numpy types into user-facing output. Non-numpy values are
+    returned unchanged.
+    """
+    return value.item() if hasattr(value, 'item') else value
+
+
 def _pixel_offset_to_data(ax, y_ref, offset, units='points'):
     """Converts a fixed on-screen offset (added above `y_ref`) into a data-y coordinate.
 
@@ -22,12 +30,13 @@ def _pixel_offset_to_data(ax, y_ref, offset, units='points'):
     if ax is None:
         ax = plt.gca()
     transform = mpl_transforms.offset_copy(ax.transData, y=offset, units=units, fig=ax.get_figure())
-    return ax.transData.inverted().transform(transform.transform((0, y_ref)))[1]
+    return _to_native(ax.transData.inverted().transform(transform.transform((0, y_ref)))[1])
 
 
 def _bbox_to_data(ax, bbox):
     """Converts a display-space bbox (e.g., from `artist.get_window_extent()`) to a `DataExtent`."""
     (x0, y0), (x1, y1) = ax.transData.inverted().transform(bbox)
+    x0, x1, y0, y1 = (_to_native(v) for v in (x0, x1, y0, y1))
     return DataExtent(left=min(x0, x1), right=max(x0, x1), bottom=min(y0, y1), top=max(y0, y1))
 
 

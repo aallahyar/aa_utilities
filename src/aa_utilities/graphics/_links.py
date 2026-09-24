@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 from matplotlib import pyplot as plt, transforms as mpl_transforms
 
-from ._utilities import _pixel_offset_to_data, _bbox_to_data
+from ._utilities import _pixel_offset_to_data, _bbox_to_data, _to_native
 
 LinkArtists = namedtuple('LinkArtists', ['line', 'text', 'y_top'])
 
@@ -72,10 +72,15 @@ def _link(
         ax = plt.gca()
     if y_right is None:
         y_right = y_left
-    if line_kws is None:
-        line_kws = {'linestyle': '-', 'color': '#555555', 'linewidth': 0.5}
-    if text_kws is None:
-        text_kws = {'color': '#555555'}
+    line_kws = {
+        'linestyle': '-', 
+        'color': '#aaaaaa', 
+        'linewidth': 0.5,
+    } | (line_kws or {}) # merge user-provided (higher priority) line_kws with defaults
+    text_kws = {
+        'color': '#aaaaaa',
+        'fontsize': 10,
+        } | (text_kws or {})
 
     if y_top is None:
         y_top = _pixel_offset_to_data(ax, max(y_left, y_right), offset=height, units=units)
@@ -106,10 +111,11 @@ def links(
     x_rights,
     texts,
     y_bases=None,
+    colors=None,
     auto_order=True,
     height=10,
     pad=5,
-    top_space=10,
+    top_space=5,
     units='points',
     ax=None,
     line_kws=None,
@@ -134,6 +140,10 @@ def links(
     y_bases: Mapping, optional
         x-position -> its real minimum height (e.g. a group's own data max). Any position not
         listed here defaults to the current `ax.get_ylim()[1]`.
+    colors: array-like, optional
+        per-link text color, one entry per link (e.g. to highlight significant comparisons).
+        Applied to the text only (the bracket line stays as `line_kws` says), taking
+        precedence over any shared `text_kws` color.
     auto_order: bool
         if True (default), links are packed into levels narrowest-span-first, which tends to
         minimize the number of levels used. If False, levels are assigned in the given input
@@ -165,8 +175,10 @@ def links(
     if ax is None:
         ax = plt.gca()
 
-    x_lefts = list(x_lefts)
-    x_rights = list(x_rights)
+    # normalize to native Python types so results (e.g. y_bases keys/values) don't leak
+    # numpy scalars, regardless of whether the caller passed plain lists or numpy arrays
+    x_lefts = [_to_native(v) for v in x_lefts]
+    x_rights = [_to_native(v) for v in x_rights]
     texts = list(texts)
     n = len(x_lefts)
     if not (len(x_rights) == len(texts) == n):
@@ -174,14 +186,19 @@ def links(
             f'x_lefts, x_rights, and texts must all have the same length. '
             f'Got {len(x_lefts)}, {len(x_rights)}, {len(texts)}.'
         )
+    if colors is not None:
+        colors = list(colors)
+        if len(colors) != n:
+            raise ValueError(f'colors must have the same length as the other arguments. Got {len(colors)} vs {n}.')
 
-    given_bases = dict(y_bases) if y_bases is not None else {}
-    default_base = ax.get_ylim()[1]
+    given_bases = {_to_native(k): _to_native(v) for k, v in (y_bases or {}).items()}
+    default_base = _to_native(ax.get_ylim()[1])
     positions = sorted(set(x_lefts) | set(x_rights) | set(given_bases))
     position_index = {p: i for i, p in enumerate(positions)}
     natural_base = {p: given_bases.get(p, default_base) for p in positions}
 
     spans = [tuple(sorted((position_index[x_lefts[i]], position_index[x_rights[i]]))) for i in range(n)]
+
 
     def overlaps(a, b):
         # inclusive: links that merely touch at a shared endpoint still can't share a level,
@@ -224,6 +241,10 @@ def links(
         foot_left = ceiling(level, position_index[x_lefts[i]])
         foot_right = ceiling(level, position_index[x_rights[i]])
 
+        link_text_kws = text_kws
+        if colors is not None:
+            link_text_kws = {**(text_kws or {}), 'color': colors[i]}
+
         artists = _link(
             x_left=x_lefts[i],
             x_right=x_rights[i],
@@ -235,7 +256,7 @@ def links(
             units=units,
             ax=ax,
             line_kws=line_kws,
-            text_kws=text_kws,
+            text_kws=link_text_kws,
         )
         results[i] = artists
 
