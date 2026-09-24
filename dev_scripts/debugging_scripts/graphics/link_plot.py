@@ -27,6 +27,7 @@ result = links(
     x_right=[pair[1] for pair in x_pairs],
     text=[f'test p-value = string {i}' for i in range(n_links)],
     y_bases=y_bases,
+    # pad=10,
     ax=ax,
 )
 print('final y_bases:', result.y_bases)

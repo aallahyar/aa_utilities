@@ -134,11 +134,21 @@ def links(
     y_bases: Mapping, optional
         x-position -> initial minimum height (e.g. a group's own data max). Any position not
         listed here defaults to the current `ax.get_ylim()[1]`.
-    height, pad, units, ax, line_kws, text_kws:
-        see `_link()`.
+    height: float
+        vertical extent of a link's arms, in `units`, from its feet up to its horizontal bar.
+    pad: float
+        gap between a link's nominal y-values and where it is actually drawn, in `units` -
+        keeps the bracket from visually touching the data/position it starts from.
     top_space: float
         gap (in `units`) reserved above a link's rendered text before a later, overlapping
         link (or the y-axis boundary) may start.
+    units: str
+        units for `height`/`pad`/`top_space`. `'points'` (default) is resolution-independent
+        (a fixed physical size); `'dots'` is a fixed pixel count, which looks like a different
+        physical size at different figure DPIs.
+    ax: matplotlib Axes, optional
+    line_kws, text_kws: dict, optional
+        passed to `ax.plot()`/`ax.text()` respectively, for styling the bracket/text.
 
     Returns:
     -------
@@ -166,6 +176,7 @@ def links(
 
     results = []
     overall_top = None
+    top_text_artist = None
     for i in range(n):
         lo, hi = sorted((position_index[x_left[i]], position_index[x_right[i]]))
         span_positions = positions[lo : hi + 1]
@@ -190,10 +201,22 @@ def links(
         new_base = _pixel_offset_to_data(ax, text_extent.top, offset=top_space, units=units)
         for p in span_positions:
             current_base[p] = new_base
-        overall_top = new_base if overall_top is None else max(overall_top, new_base)
+        if overall_top is None or new_base > overall_top:
+            overall_top = new_base
+            top_text_artist = artists.text
 
-    if overall_top is not None and overall_top > ax.get_ylim()[1]:
-        ax.set_ylim(top=overall_top)
+    if overall_top is not None:
+        ax.set_ylim(top=max(overall_top, ax.get_ylim()[1]))
+
+        # changing ylim (especially on a log scale) shifts the data<->pixel mapping used
+        # above, so the topmost text's clearance must be re-checked (and re-grown if needed)
+        # against the *new* scale - otherwise it can end up poking past the new axis top.
+        for _ in range(4):
+            text_extent = _bbox_to_data(ax, top_text_artist.get_window_extent())
+            required_top = _pixel_offset_to_data(ax, text_extent.top, offset=top_space, units=units)
+            if required_top <= ax.get_ylim()[1]:
+                break
+            ax.set_ylim(top=required_top)
 
     return LinksResult(links=results, y_bases=current_base)
 
