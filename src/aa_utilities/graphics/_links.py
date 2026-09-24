@@ -190,8 +190,10 @@ def links(
         colors = list(colors)
         if len(colors) != n:
             raise ValueError(f'colors must have the same length as the other arguments. Got {len(colors)} vs {n}.')
-
-    given_bases = {_to_native(k): _to_native(v) for k, v in (y_bases or {}).items()}
+    if y_bases is None:
+        y_bases = {}
+    
+    given_bases = {_to_native(k): _to_native(v) for k, v in y_bases.items()}
     default_base = _to_native(ax.get_ylim()[1])
     positions = sorted(set(x_lefts) | set(x_rights) | set(given_bases))
     position_index = {p: i for i, p in enumerate(positions)}
