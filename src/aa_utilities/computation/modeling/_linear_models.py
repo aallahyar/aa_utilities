@@ -105,7 +105,6 @@ class LinearModel:
         self.R("""
             for (factor_name in names(factor_references)) {
                 if (factor_name %in% colnames(data)){
-                    # print(c(factor_name, 'is found'))
                     ref <- factor_references[[factor_name]]
                     if (is.factor(data[[factor_name]])) {
                         data[[factor_name]] <- relevel(data[[factor_name]], ref = ref)
@@ -115,6 +114,19 @@ class LinearModel:
                 }
             }
         """)
+
+    def clear_results(self, fit=False, emmeans=False, contrasts=False):
+        if fit:
+            self.results.pop('fit_coefs', None)
+            self.results.pop('n_observations', None)
+            self.results.pop('formula', None)
+            self.results.pop('model_name', None)
+            self.clear_results(emmeans=True)
+        if emmeans:
+            self.results.pop('ls_means', None)
+            self.clear_results(contrasts=True)
+        if contrasts:
+            self.results.pop('contrasts', None)
 
     def get_model_formula(self):
         self.R(f"""
@@ -129,6 +141,8 @@ class LinearModel:
         return formula
 
     def fit_lm(self, formula, ci=0.95):
+        self.clear_results(fit=True)
+
         # e.g., formula = 'TRT01P'
         self.R(f"""
             fit <- lm(
@@ -148,6 +162,7 @@ class LinearModel:
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
 
     def fit_logistic(self, formula, ci=0.95):
+        self.clear_results(fit=True)
         if ci is None:
             broom_params = 'conf.int = FALSE'
         else:
@@ -173,8 +188,11 @@ class LinearModel:
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
 
     def fit_mmrm(self, formula, ci=0.95):
-        # Having BASE on the right-hand side: Considers that higher/lower baseline values may have a different effect on Response.
-        # formula = 'Response ~ BASE + TRT01P + AVISIT + TRT01P:AVISIT + us(AVISIT | USUBJID) + confounders'
+        """
+        Having BASE on the right-hand side: Considers that higher/lower baseline values may have a different effect on Response.
+        formula = 'Response ~ BASE + TRT01P + AVISIT + TRT01P:AVISIT + us(AVISIT | USUBJID) + confounders'
+        """
+        self.clear_results(fit=True)
         self.R(f"""
         fit <- mmrm::mmrm(
             formula = {formula},
@@ -233,8 +251,9 @@ class LinearModel:
             exponentiate (bool): Whether to exponentiate the coefficients (to get incidence rate ratios).
             ci (float): Confidence interval level (e.g., 0.95 for 95% CI).
         """
-
+        self.clear_results(fit=True)
         self.R['exponentiate'] = exponentiate
+
         self.R(f"""
             fit <- MASS::glm.nb(
                 formula = {formula},
@@ -280,6 +299,9 @@ class LinearModel:
         #  skim - soy      5.41 2.23 23   2.424  0.0236
         # """
 
+        # clean up old `results`, if any
+        self.clear_results(emmeans=True)
+
         self.R(f"""
             # type:
             #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model). Note that only back-transforms when it can detect the outcome came from a recognized link/transform (e.g. `log(y) ~`) written directly in the model formula, or a GLM family/link). Otherwise, it works as `link`
@@ -298,12 +320,16 @@ class LinearModel:
         self.results['ls_means'] = self.R['LSmeans_td'].set_index(predictors)
 
     def add_contrasts(self, method='revpairwise', ci=0.95, append=False):
-        # method: "revpairwise", "pairwise", "eff", "del.eff"
-        # eff: compare each level with the average over all
-        # del.eff: compare each level with average over all other levels
-        # Contrasts operate on the scale of the emmeans object's reference grid.
-        # If emmeans(type='response') was called, contrasts are on the response scale
-        # (e.g., ratios for log-link models, named A / B). P-values remain unchanged.
+        """
+        method: "revpairwise", "pairwise", "eff", "del.eff"
+        eff: compare each level with the average over all
+        del.eff: compare each level with average over all other levels
+        Contrasts operate on the scale of the emmeans object's reference grid.
+        If emmeans(type='response') was called, contrasts are on the response scale
+        (e.g., ratios for log-link models, named A / B). P-values remain unchanged.
+        """
+        self.clear_results(contrasts=True)
+        
         self.R(f"""
             # `pairs()` is a special case of `contrast()`
             # emm_diff <- pairs(LSmeans, adjust = "none", reverse = TRUE)
