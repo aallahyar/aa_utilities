@@ -319,7 +319,7 @@ class LinearModel:
             predictors = self.R['predictors'].tolist()
         self.results['ls_means'] = self.R['LSmeans_td'].set_index(predictors)
 
-    def add_contrasts(self, method='revpairwise', ci=0.95, append=False):
+    def add_contrasts(self, method='revpairwise', ci=0.95, append=False, expand=False):
         """
         method: "revpairwise", "pairwise", "eff", "del.eff"
         eff: compare each level with the average over all
@@ -327,8 +327,17 @@ class LinearModel:
         Contrasts operate on the scale of the emmeans object's reference grid.
         If emmeans(type='response') was called, contrasts are on the response scale
         (e.g., ratios for log-link models, named A / B). P-values remain unchanged.
+
+        expand: if True, replace the single ``contrast`` label index with a MultiIndex
+            splitting each side of the comparison into its own predictor levels
+            (named ``{predictor}_1``/``{predictor}_2``, per the emmeans spec order),
+            plus ``label`` (the raw contrast string) and ``operator`` columns.
+            Only one-vs-one comparisons (e.g. pairwise/revpairwise) can be split this
+            way; other rows (e.g. "eff"/"del.eff", which compare a level against a
+            combination of several others) keep their raw label with empty side levels.
         """
-        self.clear_results(contrasts=True)
+        if not append:
+            self.clear_results(contrasts=True)
         
         self.R(f"""
             # `pairs()` is a special case of `contrast()`
@@ -338,6 +347,10 @@ class LinearModel:
             # print(emm_diff_td, width = Inf, n = Inf)
         """)
 
+        contrasts_df = self.R['emm_diff_td'].set_index('contrast')
+        if expand:
+            contrasts_df = self._expand_contrasts(contrasts_df)
+
         if append:
             if 'contrasts' not in self.results:  # initialize an empty DataFrame, if it does not exist
                 self.results['contrasts'] = pd.DataFrame()
@@ -345,13 +358,67 @@ class LinearModel:
             self.results['contrasts'] = pd.concat(
                 [
                     self.results['contrasts'],
-                    self.R['emm_diff_td'].set_index('contrast'),
+                    contrasts_df,
                 ],
                 axis=0,
                 ignore_index=False,
             )
         else:
-            self.results['contrasts'] = self.R['emm_diff_td'].set_index('contrast')
+            self.results['contrasts'] = contrasts_df
+
+    def _expand_contrasts(self, contrasts_df):
+        """Split each one-vs-one contrast label into per-side predictor levels.
+
+        Uses the contrast object's own linear coefficients (`emmeans::coef(emm_diff)`)
+        to identify, for each contrast, which reference-grid row(s) it compares
+        (positive vs. negative coefficient), rather than parsing the label text.
+        """
+
+        # get predictors from emmeans object (LSmeans)
+        predictors = self.R('attributes(LSmeans)$roles$predictors')
+        if isinstance(predictors, str):
+            predictors = [predictors]
+        else:
+            predictors = predictors.values.tolist()
+
+        # get the linear coefficients for each contrast from the emmeans object
+        self.R("""
+            # one column per contrast (in the same order as emm_diff_td$contrast) holding
+            # the linear coefficient applied to each reference-grid row (`c.1`, `c.2`, ...)
+            # (coef.emmGrid is an S3 method registered by emmeans but not exported,
+            # so it must be called via the base generic rather than emmeans::coef)
+            contrast_coefs <- as.data.frame(coef(emm_diff), check.names = FALSE)
+        """)
+        grid = (
+            self.R['contrast_coefs']
+            .set_index(predictors)
+            .T
+        )
+        assert len(grid) == len(contrasts_df), (
+            'Mismatch between number of contrasts in coef(emm_diff) and emm_diff_td.'
+        )
+
+        # get individual predictor levels for each side of the contrast
+        comb1 = pd.DataFrame(data='', columns=predictors, index=contrasts_df.index)
+        comb2 = pd.DataFrame(data='', columns=predictors, index=contrasts_df.index)
+        operators = pd.DataFrame(data='', columns=['operator'], index=contrasts_df.index)
+        for label, (_, cnt) in zip(contrasts_df.index, grid.iterrows()):
+            preds1 = cnt.loc[cnt == +1].index
+            preds2 = cnt.loc[cnt == -1].index
+            assert len(preds1) == 1 and len(preds2) == 1, "Each contrast must have exactly one +1 and one -1 coefficient"
+            comb1.loc[label, :] = preds1[0]
+            comb2.loc[label, :] = preds2[0]
+            side1 = ' '.join(comb1.loc[label])
+            side2 = ' '.join(comb2.loc[label])
+            operators.loc[label, 'operator'] = label[len(side1):len(label) - len(side2)].strip()
+        expanded = pd.concat([
+            contrasts_df, 
+            comb1.add_suffix('_left'), 
+            operators, 
+            comb2.add_suffix('_right'),
+        ], axis=1)
+
+        return expanded
 
         # extracting details per Arm and Timepoint
         # self.R['pw_diff_td'].contrast.str.extract(
