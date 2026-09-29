@@ -96,7 +96,7 @@ def _get_import_versions(namespace):
         for v in namespace.values()
         if inspect.isclass(v) or inspect.isfunction(v)
     )
-    modules.discard(None)
+    modules.discard(None) # Remove None (if it exists) from the set of module objects
 
     versions = {}
     for mod in sorted(modules, key=lambda m: m.__name__):
@@ -106,6 +106,10 @@ def _get_import_versions(namespace):
             try:
                 import importlib.metadata as _meta
                 version = _meta.version(pkg_name)
+
+            # If the package version cannot be determined, skip it
+            # Note: implicitly ignores most stdlib modules (os, sys, json, etc.) as they
+            # have no __version__ attribute and aren't registered as installed distributions
             except Exception:
                 continue
         versions[pkg_name] = version

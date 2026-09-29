@@ -282,7 +282,7 @@ class LinearModel:
 
         self.R(f"""
             # type:
-            #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model).
+            #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model). Note that only back-transforms when it can detect the outcome came from a recognized link/transform (e.g. `log(y) ~`) written directly in the model formula, or a GLM family/link). Otherwise, it works as `link`
             #   * "link" :    # Estimates are shown on the linear predictor scale. For example, you see logits for logistic regression.
             LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
             LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})
