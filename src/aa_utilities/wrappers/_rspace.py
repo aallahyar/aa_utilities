@@ -1,3 +1,7 @@
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 from rpy2 import (
@@ -15,6 +19,19 @@ from .._configurations import configs
 
 # setting up logger
 logger = setup_logger(name='RSpace', level=configs.log.level)
+
+
+@dataclass(frozen=True)
+class RWarning:
+    """A single warning raised by R, with the snippet that triggered it."""
+
+    timestamp: datetime
+    snippet: str
+    message: str
+
+    def __repr__(self):
+        snippet = ' '.join(self.snippet.split())[:20]
+        return f"[{self.timestamp:%H:%M:%S}] {snippet} | {self.message.strip()} "
 
 
 class RSpace:
@@ -52,7 +69,8 @@ class RSpace:
         self.ro = ro
         self.logger = logger
         self.ipython_loaded = ipython
-        self.warnings = []  # List to store captured R warnings
+        self.warnings: list[RWarning] = []  # append-only log of captured R warnings, see `capture_warnings()`
+        self._current_snippet = None
 
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
         if ipython:
@@ -188,8 +206,32 @@ class RSpace:
             raise KeyError(name) from exc
         return self._r_to_py(r_obj)
 
+    def clear_warnings(self):
+        """Discard all warnings captured so far."""
+        self.warnings = []
+
+    @contextmanager
+    def capture_warnings(self):
+        """Collect the `RWarning`s raised by any R() calls made inside this block.
+
+        `self.warnings` is never reset automatically (see __call__), so this just
+        watermarks its current length and slices off everything appended since.
+        Usage:
+            with self.capture_warnings() as warnings:
+                self(...)
+                self(...)
+            # `warnings` now holds every RWarning raised across both calls
+        """
+        n_past_warnings = len(self.warnings)
+        captured = []
+        try:
+            yield captured
+        finally:
+            captured.extend(self.warnings[n_past_warnings:])
+
     def __call__(self, r_snippet, convert=True):
-        self.warnings = []  # Reset warnings before execution
+        n_past_warnings = len(self.warnings)
+        self._current_snippet = r_snippet
 
         # run the R script and capture warnings
         previous_warn_handler = rpy2_callbacks.consolewrite_warnerror
@@ -202,8 +244,9 @@ class RSpace:
             rpy2_callbacks.consolewrite_warnerror = (
                 previous_warn_handler  # Restore the original warning handler after execution
             )
+            self._current_snippet = None
 
-        if len(self.warnings) != 0:  # If there were any warnings, log them
+        if len(self.warnings) != n_past_warnings:  # If new warnings were issued, log it
             self.logger.warning('Warning(s) issued during execution. Check `self.warnings` for details.')
 
         if convert:
@@ -255,5 +298,6 @@ class RSpace:
 
     # capturing R warnings in a Python list
     def r_warn_handler(self, warning):
-        self.warnings.append(warning)
-        self.logger.warning(f'{warning}')  # Optional: still print it to console
+        r_warning = RWarning(timestamp=datetime.now(), snippet=self._current_snippet or '', message=str(warning))
+        self.warnings.append(r_warning)
+        # self.logger.warning(repr(r_warning))  # Optional: still print it to console

@@ -2,8 +2,9 @@
 ## [0.0.51] - 2026-09-24
 ### Added:
 - `aa_utilities.graphics.links` now produces the whole set of links in one go, allowing better spacing between the links
-
 ### Updated:
+- `computation.modeling.LinearModel.add_contrasts` now supports `append` argument to separate compared levels in each contrast row.
+- `RSpace` now captures R warnings across multiple calls via `capture_warnings()`
 - `computation.modeling` section with improved documentation and added guards.
 
 ## [0.0.50] - 2026-09-03

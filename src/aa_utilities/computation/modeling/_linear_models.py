@@ -121,6 +121,7 @@ class LinearModel:
             self.results.pop('n_observations', None)
             self.results.pop('formula', None)
             self.results.pop('model_name', None)
+            self.results.pop('warnings', None)
             self.clear_results(emmeans=True)
         if emmeans:
             self.results.pop('ls_means', None)
@@ -143,19 +144,21 @@ class LinearModel:
     def fit_lm(self, formula, ci=0.95):
         self.clear_results(fit=True)
 
-        # e.g., formula = 'TRT01P'
-        self.R(f"""
-            fit <- lm(
-                formula = {formula},
-                data = data,
-            )
-        """)
+        with self.R.capture_warnings() as warnings:
+            # e.g., formula = 'TRT01P'
+            self.R(f"""
+                fit <- lm(
+                    formula = {formula},
+                    data = data,
+                )
+            """)
 
-        # collect result
-        self.R(f"""
-        fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f})
-        n_observations <- nobs(fit)
-        """)
+            # collect result
+            self.R(f"""
+            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f})
+            n_observations <- nobs(fit)
+            """)
+        self.results.setdefault('warnings', []).extend(warnings)
         self.results['model_name'] = 'lm'
         self.results['formula'] = self.get_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
@@ -168,20 +171,22 @@ class LinearModel:
         else:
             broom_params = f'conf.int = TRUE, conf.level = {ci:0.2f}'
 
-        self.R(f"""
-            fit <- glm(
-                formula = {formula}, 
-                # other options: family=gaussian(link = "identity") or gaussian(link = "log")
-                family = binomial(link = "logit"), 
-                data = data
-            )
-        """)
+        with self.R.capture_warnings() as warnings:
+            self.R(f"""
+                fit <- glm(
+                    formula = {formula}, 
+                    # other options: family=gaussian(link = "identity") or gaussian(link = "log")
+                    family = binomial(link = "logit"), 
+                    data = data
+                )
+            """)
 
-        # collect result
-        self.R(f"""
-            n_observations <- nobs(fit)
-            fit_coefs <- broom::tidy(fit, {broom_params})
-        """)
+            # collect result
+            self.R(f"""
+                n_observations <- nobs(fit)
+                fit_coefs <- broom::tidy(fit, {broom_params})
+            """)
+        self.results.setdefault('warnings', []).extend(warnings)
         self.results['model_name'] = 'logistic'
         self.results['formula'] = self.get_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
@@ -193,25 +198,27 @@ class LinearModel:
         formula = 'Response ~ BASE + TRT01P + AVISIT + TRT01P:AVISIT + us(AVISIT | USUBJID) + confounders'
         """
         self.clear_results(fit=True)
-        self.R(f"""
-        fit <- mmrm::mmrm(
-            formula = {formula},
-            data = data,
-            method = "Kenward-Roger"
-        )
-        """)
+        with self.R.capture_warnings() as warnings:
+            self.R(f"""
+            fit <- mmrm::mmrm(
+                formula = {formula},
+                data = data,
+                method = "Kenward-Roger"
+            )
+            """)
 
-        # collect result
-        self.R(f"""
-            n_observations <- mmrm::component(fit)[['n_obs']]
-            n_subjects <- mmrm::component(fit)[['n_subjects']]
-        """)
+            # collect result
+            self.R(f"""
+                n_observations <- mmrm::component(fit)[['n_obs']]
+                n_subjects <- mmrm::component(fit)[['n_subjects']]
+            """)
 
-        # Extract coefficients, statistics and confidence intervals at specified level
-        self.R(f"""
-        coef_df <- as.data.frame(summary(fit)$coefficients)
-        conf_df <- as.data.frame(confint(fit, level = {ci:0.2f}))
-        """)
+            # Extract coefficients, statistics and confidence intervals at specified level
+            self.R(f"""
+            coef_df <- as.data.frame(summary(fit)$coefficients)
+            conf_df <- as.data.frame(confint(fit, level = {ci:0.2f}))
+            """)
+        self.results.setdefault('warnings', []).extend(warnings)
         assert self.R['coef_df'].index.equals(self.R['conf_df'].index), (
             'Mismatch in coefficient indices between coef_df and conf_df.'
         )
@@ -254,22 +261,24 @@ class LinearModel:
         self.clear_results(fit=True)
         self.R['exponentiate'] = exponentiate
 
-        self.R(f"""
-            fit <- MASS::glm.nb(
-                formula = {formula},
-                data = data,
-                link = log
-            )
-        """)
+        with self.R.capture_warnings() as warnings:
+            self.R(f"""
+                fit <- MASS::glm.nb(
+                    formula = {formula},
+                    data = data,
+                    link = log
+                )
+            """)
 
-        # collect result
-        self.R(f"""
-        summary_fit <- summary(fit)
-        fit_theta <- summary_fit$theta
-        # fit_theta_se  <- summary_fit$SE.theta
-        fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f}, exponentiate = exponentiate)
-        n_observations <- nobs(fit)
-        """)
+            # collect result
+            self.R(f"""
+            summary_fit <- summary(fit)
+            fit_theta <- summary_fit$theta
+            # fit_theta_se  <- summary_fit$SE.theta
+            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f}, exponentiate = exponentiate)
+            n_observations <- nobs(fit)
+            """)
+        self.results.setdefault('warnings', []).extend(warnings)
         self.results['model_name'] = 'negative_binomial'
         self.results['formula'] = self.get_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
@@ -302,17 +311,19 @@ class LinearModel:
         # clean up old `results`, if any
         self.clear_results(emmeans=True)
 
-        self.R(f"""
-            # type:
-            #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model). Note that only back-transforms when it can detect the outcome came from a recognized link/transform (e.g. `log(y) ~`) written directly in the model formula, or a GLM family/link). Otherwise, it works as `link`
-            #   * "link" :    # Estimates are shown on the linear predictor scale. For example, you see logits for logistic regression.
-            LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
-            LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})
-            # print(LSmeans_td)
-            
-            LSmeans_attrs <- attributes(LSmeans)
-            predictors <- LSmeans_attrs$roles$predictors
-        """)
+        with self.R.capture_warnings() as warnings:
+            self.R(f"""
+                # type:
+                #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model). Note that only back-transforms when it can detect the outcome came from a recognized link/transform (e.g. `log(y) ~`) written directly in the model formula, or a GLM family/link). Otherwise, it works as `link`
+                #   * "link" :    # Estimates are shown on the linear predictor scale. For example, you see logits for logistic regression.
+                LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
+                LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})
+                # print(LSmeans_td)
+                
+                LSmeans_attrs <- attributes(LSmeans)
+                predictors <- LSmeans_attrs$roles$predictors
+            """)
+        self.results.setdefault('warnings', []).extend(warnings)
         if isinstance(self.R['predictors'], str):
             predictors = [self.R['predictors']]
         else:
@@ -339,17 +350,19 @@ class LinearModel:
         if not append:
             self.clear_results(contrasts=True)
         
-        self.R(f"""
-            # `pairs()` is a special case of `contrast()`
-            # emm_diff <- pairs(LSmeans, adjust = "none", reverse = TRUE)
-            emm_diff <- emmeans::contrast(LSmeans, method="{method}", adjust = "none")
-            emm_diff_td <- broom::tidy(emm_diff, conf.int = TRUE, conf.level = {ci:0.2f})
-            # print(emm_diff_td, width = Inf, n = Inf)
-        """)
+        with self.R.capture_warnings() as warnings:
+            self.R(f"""
+                # `pairs()` is a special case of `contrast()`
+                # emm_diff <- pairs(LSmeans, adjust = "none", reverse = TRUE)
+                emm_diff <- emmeans::contrast(LSmeans, method="{method}", adjust = "none")
+                emm_diff_td <- broom::tidy(emm_diff, conf.int = TRUE, conf.level = {ci:0.2f})
+                # print(emm_diff_td, width = Inf, n = Inf)
+            """)
 
-        contrasts_df = self.R['emm_diff_td'].set_index('contrast')
-        if expand:
-            contrasts_df = self._expand_contrasts(contrasts_df)
+            contrasts_df = self.R['emm_diff_td'].set_index('contrast')
+            if expand:
+                contrasts_df = self._expand_contrasts(contrasts_df)
+        self.results.setdefault('warnings', []).extend(warnings)
 
         if append:
             if 'contrasts' not in self.results:  # initialize an empty DataFrame, if it does not exist
