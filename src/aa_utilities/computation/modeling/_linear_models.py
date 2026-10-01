@@ -5,6 +5,8 @@ from ...storage import Container
 
 
 class LinearModel:
+    _ONE_VS_ONE_METHODS = {'pairwise', 'revpairwise'}  # contrast methods that always compare a single level vs. a single level
+
     def __init__(self, space=None):
         self.R = space
 
@@ -125,6 +127,7 @@ class LinearModel:
             self.clear_results(emmeans=True)
         if emmeans:
             self.results.pop('ls_means', None)
+            self.results.pop('predictors', None)
             self.clear_results(contrasts=True)
         if contrasts:
             self.results.pop('contrasts', None)
@@ -328,9 +331,10 @@ class LinearModel:
             predictors = [self.R['predictors']]
         else:
             predictors = self.R['predictors'].tolist()
+        self.results['predictors'] = predictors
         self.results['ls_means'] = self.R['LSmeans_td'].set_index(predictors)
 
-    def add_contrasts(self, method='revpairwise', ci=0.95, append=False, expand=False):
+    def add_contrasts(self, method='revpairwise', ci=0.95, append=False):
         """
         method: "revpairwise", "pairwise", "eff", "del.eff"
         eff: compare each level with the average over all
@@ -339,13 +343,12 @@ class LinearModel:
         If emmeans(type='response') was called, contrasts are on the response scale
         (e.g., ratios for log-link models, named A / B). P-values remain unchanged.
 
-        expand: if True, replace the single ``contrast`` label index with a MultiIndex
-            splitting each side of the comparison into its own predictor levels
-            (named ``{predictor}_1``/``{predictor}_2``, per the emmeans spec order),
-            plus ``label`` (the raw contrast string) and ``operator`` columns.
-            Only one-vs-one comparisons (e.g. pairwise/revpairwise) can be split this
-            way; other rows (e.g. "eff"/"del.eff", which compare a level against a
-            combination of several others) keep their raw label with empty side levels.
+        For one-vs-one contrast methods (`pairwise`, `revpairwise`), the single `contrast`
+        label index is additionally split into per-side predictor columns (named
+        `{predictor}_left`/`{predictor}_right`, per the emmeans spec order), plus `label`
+        (the raw contrast string) and `operator` columns -- this enables `get_contrast()`.
+        Other methods (e.g. `eff`/`del.eff`, which compare a level against a combination of
+        several others) keep only their raw label, since they aren't a clean one-vs-one split.
         """
         if not append:
             self.clear_results(contrasts=True)
@@ -360,7 +363,7 @@ class LinearModel:
             """)
 
             contrasts_df = self.R['emm_diff_td'].set_index('contrast')
-            if expand:
+            if method in self._ONE_VS_ONE_METHODS:
                 contrasts_df = self._expand_contrasts(contrasts_df)
         self.results.setdefault('warnings', []).extend(warnings)
 
@@ -385,14 +388,13 @@ class LinearModel:
         Uses the contrast object's own linear coefficients (`emmeans::coef(emm_diff)`)
         to identify, for each contrast, which reference-grid row(s) it compares
         (positive vs. negative coefficient), rather than parsing the label text.
+
+        Only called for one-vs-one contrast methods (see `add_contrasts`), so every row
+        is guaranteed to have exactly one +1 and one -1 coefficient.
         """
 
-        # get predictors from emmeans object (LSmeans)
-        predictors = self.R('attributes(LSmeans)$roles$predictors')
-        if isinstance(predictors, str):
-            predictors = [predictors]
-        else:
-            predictors = predictors.values.tolist()
+        # predictors are cached on `self.results` by `add_emmeans`
+        predictors = self.results.predictors
 
         # get the linear coefficients for each contrast from the emmeans object
         self.R("""
@@ -440,6 +442,76 @@ class LinearModel:
         #     r' - (Teze 210 mg Q4W|Placebo)'
         #     r'.*(Week \d+)'
         # )
+
+    def get_contrast(self, factor, levels, context=None):
+        """Looks up a single pairwise contrast from `self.results.contrasts`.
+
+        Args:
+            factor (str): the predictor whose two levels are being compared (must be one
+                of the predictors in the fitted `contrast_spec`, e.g. 'group').
+            levels (tuple): `(level_new, level_ref)` -- the two levels of `factor` being
+                compared, in the same order as the underlying contrast (matching
+                `revpairwise`'s "new / old" or "new - old" convention).
+            context (dict, optional): additional predictor -> value pairs that must be
+                held fixed (equal on both sides of the contrast), e.g.
+                `{'AVISIT': 'Week 24', 'arm_abbr': 'TzH'}`. Use `None` (default) or `{}`
+                when there are no other contrasted factors (e.g. a single-factor model).
+
+        Returns:
+            pandas.Series: the single matching row of `self.results.contrasts` (with all
+                of its columns, e.g. `estimate`, `conf.low`, `conf.high`, `statistic`,
+                `p.value`), or `None` if that combination wasn't estimated (e.g. a sparse
+                cell that doesn't appear in the data).
+
+        Raises:
+            ValueError: if `factor` or a `context` key isn't a predictor that was actually
+                expanded into `self.results.contrasts` (e.g. a typo, or the contrasts were
+                fit with a non-one-vs-one method such as `eff`/`del.eff`, which are never
+                expanded -- see `add_contrasts`). Also raised if `factor` is also present
+                in `context`, or if more than one row matches (indicating an ambiguous
+                contrast specification).
+
+        Example:
+            # single-factor model (e.g. a cross-sectional comparison with no other
+            # contrasted factors)
+            model.get_contrast(factor='group', levels=('High', 'Low'))
+
+            # multi-factor interaction model (e.g. arm_abbr * group * AVISIT), scoped to
+            # one specific visit and one specific arm panel
+            model.get_contrast(
+                factor='group', levels=('ADO', 'ADL'),
+                context={'AVISIT': 'Week 24', 'arm_abbr': 'TzH'},
+            )
+        """
+        if context is None:
+            context = {}
+        if factor in context:
+            raise ValueError(f'`factor` ({factor!r}) must not also appear in `context`.')
+
+        contrasts = self.results.contrasts
+        level_new, level_ref = levels
+
+        # factor must differ between the two sides; every context entry must be equal
+        # on both sides (i.e. "held fixed") -- both expressed the same way below so a
+        # single loop can build the mask and validate column names uniformly.
+        comparisons = {factor: (level_new, level_ref)} | {k: (v, v) for k, v in context.items()}
+
+        mask = pd.Series(True, index=contrasts.index)
+        for col, (val_left, val_right) in comparisons.items():
+            if f'{col}_left' not in contrasts.columns:
+                raise ValueError(
+                    f'{col!r} is not a contrasted predictor. Available predictors: '
+                    f'{self.results.predictors!r}. (Note: contrasts are only expanded for '
+                    f'one-vs-one methods -- see add_contrasts().)'
+                )
+            mask &= (contrasts[f'{col}_left'] == val_left) & (contrasts[f'{col}_right'] == val_right)
+
+        matches = contrasts.loc[mask]
+        if len(matches) == 0:
+            return None
+        if len(matches) > 1:
+            raise ValueError(f'Ambiguous contrast match for factor={factor!r}, levels={levels}, context={context}')
+        return matches.iloc[0]
 
     def __repr__(self):
         out = 'LinearModel'

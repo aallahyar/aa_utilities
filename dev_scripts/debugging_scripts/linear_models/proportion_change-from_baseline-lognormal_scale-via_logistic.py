@@ -44,7 +44,7 @@ model.fit_logistic(formula=f'AVAL ~ TRT01P * AVISIT', ci=CI)
 model.add_emmeans(spec=f'TRT01P:AVISIT', scale='response', ci=CI)
 
 # returns odds ratios, not probability differences (e.g. "Placebo Week 0 / Treatment Week 0")
-model.add_contrasts(method='pairwise', ci=CI, expand=True)
+model.add_contrasts(method='pairwise', ci=CI)
 
 print(
     model.results.ls_means,

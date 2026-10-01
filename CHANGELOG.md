@@ -2,6 +2,7 @@
 ## [0.0.52] - 2026-10-01
 ### Added:
 - `computation.modeling.LinearModel` now has a `get_contrast` that allows collecting relevant contrasts after computing them via `add_contrasts`.
+- `storage.Checkpoint.latest` class method to easily resume the most recently created checkpoint folder.
 
 ## [0.0.51] - 2026-09-24
 ### Added:
