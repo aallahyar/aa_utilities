@@ -12,7 +12,11 @@ import json
 try:
     from colorama import Fore, Style, init
 
-    init(autoreset=True)
+    # colorama exists to translate ANSI codes for native Windows consoles; on POSIX,
+    # ANSI already works natively, and colorama's isatty()-based auto-strip can wrongly
+    # disable color in non-tty consumers that do support ANSI (e.g. Jupyter kernels).
+    if sys.platform == 'win32':
+        init(autoreset=True)
     COLOR_ENABLED = True
 except ImportError:
     COLOR_ENABLED = False
