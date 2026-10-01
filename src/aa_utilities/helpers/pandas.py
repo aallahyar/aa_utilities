@@ -205,8 +205,8 @@ def sort(
 ) -> Union[pd.DataFrame, pd.Series]:
     """Sorts the given data according to explicit, user-defined orders.
 
-    The function uses categorical sorting so the provided order is respected.
-    Values not listed in `orders` are treated as missing and placed per `na_position`.
+    The function uses categorical sorting so the provided order is respected while
+    values not mentioned in `orders` are treated as missing and placed according to `na_position`.
 
     Supported `orders`:
         - If `data` is a Series: a list/tuple/ndarray/Index of ordered values.

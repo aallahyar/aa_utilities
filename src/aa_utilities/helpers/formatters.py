@@ -85,7 +85,7 @@ class PrettyPrinter:
                     bnds = '()'
 
                 outputs = [f'{bnds[0]}']
-                idx_ndigit = np.log10(max(len(obj), 1)).astype(int) + 1
+                idx_ndigit = len(str(max(len(obj) - 1, 0)))  # digit width of the largest index
                 for idx, item in enumerate(obj):
                     if isinstance(obj, (dict,)):
                         key_repr = self.clip(self.pformat(item))

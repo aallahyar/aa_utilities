@@ -7,7 +7,7 @@ plotly
 numba>=0.59.0
 ipython
 scikit-learn
-statsmodels
-rpy2
+statsmodels # for expression level correction
+rpy2 # for R integration
 natsort>=8.4.0
 

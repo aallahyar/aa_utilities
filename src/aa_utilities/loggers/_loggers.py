@@ -87,6 +87,10 @@ def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
 
     # Check if logger already exists
     if name in _loggers and not force:
+        if _loggers[name].level != level:
+            _loggers[name].setLevel(level)
+            for handler in _loggers[name].handlers:  # handlers filter independently of the logger's level
+                handler.setLevel(level)
         return _loggers[name]
 
     logger = logging.getLogger(name)
