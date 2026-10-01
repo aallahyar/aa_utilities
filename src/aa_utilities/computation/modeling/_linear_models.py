@@ -130,7 +130,7 @@ class LinearModel:
             self.results.pop('contrasts', None)
 
     def get_model_formula(self):
-        self.R(f"""
+        self.R("""
             # chatgpt: deparse is more reliable than capture.output(print(...))
             # model_formula <- capture.output(print(formula(fit)))
             model_formula <- deparse(formula(fit))
@@ -208,7 +208,7 @@ class LinearModel:
             """)
 
             # collect result
-            self.R(f"""
+            self.R("""
                 n_observations <- mmrm::component(fit)[['n_obs']]
                 n_subjects <- mmrm::component(fit)[['n_subjects']]
             """)

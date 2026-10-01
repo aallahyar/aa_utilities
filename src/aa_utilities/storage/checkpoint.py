@@ -17,6 +17,35 @@ class Checkpoint:
         if self.verbose:
             print(f'Checkpoint folder {"found" if existed else "created"} at: {self.path}')
 
+    @classmethod
+    def latest(cls, base_dir='./.analyses_checkpoints', pattern='*', verbose=True):
+        """Resume the most recently created checkpoint folder under `base_dir`.
+
+        Folders are ranked by parsing their name as a `%Y%m%d_%H%M%S` timestamp (not by
+        filesystem mtime, so copying/cloning the folder tree doesn't change which one is
+        "latest"); entries that don't parse as such a timestamp are skipped.
+        """
+        base_dir = Path(base_dir)
+        if not base_dir.exists():
+            raise FileNotFoundError(f'Base directory not found: {base_dir}')
+
+        timestamp_format = '%Y%m%d_%H%M%S'
+        candidates = []
+        for sub_dir in base_dir.glob(pattern):
+            if not sub_dir.is_dir():
+                continue
+            try:
+                timestamp = datetime.strptime(sub_dir.name, timestamp_format)
+            except ValueError:
+                continue
+            candidates.append((timestamp, sub_dir))
+
+        if not candidates:
+            raise FileNotFoundError(f'No timestamped checkpoint folders found under: {base_dir}')
+
+        _, latest_dir = max(candidates, key=lambda item: item[0])
+        return cls(path=latest_dir, verbose=verbose)
+
     def save(self, obj, file_name='data.pkl.gz', overwrite=True):
         """Save an object to the checkpoint folder using gzip compression."""
         fpath = self.path / file_name

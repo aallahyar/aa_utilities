@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aa_utilities"
-version = "0.0.51"
+version = "0.0.52"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -46,3 +46,19 @@ addopts = "-ra" # show extra test summary info for skipped, failed, etc.
 markers = [
     "requires_rspace: mark test as requiring R and rpy2",
 ]
+
+[tool.ruff]
+# dev_scripts/ holds ad-hoc, non-packaged debugging/demo scripts; not held to the same bar.
+extend-exclude = ["dev_scripts"]
+
+[tool.ruff.lint]
+# keep the classic, low-noise flake8-equivalent baseline (syntax errors, undefined names,
+# unused imports/variables); broader style/security rule categories are not enabled here.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401", "F403"] # intentional re-exports define each subpackage's public API
+"tests/**" = ["E731"] # lambda fixtures are fine in tests
+
+[tool.setuptools.package-data]
+aa_utilities = ["py.typed"]

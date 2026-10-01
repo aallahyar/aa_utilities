@@ -1,4 +1,8 @@
 
+## [0.0.52] - 2026-10-01
+### Added:
+- `computation.modeling.LinearModel` now has a `get_contrast` that allows collecting relevant contrasts after computing them via `add_contrasts`.
+
 ## [0.0.51] - 2026-09-24
 ### Added:
 - `aa_utilities.graphics.links` now produces the whole set of links in one go, allowing better spacing between the links
