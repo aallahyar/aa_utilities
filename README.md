@@ -82,3 +82,6 @@ python3 -m pytest -x
 # run a single test by name
 python3 -m pytest tests/wrappers/test_rspace.py::test_named_list_of_dataframes_from_r
 ```
+
+## Future developments (TODOs):
+- Implementing gene module detection. Details are [described here](./src/aa_utilities/computation/gene_module_detection.md).
