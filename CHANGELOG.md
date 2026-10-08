@@ -1,4 +1,6 @@
 ## [0.0.53] - 2026-10-08
+### Added:
+- `graphics.draw_multilevel_ticks` draws the levels of a `MultiIndex` on the rows/columns of a heatmap (e.g., `sns.heatmap`, or a clustermap's heatmap), on the side where the tick labels are, instead of seaborn's flattened labels. It returns (and stores in `ax.multilevel_ticks`) the drawn texts and lines per level, so they can be restyled or removed.
 ### Fixed:
 - `RSpace` now converts length-1 logical (`TRUE`/`FALSE`/`NA`) and complex R values to Python scalars. Previously a returned `FALSE` was an rpy2 vector that evaluated as truthy.
 - `RSpace` now returns `NA` in R integer/logical vectors and data.frame columns as pandas nullable `Int64`/`boolean` values (and a lone `NA` as `pd.NA`), instead of the integer sentinel `-2147483648` or an rpy2 NA object.
