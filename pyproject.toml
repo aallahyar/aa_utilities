@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aa_utilities"
-version = "0.0.52"
+version = "0.0.53"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -33,7 +33,6 @@ dependencies = {file = ["requirements.txt"]}
 # pip3 install aa_utilities[extras]
 
 extras = [
-    "colorama", 
     "ipympl", # if interactive visualization is needed
     "patsy", # for expression level correction
     "joblib", # for parallelization of R calls

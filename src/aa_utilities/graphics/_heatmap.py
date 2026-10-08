@@ -1,3 +1,4 @@
+import logging
 import textwrap
 
 import numpy as np
@@ -7,10 +8,7 @@ from matplotlib import (
     colors as mpl_colors,
 )
 
-
-from ..loggers import setup_logger
-
-logger = setup_logger('Heatmap', level='DEBUG')
+logger = logging.getLogger(__name__)
 
 
 def _rgba2hex(rgba_arr):

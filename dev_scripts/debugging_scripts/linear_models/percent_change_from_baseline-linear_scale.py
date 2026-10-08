@@ -30,7 +30,7 @@ data = (
 
 R = RSpace()
 model = LinearModel(space=R)
-model.set_data(df=data, remove_categories=True, factorize=True)
+model.set_data(df=data, factorize=True)
 model.fit_lm(formula=f'PRC_CHG ~ TRT01P * AVISIT', ci=ci)
 model.add_emmeans(spec=f'TRT01P * AVISIT', scale='response', ci=ci)
 print(model.results.ls_means[['estimate']].round(2))

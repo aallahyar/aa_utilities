@@ -58,7 +58,7 @@ print(data.groupby('treatment')['response'].mean()) # probability of responses (
 # Fit logistic regression (binomial with logit link)
 ci = 0.95
 model = LinearModel(space=R)
-model.set_data(df=data, factorize=True, remove_categories=True)
+model.set_data(df=data, factorize=True)
 model.set_reference({'treatment': 'Placebo'})
 model.fit_logistic(
     formula="response ~ treatment",

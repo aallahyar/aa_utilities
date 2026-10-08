@@ -1,3 +1,14 @@
+## [0.0.53] - 2026-10-08
+### Fixed:
+- `RSpace` now converts length-1 logical (`TRUE`/`FALSE`/`NA`) and complex R values to Python scalars. Previously a returned `FALSE` was an rpy2 vector that evaluated as truthy.
+- `RSpace` now returns `NA` in R integer/logical vectors and data.frame columns as pandas nullable `Int64`/`boolean` values (and a lone `NA` as `pd.NA`), instead of the integer sentinel `-2147483648` or an rpy2 NA object.
+- `RSpace` now keeps the shape of logical, character and complex matrices (they used to become a single column, and named logical matrices raised an error), and also applies the `NA` handling above to matrices. Arrays with more than two dimensions are numpy arrays, and 1-D arrays (e.g. `table(x)`) are a `pd.Series`.
+- `LinearModel.add_contrasts` no longer fails for models with an `offset()` (e.g., `fit_negbin`): `broom` returns `null.value` as a matrix column for them, which is now flattened.
+### Changed:
+- `RSpace` keeps a 1x1 matrix as a 1x1 `pd.DataFrame` instead of collapsing it into a scalar, and integer matrices are now `int64` (were `int32`).
+- `LinearModel.set_data` now sends categorical columns to R as factors, preserving their declared order and dropping unused categories. `remove_categories` and `preserve_na` arguments are removed. Ordered categoricals are kept ordered (R then uses polynomial contrasts) and a warning is logged.
+- `LinearModel.set_reference` now raises a clear error for ordered factors.
+- Logging: modules use `logging.getLogger(__name__)`, and only the `aa_utilities` root logger gets a (colored) handler. `loggers.setup_logger` is now idempotent, accepts `color` and `propagate`, and no longer takes `force`. `colorama` is no longer needed; set `NO_COLOR` to disable colors.
 
 ## [0.0.52] - 2026-10-01
 ### Added:

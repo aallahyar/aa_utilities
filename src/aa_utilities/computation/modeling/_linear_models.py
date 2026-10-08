@@ -1,7 +1,22 @@
+import logging
+
 import numpy as np
 import pandas as pd
 
 from ...storage import Container
+
+logger = logging.getLogger(__name__)
+
+
+def _prepare_categoricals(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Returns a copy of `df` without unused categories, and the names of its ordered categorical columns."""
+    df = df.copy()
+    ordered_columns = []
+    for col in df.select_dtypes(include='category').columns:
+        df[col] = df[col].cat.remove_unused_categories()
+        if df[col].cat.ordered:
+            ordered_columns.append(col)
+    return df, ordered_columns
 
 
 class LinearModel:
@@ -73,17 +88,26 @@ class LinearModel:
         return dummy_df
 
     # @classmethod # used when other methods/variables of the Class are needed
-    def set_data(self, df, remove_categories=True, preserve_na=True, factorize=True):
+    def set_data(self, df, factorize=True):
+        """Sends `df` to R as `data`.
 
-        # data adjustments
-        df = df.copy()  # make a local copy
-        if remove_categories:
-            for col in df.select_dtypes(include='category').columns:
-                is_na = df[col].isna()
-                df[col] = df[col].astype(str)
-                if preserve_na:
-                    df.loc[is_na, col] = np.nan
-        self.R['data'] = df.copy()
+        Categorical columns become R factors with their declared category order (the first category is
+        R's default reference level) and without unused categories. Missing values stay `NA`.
+        Ordered categoricals are kept ordered, which makes R use polynomial contrasts (see the warning below).
+
+        Args:
+            df (pd.DataFrame): The data to be modeled.
+            factorize (bool): Whether to also convert string columns to factors (alphabetical level order).
+        """
+        df, ordered_columns = _prepare_categoricals(df)
+        if ordered_columns:
+            logger.warning(
+                f'Ordered categorical column(s) {ordered_columns} reach R as ordered factors: R fits them with '
+                f'polynomial contrasts, so `fit_coefs` holds trend terms (`.L`, `.Q`, ...) instead of level-vs-reference '
+                f'differences, and `set_reference()` is not applicable. Estimated marginal means are unaffected. '
+                f'Use `ordered=False` for treatment contrasts.'
+            )
+        self.R['data'] = df
         if factorize:
             self.factorize()
 
@@ -108,6 +132,9 @@ class LinearModel:
             for (factor_name in names(factor_references)) {
                 if (factor_name %in% colnames(data)){
                     ref <- factor_references[[factor_name]]
+                    if (is.ordered(data[[factor_name]])) {
+                        stop(sprintf("Cannot set a reference level for the ordered factor '%s': ordered factors use polynomial contrasts.", factor_name))
+                    }
                     if (is.factor(data[[factor_name]])) {
                         data[[factor_name]] <- relevel(data[[factor_name]], ref = ref)
                     } else {
@@ -359,6 +386,8 @@ class LinearModel:
                 # emm_diff <- pairs(LSmeans, adjust = "none", reverse = TRUE)
                 emm_diff <- emmeans::contrast(LSmeans, method="{method}", adjust = "none")
                 emm_diff_td <- broom::tidy(emm_diff, conf.int = TRUE, conf.level = {ci:0.2f})
+                # for models with an offset, broom returns `null.value` as a matrix column, which rpy2 can not convert
+                emm_diff_td <- emm_diff_td %>% dplyr::mutate(dplyr::across(dplyr::where(is.matrix), as.vector))
                 # print(emm_diff_td, width = Inf, n = Inf)
             """)
 

@@ -35,7 +35,7 @@ data = (
 
 R = RSpace()
 model = LinearModel(space=R)
-model.set_data(df=data, remove_categories=True, factorize=True)
+model.set_data(df=data, factorize=True)
 model.fit_mmrm(formula=f'LOG_AVAL ~ TRT01P * AVISIT + us(AVISIT | USUBJID)', ci=ci)
 model.add_emmeans(spec=f'TRT01P * AVISIT', scale='link', ci=ci)
 print(

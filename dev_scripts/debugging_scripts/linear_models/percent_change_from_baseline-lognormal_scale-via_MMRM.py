@@ -39,7 +39,7 @@ data = data.loc[~is_base, :]
 
 R = RSpace()
 model = LinearModel(space=R)
-model.set_data(df=data, remove_categories=True, factorize=True)
+model.set_data(df=data, factorize=True)
 model.fit_mmrm(formula=f'LOG_CHG ~ TRT01P * AVISIT + us(AVISIT | USUBJID)', ci=CI)
 
 # type="response" and type="link" should give identical results. See the note in the LinearModel.add_emmeans() docstring

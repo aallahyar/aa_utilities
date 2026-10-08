@@ -54,7 +54,7 @@ print(summary)
 # You can now fit a logistic model with Group, AVISIT, and Group×AVISIT interaction.
 ci = 0.95
 model = LinearModel(space=R)
-model.set_data(df=data, factorize=True, remove_categories=True)
+model.set_data(df=data, factorize=True)
 model.set_reference({'Group': 'Low'})
 model.fit_logistic(
     formula="Response ~ Group * AVISIT", # Without the interaction, the model cannot represent 

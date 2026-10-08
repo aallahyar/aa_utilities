@@ -36,7 +36,7 @@ data = (
 
 R = RSpace()
 model = LinearModel(space=R)
-model.set_data(df=data, remove_categories=True, factorize=True)
+model.set_data(df=data, factorize=True)
 model.fit_logistic(formula=f'AVAL ~ TRT01P * AVISIT', ci=CI)
 
 # Must be scale='response' to receive `prob` estimates; 

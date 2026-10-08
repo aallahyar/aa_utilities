@@ -50,7 +50,7 @@ data = (
 # modeling
 R = RSpace()
 model = LinearModel(space=R)
-model.set_data(df=data, remove_categories=True, factorize=True)
+model.set_data(df=data, factorize=True)
 model.fit_negbin(formula=f'EXACN ~ offset(log(TMEXRISK)) + TRT01P', exponentiate=True, ci=ci)
 model.add_emmeans(spec=f'TRT01P', scale='response', emm_kws=', offset=log(100), rg.limit = 100000', ci=ci)
 

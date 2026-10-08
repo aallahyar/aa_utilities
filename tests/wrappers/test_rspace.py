@@ -20,13 +20,6 @@ requires_rspace = pytest.mark.skipif(
 
 
 @pytest.fixture
-def rspace():
-    if not RSPACE_AVAILABLE:
-        pytest.skip('RSpace unavailable')
-    return RSpace()
-
-
-@pytest.fixture
 def sample_df():
     rng = np.random.default_rng(seed=42)
     return pd.DataFrame(
@@ -63,6 +56,79 @@ def test_string_roundtrip(rspace):
     out = rspace['var_str']
     assert isinstance(out, str)
     assert out == 'Hello, RSpace!'
+
+
+@requires_rspace
+@pytest.mark.parametrize('value', [True, False])
+def test_bool_roundtrip(rspace, value):
+    rspace['var_bool'] = value
+    out = rspace['var_bool']
+    assert isinstance(out, bool)
+    assert out is value
+
+
+@requires_rspace
+def test_logical_na_scalar_is_pd_na(rspace):
+    rspace('x <- NA')
+    assert rspace['x'] is pd.NA
+
+
+@requires_rspace
+def test_complex_scalar_from_r(rspace):
+    rspace('x <- 1+2i')
+    out = rspace['x']
+    assert isinstance(out, complex)
+    assert out == 1 + 2j
+
+
+@requires_rspace
+def test_integer_na_scalar_is_pd_na(rspace):
+    rspace('x <- NA_integer_')
+    assert rspace['x'] is pd.NA
+
+
+# ----- Missing values in integer / logical vectors -----
+
+
+@requires_rspace
+@pytest.mark.parametrize(
+    'r_code, dtype, expected',
+    [
+        ('c(1L, NA, 3L)', 'Int64', [1, None, 3]),
+        ('c(TRUE, NA, FALSE)', 'boolean', [True, None, False]),
+    ],
+)
+def test_na_in_integer_and_logical_vectors_uses_nullable_dtypes(rspace, r_code, dtype, expected):
+    rspace(f'x <- {r_code}')
+    out = rspace['x']
+    assert str(out.dtype) == dtype
+    assert [None if pd.isna(v) else v for v in out] == expected
+
+
+@requires_rspace
+def test_na_in_named_integer_vector_keeps_names(rspace):
+    rspace('x <- c(a = 1L, b = NA, c = 3L)')
+    out = rspace['x']
+    assert list(out.index) == ['a', 'b', 'c']
+    assert out.isna().tolist() == [False, True, False]
+
+
+@requires_rspace
+def test_vectors_without_na_keep_plain_dtypes(rspace):
+    rspace('i <- c(1L, 2L); l <- c(TRUE, FALSE)')
+    assert rspace['i'].dtype == np.int64
+    assert rspace['l'].dtype == bool
+
+
+@requires_rspace
+def test_na_in_dataframe_integer_and_logical_columns(rspace):
+    rspace('df <- data.frame(i = c(1L, NA, 3L), l = c(TRUE, NA, FALSE), d = c(1.5, NA, 3), f = factor(c("a", NA, "b")))')
+    out = rspace['df']
+    assert str(out['i'].dtype) == 'Int64'
+    assert str(out['l'].dtype) == 'boolean'
+    for column in ['i', 'l', 'd', 'f']:
+        assert out[column].isna().tolist() == [False, True, False], column
+    assert out['i'].dropna().tolist() == [1, 3]
 
 
 # ----- Sequence types -----
@@ -118,6 +184,95 @@ def test_matrix_roundtrip(rspace):
     out_mat_np = np.array(out_mat, dtype=float)
     assert out_mat_np.shape == mat.shape
     assert np.allclose(out_mat_np, mat)
+
+
+@requires_rspace
+@pytest.mark.parametrize(
+    'r_code, expected',
+    [
+        ('matrix(1:6, 2)', [[1, 3, 5], [2, 4, 6]]),
+        ('matrix(c(TRUE, FALSE, TRUE, TRUE, FALSE, FALSE), 2)', [[True, True, False], [False, True, False]]),
+        ('matrix(c(1.5, 2, 3, 4, 5, 6), 2)', [[1.5, 3.0, 5.0], [2.0, 4.0, 6.0]]),
+        ('matrix(c("a", "b", "c", "d", "e", "f"), 2)', [['a', 'c', 'e'], ['b', 'd', 'f']]),
+        ('matrix(c(1+1i, 2, 3, 4, 5, 6), 2)', [[1 + 1j, 3, 5], [2, 4, 6]]),
+    ],
+    ids=['integer', 'logical', 'double', 'character', 'complex'],
+)
+def test_matrix_keeps_shape_and_values_for_every_type(rspace, r_code, expected):
+    rspace(f'm <- {r_code}')
+    out = rspace['m']
+    assert isinstance(out, pd.DataFrame)
+    assert out.shape == (2, 3)
+    assert out.to_numpy().tolist() == expected
+
+
+@requires_rspace
+def test_matrix_dimnames_apply_to_logical_matrix(rspace):
+    rspace('m <- matrix(c(TRUE, FALSE, TRUE, TRUE), 2, dimnames = list(c("r1", "r2"), c("c1", "c2")))')
+    out = rspace['m']
+    assert list(out.index) == ['r1', 'r2']
+    assert list(out.columns) == ['c1', 'c2']
+    assert not out.loc['r2', 'c1']
+
+
+@requires_rspace
+@pytest.mark.parametrize(
+    'r_code, dtype',
+    [
+        ('matrix(c(1L, NA, 3L, 4L), 2)', 'Int64'),
+        ('matrix(c(TRUE, NA, FALSE, TRUE), 2)', 'boolean'),
+    ],
+    ids=['integer', 'logical'],
+)
+def test_na_in_integer_and_logical_matrices(rspace, r_code, dtype):
+    rspace(f'm <- {r_code}')
+    out = rspace['m']
+    assert out.shape == (2, 2)
+    assert {str(d) for d in out.dtypes} == {dtype}
+    assert out.isna().to_numpy().tolist() == [[False, False], [True, False]]
+    assert out.iloc[1, 0] is pd.NA
+
+
+@requires_rspace
+def test_one_by_one_matrix_stays_a_matrix(rspace):
+    rspace('m <- matrix(5L, 1, 1)')
+    out = rspace['m']
+    assert isinstance(out, pd.DataFrame)
+    assert out.shape == (1, 1)
+    assert out.iloc[0, 0] == 5
+
+
+@requires_rspace
+def test_empty_matrix_keeps_columns(rspace):
+    rspace('m <- matrix(numeric(0), 0, 2)')
+    assert rspace['m'].shape == (0, 2)
+
+
+@requires_rspace
+def test_logical_array_with_more_than_two_dimensions(rspace):
+    rspace('a <- array(c(TRUE, FALSE), c(2, 2, 2))')
+    out = rspace['a']
+    assert isinstance(out, np.ndarray)
+    assert out.shape == (2, 2, 2)
+    assert out[:, 0, 0].tolist() == [True, False]  # R fills the first dimension fastest
+    assert out[0, 1, 0] == True  # noqa: E712
+
+
+@requires_rspace
+def test_table_conversions(rspace):
+    rspace('t2 <- table(c("a", "b", "a"), c("x", "y", "x")); t1 <- table(c("a", "b", "a"))')
+    two_dim, one_dim = rspace['t2'], rspace['t1']
+    assert two_dim.to_numpy().tolist() == [[2, 0], [0, 1]]
+    assert one_dim.to_dict() == {'a': 2, 'b': 1}
+
+
+@requires_rspace
+def test_numpy_boolean_and_integer_matrices_roundtrip(rspace):
+    for original in (np.array([[True, False], [False, True]]), np.array([[1, 2], [3, 4]])):
+        rspace['mat'] = original
+        out = rspace['mat']
+        assert out.shape == original.shape
+        assert out.to_numpy().tolist() == original.tolist()
 
 
 # ----- Pandas DataFrame -----

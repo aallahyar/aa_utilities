@@ -1,5 +1,7 @@
+import copy
 import sys
 import logging
+import os
 import re
 import threading
 import time
@@ -8,51 +10,53 @@ import json
 # from datetime import datetime
 # from logging.handlers import TimedRotatingFileHandler
 
-# Optional: colorized logs in terminal (requires 'colorama')
-try:
-    from colorama import Fore, Style, init
-
-    # colorama exists to translate ANSI codes for native Windows consoles; on POSIX,
-    # ANSI already works natively, and colorama's isatty()-based auto-strip can wrongly
-    # disable color in non-tty consumers that do support ANSI (e.g. Jupyter kernels).
-    if sys.platform == 'win32':
-        init(autoreset=True)
-    COLOR_ENABLED = True
-except ImportError:
-    COLOR_ENABLED = False
-
 from .._configurations import configs
 
-# initializations
-# Global dictionary to hold loggers
-_loggers = {}
+# marks the handler installed by `setup_logger`, so repeated calls update it instead of stacking another
+_HANDLER_TAG = '_aa_utilities_handler'
 
 # Log format
 LOG_FORMAT = r'[%(asctime)s] [%(levelname)s] %(name)s: %(message)s'
 DATE_FORMAT = r'%Y-%m-%d %H:%M:%S'
 
 
+def _color_supported(stream) -> bool:
+    """Whether ANSI colors should be used for `stream`: honors NO_COLOR, and allows terminals and Jupyter kernels."""
+    if os.environ.get('NO_COLOR'):
+        return False
+    if getattr(stream, 'isatty', lambda: False)():
+        return True
+    return 'ipykernel' in sys.modules  # Jupyter streams are not ttys, but render ANSI
+
+
 class ColoredFormatter(logging.Formatter):
-    if COLOR_ENABLED:
-        COLORS = {
-            logging.DEBUG: Fore.LIGHTBLACK_EX,
-            logging.INFO: Fore.GREEN,
-            logging.WARNING: Fore.YELLOW,
-            logging.CRITICAL: Fore.MAGENTA,
-            logging.ERROR: Fore.RED,
-        }
+    """Colors the level name, and also the message for WARNING and above, using plain ANSI escapes."""
+
+    RESET = '\033[0m'
+    COLORS = {
+        logging.DEBUG: '\033[90m',
+        logging.INFO: '\033[32m',
+        logging.WARNING: '\033[33m',
+        logging.ERROR: '\033[31m',
+        logging.CRITICAL: '\033[35m',
+    }
+
+    def __init__(self, fmt=None, datefmt=None, color=True):
+        super().__init__(fmt, datefmt)
+        self.color = color
 
     def format(self, record):
+        if not self.color:
+            return super().format(record)
 
-        # Temporarily color only the level name
-        current_levelname = record.levelname
-        if COLOR_ENABLED:
-            color = self.COLORS.get(record.levelno, '')
-            record.levelname = f'{color}{record.levelname}{Style.RESET_ALL}'
-        message = super().format(record)
-        record.levelname = current_levelname
-
-        return message
+        # format a copy, so other handlers receiving the same record are unaffected
+        record = copy.copy(record)
+        color = self.COLORS.get(record.levelno, '')
+        record.levelname = f'{color}{record.levelname}{self.RESET}'
+        if record.levelno >= logging.WARNING:
+            record.msg = f'{color}{record.getMessage()}{self.RESET}'
+            record.args = None
+        return super().format(record)
 
 
 # Example of a logger that stores in a file
@@ -81,38 +85,38 @@ class ColoredFormatter(logging.Formatter):
 # )
 
 
-def setup_logger(name='Unknown', level=None, force=False) -> logging.Logger:
-    global _loggers
+def setup_logger(name='Unknown', level=None, color=None, propagate=False) -> logging.Logger:
+    """Returns the standard `logging.Logger` called `name`, with a (colored) stderr handler attached.
 
-    # Set default level from configs if not provided
-    if level is None:
-        level = configs.log.level
+    Meant for applications (scripts, notebooks); library modules should use `logging.getLogger(__name__)`.
+    Calling it again on the same name updates the existing handler instead of adding another.
 
-    # Check if logger already exists
-    if name in _loggers and not force:
-        if _loggers[name].level != level:
-            _loggers[name].setLevel(level)
-            for handler in _loggers[name].handlers:  # handlers filter independently of the logger's level
-                handler.setLevel(level)
-        return _loggers[name]
+    Args:
+        name: Logger name.
+        level: Logging level (e.g., 'DEBUG', logging.INFO). Defaults to the logger's current level,
+            or `configs.log.level` if it has none yet.
+        color: Force colors on/off. Defaults to auto: on for terminals and Jupyter, off if `NO_COLOR` is set.
+        propagate: Whether records are also passed to the handlers of ancestor loggers (e.g., root).
+            Off by default to avoid duplicated lines when the root logger has its own handler.
 
+    Example:
+        log = setup_logger('my_analysis', level='DEBUG')
+        log.warning('shown in yellow')
+    """
     logger = logging.getLogger(name)
+    if level is None:
+        level = logger.level or configs.log.level
     logger.setLevel(level)
-    logger.propagate = False
-    _loggers[name] = logger
+    logger.propagate = propagate
 
-    if len(logger.handlers) == 0:
-        # Console handler
-        ch = logging.StreamHandler(stream=sys.stderr)
-        ch.setLevel(level)
-
-        if COLOR_ENABLED:
-            formatter = ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT)
-        else:
-            formatter = logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT)
-        ch.setFormatter(formatter)
-
-        logger.addHandler(ch)
+    handler = next((h for h in logger.handlers if getattr(h, _HANDLER_TAG, False)), None)
+    if handler is None:
+        handler = logging.StreamHandler(stream=sys.stderr)
+        setattr(handler, _HANDLER_TAG, True)
+        logger.addHandler(handler)
+    if color is None:
+        color = _color_supported(handler.stream)
+    handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT, color=color))  # handler level stays NOTSET: the logger's level decides
 
     return logger
 
@@ -143,10 +147,7 @@ class RestrictedLogger(logging.Logger):
                 datefmt=r'%Y-%m-%d %H:%M:%S',
             )
             handler = logging.StreamHandler(stream=sys.stderr)
-            if COLOR_ENABLED:
-                handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT))
-            else:
-                handler.setFormatter(self.formatter)
+            handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT, color=_color_supported(handler.stream)))
             handler.setLevel(level)
             self.addHandler(handler)
             self.addFilter(self.loggable)
@@ -154,17 +155,13 @@ class RestrictedLogger(logging.Logger):
             # define stdout logger: it prints to stdout regardless of the level (with an added timestamp)
             self.to_stdout = logging.getLogger(name=f'{name}_STDOUT')
             handler_stdout = logging.StreamHandler(stream=sys.stdout)
-            if COLOR_ENABLED:
-                formatter_stdout = ColoredFormatter(
+            handler_stdout.setFormatter(
+                ColoredFormatter(
                     f'[%(asctime)s] {name}: %(message)s',
                     datefmt=DATE_FORMAT,
+                    color=_color_supported(handler_stdout.stream),
                 )
-            else:
-                formatter_stdout = logging.Formatter(
-                    fmt=f'[%(asctime)s] {name}: %(message)s',
-                    datefmt=DATE_FORMAT,
-                )
-            handler_stdout.setFormatter(formatter_stdout)
+            )
             handler_stdout.setLevel(logging.INFO)
             self.to_stdout.addHandler(handler_stdout)
             self.to_stdout.setLevel(logging.INFO)

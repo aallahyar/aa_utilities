@@ -1,3 +1,4 @@
+import logging
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,11 +15,7 @@ from rpy2.robjects import (
 )
 from rpy2.rinterface_lib import callbacks as rpy2_callbacks
 
-from ..loggers import setup_logger
-from .._configurations import configs
-
-# setting up logger
-logger = setup_logger(name='RSpace', level=configs.log.level)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -58,6 +55,7 @@ class RSpace:
     _r_dim = ri.globalenv.find('dim')
     _r_rownames = ri.globalenv.find('rownames')
     _r_colnames = ri.globalenv.find('colnames')
+    _r_is_na = ri.globalenv.find('is.na')
 
     def __init__(self, ipython=False):
         """Initiates an `R` environment.
@@ -108,7 +106,57 @@ class RSpace:
                 pass
         return value
 
+    def _flat_values(self, r_vec):
+        """1-D array with the elements of an atomic R vector, or the column-major data of a matrix/array.
+
+        Integer/logical vectors with NA become pandas nullable arrays, because rpy2 would otherwise
+        leak the sentinel -2147483648 (integer) or a special NA object (logical).
+        """
+        typeof = r_vec.typeof
+        is_na = np.array(list(self._r_is_na(r_vec)), dtype=bool)
+        if typeof in (ri.RTYPES.INTSXP, ri.RTYPES.LGLSXP):
+            is_int = typeof == ri.RTYPES.INTSXP
+            values = [None if na else value for value, na in zip(r_vec, is_na)]
+            if is_na.any():
+                return pd.array(values, dtype='Int64' if is_int else 'boolean')
+            return np.array(values, dtype=np.int64 if is_int else bool)
+        if typeof == ri.RTYPES.STRSXP:
+            return np.array([None if na else value for value, na in zip(r_vec, is_na)], dtype=object)
+        dtype = {ri.RTYPES.REALSXP: float, ri.RTYPES.CPLXSXP: complex}.get(typeof, object)
+        return np.array(list(r_vec), dtype=dtype)
+
+    def _nullable_from_r(self, r_vec):
+        """Returns a pandas nullable array for a plain R integer/logical vector that contains NA, else `None`."""
+        if tuple(r_vec.rclass) not in {('integer',), ('logical',)}:
+            return None
+        values = self._flat_values(r_vec)
+        return values if isinstance(values, pd.api.extensions.ExtensionArray) else None
+
+    def _array_to_py(self, r_arr, dim):
+        """Convert an atomic R matrix/array: 1-D → Series, 2-D → DataFrame, higher → numpy array."""
+        flat = self._flat_values(r_arr)
+
+        if len(dim) == 1:
+            names = self._r_rownames(r_arr)
+            return pd.Series(flat, index=None if names == ro.rinterface.NULL else list(names))
+
+        if len(dim) == 2:
+            n_row, n_col = dim
+            value_py = pd.DataFrame({j: flat[j * n_row : (j + 1) * n_row] for j in range(n_col)})
+            if self._r_rownames(r_arr) != ro.rinterface.NULL:
+                value_py.index = list(self._r_rownames(r_arr))
+            if self._r_colnames(r_arr) != ro.rinterface.NULL:
+                value_py.columns = list(self._r_colnames(r_arr))
+            return value_py
+
+        if isinstance(flat, pd.api.extensions.ExtensionArray):
+            flat = flat.to_numpy(dtype=object, na_value=pd.NA)
+        return flat.reshape(dim, order='F')  # R stores arrays column-major
+
     def _coerce_atomic_scalar(self, value):
+        if isinstance(value, ro.vectors.Vector):  # rpy2 leaves logical and complex vectors unconverted
+            return self._to_python_atom(value[0])
+
         if isinstance(value, np.ndarray):
             if value.size == 1:
                 return self._to_python_atom(value.reshape(-1)[0])
@@ -137,11 +185,14 @@ class RSpace:
         is_named = self._r_names(r_obj) != ro.rinterface.NULL
         is_atomic = typeof in self._ATOMIC_RTYPES
 
-        # Length-1 atomic scalar → Python scalar, but only when unnamed.
+        # Length-1 atomic scalar → Python scalar, but only when unnamed and without `dim`.
         # Named length-1 vectors (e.g. c(CSE = "0.0")) must fall through to the
-        # pd.Series path below so the name is preserved.
+        # pd.Series path below so the name is preserved; a 1x1 matrix stays a matrix.
         # https://stackoverflow.com/questions/38088392/how-do-you-check-for-a-scalar-in-r
-        if is_atomic and len(r_obj) == 1 and not is_named:
+        has_dim = self._r_dim(r_obj) != ro.rinterface.NULL
+        if is_atomic and len(r_obj) == 1 and not is_named and not has_dim:
+            if self._nullable_from_r(r_obj) is not None:  # a lone NA in an integer/logical vector
+                return pd.NA
             with self._converter.context():
                 value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
             return self._coerce_atomic_scalar(value_rpy)
@@ -155,7 +206,12 @@ class RSpace:
             if 'data.frame' in list(r_obj.rclass):
                 # data.frame → pd.DataFrame via the pandas converter
                 with self._converter.context():
-                    return ro.conversion.get_conversion().rpy2py(r_obj)
+                    df = ro.conversion.get_conversion().rpy2py(r_obj)
+                for position in range(len(r_obj)):
+                    nullable = self._nullable_from_r(r_obj[position])
+                    if nullable is not None:
+                        df.isetitem(position, pd.Series(nullable, index=df.index))
+                return df
             
             # case: a generic list (named: dict or unnamed: list), recursively convert elements
             # heterogeneous list: dict/list
@@ -172,32 +228,29 @@ class RSpace:
                 return dict(zip(name_list, elements))
             return elements
 
+        # Atomic matrices/arrays: rpy2 only reshapes integer/double ones, so they are rebuilt from their flat data
+        if is_atomic and has_dim:
+            return self._array_to_py(r_obj, [int(d) for d in self._r_dim(r_obj)])
+
         # All remaining R types: apply the converter
         with self._converter.context():
             value_rpy = ro.conversion.get_conversion().rpy2py(r_obj)
-
-        # check if the variable is more than 2D
-        if isinstance(value_rpy, (np.ndarray,)) and value_rpy.ndim > 2:
-            return value_rpy
 
         # R atomic vectors → pd.Series (named index when names are present, RangeIndex otherwise).
         # Atomic vectors are homogeneous typed arrays with optional names, making pd.Series the natural Python analogue.
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if self._r_dim(r_obj) == ro.rinterface.NULL:
+        if not has_dim:
             names = self._r_names(r_obj)
-            data_vec = [self._to_python_atom(v) for v in value_rpy]
+            data_vec = self._nullable_from_r(r_obj)
+            if data_vec is None:
+                data_vec = [self._to_python_atom(v) for v in value_rpy]
             if names == ro.rinterface.NULL:
                 return pd.Series(data=data_vec, index=range(len(data_vec)))
             return pd.Series(data=data_vec, index=list(names))
 
-        # 2D matrix → pd.DataFrame
-        value_py = pd.DataFrame(data=value_rpy)
-        if self._r_rownames(r_obj) != ro.rinterface.NULL:
-            value_py.index = list(self._r_rownames(r_obj))
-        if self._r_colnames(r_obj) != ro.rinterface.NULL:
-            value_py.columns = list(self._r_colnames(r_obj))
-        return value_py
+        # non-atomic objects carrying `dim` (not expected here): fall back to rpy2's own conversion
+        return value_rpy
 
     def __getitem__(self, name):
         try:
