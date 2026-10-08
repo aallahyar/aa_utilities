@@ -5,6 +5,7 @@
 - `RSpace` now keeps the shape of logical, character and complex matrices (they used to become a single column, and named logical matrices raised an error), and also applies the `NA` handling above to matrices. Arrays with more than two dimensions are numpy arrays, and 1-D arrays (e.g. `table(x)`) are a `pd.Series`.
 - `LinearModel.add_contrasts` no longer fails for models with an `offset()` (e.g., `fit_negbin`): `broom` returns `null.value` as a matrix column for them, which is now flattened.
 ### Changed:
+- `graphics.overlay_boxes` now also accepts the `Axes` of a plain `sns.heatmap()` (its first argument is renamed from `clustermap_obj` to `target`). Cells hidden by seaborn (`mask=` or NaN) no longer get a box, and the default legend is placed past a colorbar on the right instead of over it.
 - `graphics.overlay_boxes` (and `graphics.heatmap`'s `box_kws`) accept a single value for `sizes`, `facecolors`, `edgecolors` and `linewidths`, which is applied to every cell. Wrongly shaped inputs now raise a `ValueError` naming the argument. Sizes above 1 are allowed.
 - `graphics.adjust_brightness` now always returns a hex string (e.g., `'#800000'`) instead of an RGB tuple, and has an `include_alpha` option (default `False`) to keep the alpha of the input color. It also accepts lists/arrays as input.
 - `RSpace` keeps a 1x1 matrix as a 1x1 `pd.DataFrame` instead of collapsing it into a scalar, and integer matrices are now `int64` (were `int32`).

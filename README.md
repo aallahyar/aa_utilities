@@ -83,6 +83,13 @@ python3 -m pytest -x
 python3 -m pytest tests/wrappers/test_rspace.py::test_named_list_of_dataframes_from_r
 ```
 
+## Linting
+The CI runs `ruff check .` (configured in `pyproject.toml`). Run it before committing:
+```bash
+pip install ruff
+ruff check .
+```
+
 ## Future developments (TODOs):
 - Implementing gene module detection. Details are [described here](./src/aa_utilities/computation/gene_module_detection.md).
 - A text positioning utility for annotations in `matplotlib` plots, that works better than the existing approaches

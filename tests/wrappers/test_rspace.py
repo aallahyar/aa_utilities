@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    from aa_utilities.wrappers import RSpace
+    from aa_utilities.wrappers import RSpace  # noqa: F401  (availability probe; the `rspace` fixture is in conftest.py)
 
     RSPACE_AVAILABLE = True
 except Exception:

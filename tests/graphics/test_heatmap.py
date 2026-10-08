@@ -110,3 +110,64 @@ def test_heatmap_accepts_scalar_box_options(data):
     assert np.allclose(_box_sizes(boxes), 0.6)
     assert np.allclose(boxes.get_edgecolor(), mpl_colors.to_rgba('black'))
     assert np.allclose(boxes.get_linewidth(), 2)
+
+
+# ----- plain sns.heatmap -----
+
+
+@pytest.fixture
+def heatmap_ax(data):
+    return sns.heatmap(data)
+
+
+def test_overlay_on_plain_heatmap_axes(heatmap_ax, data):
+    boxes = overlay_boxes(heatmap_ax, sizes=0.5, facecolors='black', edgecolors='red', linewidths=2)
+    assert len(boxes.get_paths()) == data.size
+    assert np.allclose(_box_sizes(boxes), 0.5)
+    assert np.allclose(boxes.get_facecolor(), mpl_colors.to_rgba('black'))
+    assert np.allclose(boxes.get_edgecolor(), mpl_colors.to_rgba('red'))
+    assert np.allclose(boxes.get_linewidth(), 2)
+
+
+def test_plain_heatmap_matrices_are_used_as_drawn(heatmap_ax, data):
+    sizes = np.linspace(0.1, 0.9, data.size).reshape(data.shape)
+    assert np.allclose(_box_sizes(overlay_boxes(heatmap_ax, sizes=sizes)), sizes.ravel())
+
+
+def test_two_consecutive_overlays_on_a_plain_heatmap(heatmap_ax, data):
+    overlay_boxes(heatmap_ax, sizes=0.9)
+    boxes = overlay_boxes(heatmap_ax, sizes=0.4)
+    assert len(boxes.get_paths()) == data.size
+
+
+def test_masked_and_nan_cells_get_no_box(data):
+    mask = np.triu(np.ones(data.shape, dtype=bool))
+    data = data.copy()
+    data.iloc[3, 0] = np.nan  # a visible cell turned into a NaN cell
+    boxes = overlay_boxes(sns.heatmap(data, mask=mask))
+    assert len(boxes.get_paths()) == (~mask).sum() - 1
+
+
+def test_masked_cells_are_skipped_in_clustermaps_too(data):
+    mask = np.triu(np.ones(data.shape, dtype=bool))
+    boxes = overlay_boxes(sns.clustermap(data, mask=mask))
+    assert len(boxes.get_paths()) == (~mask).sum()
+
+
+def test_axes_without_a_heatmap_raises():
+    with pytest.raises(ValueError, match='heatmap'):
+        overlay_boxes(plt.subplots()[1])
+
+
+def test_unsupported_target_raises():
+    with pytest.raises(TypeError, match='target'):
+        overlay_boxes('not-a-plot')
+
+
+def test_default_legend_does_not_overlap_the_colorbar(heatmap_ax):
+    overlay_boxes(heatmap_ax, legend={})
+    fig = heatmap_ax.get_figure()
+    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')  # inset axes
+    colorbar_ax = heatmap_ax.collections[0].colorbar.ax
+    fig.canvas.draw()
+    assert not legend_ax.get_window_extent().overlaps(colorbar_ax.get_window_extent())
