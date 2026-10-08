@@ -225,7 +225,7 @@ def text_offset(x, y, text, offsets=(0, -0.02), types=('data', 'ax'), units='poi
     return text_hndl
 
 
-def adjust_brightness(color, rate=1.0):
+def adjust_brightness(color, rate=1.0, include_alpha=False):
     """Lightens or darkens a color by transforming it to HLS space and scaling its 
     `lightness` property, keeping hue and saturation.
 
@@ -234,31 +234,26 @@ def adjust_brightness(color, rate=1.0):
         rate (float, optional): Multiplier for the lightness, which is clipped to [0, 1] afterwards.
             Values above 1 lighten the color, values between 0 and 1 darken it (0 gives black).
             Defaults to 1.0 (unchanged).
+        include_alpha (bool, optional): If True, the alpha of `color` (1 if it has none) is kept in the output
+            (#RRGGBBAA). Otherwise it is dropped (#RRGGBB). Defaults to False.
 
     Returns:
-        tuple: The adjusted color as an RGB tuple of floats in [0, 1].
+        str: The adjusted color as a hex string (e.g., '#800000'), rounded to 8 bits per channel.
 
     Example:
-        adjust_brightness('red', 0.5)  # (0.5, 0.0, 0.0), a darker red
-        adjust_brightness('red', 1.5)  # (1.0, 0.5, 0.5), a lighter red
+        adjust_brightness('red', 0.5)  # '#800000', a darker red
+        adjust_brightness('red', 1.5)  # '#ff8080', a lighter red
+        adjust_brightness((1, 0, 0, 0.5), 0.5, include_alpha=True)  # '#80000080'
     """
     # source: https://stackoverflow.com/a/49601444/1397843
-    import matplotlib.colors as mpl_colors
     import colorsys
 
-    # convert color name to RGB hex code, if needed
-    if color in mpl_colors.cnames:
-        color = mpl_colors.cnames[color]
+    red, green, blue, alpha = mpl_colors.to_rgba(color)
+    hue, lightness, saturation = colorsys.rgb_to_hls(red, green, blue)
 
-    # convert to HLS (hue, lightness, saturation)
-    color_hls = colorsys.rgb_to_hls(*mpl_colors.to_rgb(color))
-
-    # adjust lightness according to rate (while clipping between 0 and 1), and convert back to RGB
-    return colorsys.hls_to_rgb(
-        color_hls[0],
-        max(0, min(1, rate * color_hls[1])),
-        color_hls[2],
-    )
+    # scale the lightness (clipped to [0, 1]), then convert back to RGB
+    rgb = colorsys.hls_to_rgb(hue, max(0, min(1, rate * lightness)), saturation)
+    return mpl_colors.to_hex((*rgb, alpha), keep_alpha=include_alpha)
 
 
 def jitter(values, n_bins=10, max_spread=0.9, seed=None):
