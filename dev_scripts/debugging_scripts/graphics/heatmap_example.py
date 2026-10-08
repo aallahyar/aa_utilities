@@ -130,10 +130,10 @@ overlay_boxes(
 # increasing the background alpha to 0.9, and add no additional legend
 overlay_boxes(
     clsmap,
-    sizes=np.ones_like(corr_df) * 0.98,  # using the percentage of cells expressing the marker as box size
-    linewidths=np.full(shape=corr_df.shape, fill_value=1),  # black edge color for all boxes
-    facecolors=np.full(shape=corr_df.shape, fill_value='none'),  # transparent fill color for all boxes
-    edgecolors=np.full(shape=corr_df.shape, fill_value='#000000'),  # edge color based on marker status
+    sizes=0.98,  # a single value is applied to every cell
+    linewidths=1,
+    facecolors='none',  # transparent fill color for all boxes
+    edgecolors='#000000',
     background_alpha=0.9,
 )
 

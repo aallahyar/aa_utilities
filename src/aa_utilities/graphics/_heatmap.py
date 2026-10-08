@@ -20,6 +20,33 @@ def _rgba2hex(rgba_arr):
     )
 
 
+def _to_grid(value, shape, name, is_color=False):
+    """Broadcast a scalar (or, for colors, a single color) to `shape`, or validate an array that already has it.
+
+    Colors may also be arrays of shape `shape` or `shape + (n_channels,)`.
+    """
+    if is_color:
+        if mpl_colors.is_color_like(value):
+            if isinstance(value, str):
+                return np.full(shape, value)
+            return np.tile(mpl_colors.to_rgba(value), (*shape, 1))  # exact RGBA, no 8-bit rounding of a hex string
+        array = np.asarray(value)
+        if array.ndim in (2, 3) and array.shape[:2] == shape:
+            return array
+        expected = f'a single color or an array of shape {shape} (or {shape + (4,)})'
+    else:
+        try:
+            array = np.asarray(value, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'`{name}` must be numeric') from exc
+        if array.ndim == 0:
+            return np.full(shape, array)
+        if array.shape == shape:
+            return array
+        expected = f'a scalar or an array of shape {shape}'
+    raise ValueError(f'`{name}` must be {expected}, got {np.shape(value)}')
+
+
 def _resolve_legend_bins(sizes, bins):
     if np.ndim(bins) == 0:
         if not isinstance(bins, (int, np.integer)):
@@ -75,11 +102,9 @@ def _overlay_boxes(ax, heatmap_df, face_colors, sizes, box_kws):
     from matplotlib.collections import PatchCollection
 
     edgecolors = box_kws.get('edgecolors')
-    if edgecolors is None:
-        edgecolors = np.full(heatmap_df.shape, fill_value='none')  # no edge color
+    edgecolors = _to_grid('none' if edgecolors is None else edgecolors, heatmap_df.shape, 'edgecolors', is_color=True)
     linewidths = box_kws.get('linewidths')
-    if linewidths is None:
-        linewidths = np.ones(heatmap_df.shape, dtype=float) * 1.5
+    linewidths = _to_grid(1.5 if linewidths is None else linewidths, heatmap_df.shape, 'linewidths')
 
     # Dim the original heatmap mesh by setting its alpha to the specified background_alpha.
     background_alpha = box_kws.get('background_alpha', 0.1)
@@ -125,7 +150,7 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
     Args:
         ax: Axes to draw the legend into.
         ax_heat: The heatmap axes to match scale against.
-        sizes (np.ndarray): The per-cell sizes matrix (values in [0, 1]).
+        sizes (np.ndarray): The per-cell sizes matrix (typically in [0, 1]).
         legend_kws (dict): Configuration dict. Keys:
             - bins (int or array-like): Number of evenly spaced sizes or
               explicit values. Default: 4.
@@ -246,11 +271,13 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
 
     Args:
         matrix_df (pd.DataFrame): Data matrix.
-        box_kws (dict): Rectangle overlay configuration:
-            - sizes (np.ndarray): Per-cell box sizes in [0, 1].
+        box_kws (dict): Rectangle overlay configuration. Per-cell options accept either a full
+            matrix or a single value that is applied to every cell:
+            - sizes (float or np.ndarray): Per-cell box sizes. 1 fills a cell; values in [0, 1]
+              are recommended, but larger ones are allowed (boxes then overlap their neighbours).
               Default: 0.8 uniform.
-            - edgecolors (np.ndarray): Per-cell edge colors. Default: None.
-            - linewidths (np.ndarray): Per-cell border widths. Default: 1.5 uniform.
+            - edgecolors (color or np.ndarray): Per-cell edge colors. Default: none.
+            - linewidths (float or np.ndarray): Per-cell border widths. Default: 1.5 uniform.
             - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.1.
             - legend (dict): Marker legend config passed to
                             ``_draw_box_legend``. Omit the key or pass ``{}`` to draw the
@@ -305,7 +332,8 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
     # Overlay boxes
     n_rows, n_cols = matrix_df.shape
     face_colors = _extract_face_colors(heat_ax)
-    sizes = box_kws.get('sizes', np.ones((n_rows, n_cols)) * 0.8)
+    sizes = box_kws.get('sizes')
+    sizes = _to_grid(0.8 if sizes is None else sizes, (n_rows, n_cols), 'sizes')
     _overlay_boxes(heat_ax, matrix_df, face_colors, sizes, box_kws)
 
     # Draw marker legend
@@ -327,21 +355,23 @@ def overlay_boxes(
 ):
     """Overlay sized rectangles on an existing seaborn clustermap's heatmap.
 
+    The per-cell options (`sizes`, `facecolors`, `edgecolors`, `linewidths`) accept either a full
+    matrix in the **original** data order (pre-clustering), or a single value applied to every cell.
+
     Args:
         clustermap_obj: The ``ClusterGrid`` object returned by
             ``sns.clustermap()``.
-        sizes (np.ndarray, optional): Per-cell box sizes in [0, 1], in
-            **original** data order (pre-clustering).
+        sizes (float or np.ndarray, optional): Per-cell box sizes. 1 fills a cell; values in [0, 1]
+            are recommended, but larger ones are allowed (boxes then overlap their neighbours).
             Default: 0.8 uniform.
-        facecolors (np.ndarray, optional): Per-cell RGBA colors with shape either
-            `(n_rows, n_cols, 4)` or `(n_rows, n_cols)` in the original
-            data order.  If not provided, colors are extracted from the heatmap
-            mesh.  This is necessary if the heatmap was drawn with a custom colormap.
-        edgecolors (np.ndarray, optional): Per-cell edge colors in any valid
-            matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.), in **original**
-            data order.
+        facecolors (color or np.ndarray, optional): A single color, or per-cell RGBA colors with
+            shape either `(n_rows, n_cols, 4)` or `(n_rows, n_cols)`.  If not provided, colors are
+            extracted from the heatmap mesh.  This is necessary if the heatmap was drawn with a
+            custom colormap.
+        edgecolors (color or np.ndarray, optional): A single color, or per-cell edge colors in any
+            valid matplotlib format (e.g., '#RRGGBB', (r, g, b), etc.).
             Default: no (i.e., fully transparent) edge color.
-        linewidths (np.ndarray, optional): Per-cell border widths in **original** data order.
+        linewidths (float or np.ndarray, optional): Per-cell border widths.
             Default: 1.5 uniform.
         background_alpha (float): Heatmap mesh alpha after dimming.
             Default: 0.1.
@@ -382,9 +412,8 @@ def overlay_boxes(
         col_order = list(range(n_cols))
 
     # Reorder relevant data from original data order to the visual (clustered) order.
-    if sizes is None:
-        sizes = np.ones((n_rows, n_cols)) * 0.8
-    sizes = np.array(sizes)  # ensure it's a numpy array for indexing
+    shape = (n_rows, n_cols)
+    sizes = _to_grid(0.8 if sizes is None else sizes, shape, 'sizes')
     sizes_reordered = sizes[np.ix_(row_order, col_order)]
 
     if facecolors is None:
@@ -393,20 +422,13 @@ def overlay_boxes(
         facecolors_reordered = facecolors
     else:
         # Reorder from original data order to the visual (clustered) order.
-        facecolors = np.array(facecolors)
+        facecolors = _to_grid(facecolors, shape, 'facecolors', is_color=True)
         facecolors_reordered = facecolors[np.ix_(row_order, col_order)] # alternative to `facecolors[row_order, :][:, col_order]` approach
 
-    if edgecolors is None:
-        # default to no edge color
-        edgecolors = np.full((n_rows, n_cols), fill_value='none') # no edge color
-    edgecolors = np.asarray(edgecolors)  # ensure it's a numpy array for indexing
-    # Reorder edgecolors from original data order to the visual (clustered) order.
+    edgecolors = _to_grid('none' if edgecolors is None else edgecolors, shape, 'edgecolors', is_color=True)
     edgecolors_reordered = edgecolors[np.ix_(row_order, col_order)]
 
-    if linewidths is None:
-        linewidths = np.ones((n_rows, n_cols)) * 1.5
-    linewidths = np.asarray(linewidths, dtype=float)  # ensure it's a numpy array for indexing
-    # Reorder linewidths from original data order to the visual (clustered) order.
+    linewidths = _to_grid(1.5 if linewidths is None else linewidths, shape, 'linewidths')
     linewidths_reordered = linewidths[np.ix_(row_order, col_order)]
 
     box_kws = {
