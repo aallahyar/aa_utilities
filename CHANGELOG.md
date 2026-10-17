@@ -1,3 +1,11 @@
+## [0.0.54] - 2026-10-16
+### Added:
+- `graphics.links` now accepts `orient='vertical'|'horizontal'` (or `'v'|'h'`) to draw comparison links for horizontal boxplots/bars as well (bars grow rightward and expand the x-axis instead of the y-axis).
+- `graphics.links` returns more about what it placed: `LinkArtists` (now exported from `graphics`) carries `anchors`, `level`, `feet`, `bar_value` and `bar_top` next to the `line`/`text` artists, and `LinksResult` has `levels` and `orient`, so drawn elements can be identified and adjusted afterwards.
+- `graphics.links` accepts a 2-column DataFrame as `anchors` and a `pd.Series` as `bases`.
+### Changed:
+- **Breaking:** `graphics.links` arguments `x_lefts`/`x_rights` are replaced by a single `anchors` `(n, 2)` array-like, and `y_bases` is renamed to `bases`, as they are no longer always x/y. Everything after `texts` is keyword-only. `LinksResult.y_bases` is now `LinksResult.bases`, and `LinkArtists` is a dataclass with `y_top` renamed to `bar_value` (no longer unpackable as a tuple).
+
 ## [0.0.53] - 2026-10-08
 ### Added:
 - `graphics.draw_multilevel_ticks` draws the levels of a `MultiIndex` on the rows/columns of a heatmap (e.g., `sns.heatmap`, or a clustermap's heatmap), on the side where the tick labels are, instead of seaborn's flattened labels. It returns (and stores in `ax.multilevel_ticks`) the drawn texts and lines per level, so they can be restyled or removed.

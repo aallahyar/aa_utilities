@@ -19,8 +19,9 @@ def _to_native(value):
     return value.item() if hasattr(value, 'item') else value
 
 
-def _pixel_offset_to_data(ax, y_ref, offset, units='points'):
-    """Converts a fixed on-screen offset (added above `y_ref`) into a data-y coordinate.
+def _pixel_offset_to_data(ax, ref, offset, axis='y', units='points'):
+    """Converts a fixed on-screen offset (added to `ref`, along `axis`) into a data coordinate
+    on that same axis.
 
     `units='points'` is resolution-independent (a fixed physical size, e.g. 1/72 inch per
     point), so the same call produces a visually consistent gap regardless of the figure's
@@ -29,8 +30,12 @@ def _pixel_offset_to_data(ax, y_ref, offset, units='points'):
     """
     if ax is None:
         ax = plt.gca()
-    transform = mpl_transforms.offset_copy(ax.transData, y=offset, units=units, fig=ax.get_figure())
-    return _to_native(ax.transData.inverted().transform(transform.transform((0, y_ref)))[1])
+    is_y = axis == 'y'
+    offset_kwargs = {'y': offset} if is_y else {'x': offset}
+    transform = mpl_transforms.offset_copy(ax.transData, units=units, fig=ax.get_figure(), **offset_kwargs)
+    point = (ax.get_xlim()[0], ref) if is_y else (ref, ax.get_ylim()[0])  # other coordinate: any value inside the axis domain (0 is not on a log axis)
+    index = 1 if is_y else 0
+    return _to_native(ax.transData.inverted().transform(transform.transform(point))[index])
 
 
 def _bbox_to_data(ax, bbox):

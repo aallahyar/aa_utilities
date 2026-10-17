@@ -78,7 +78,7 @@ print(link_df.iloc[:5, :])
 # 4       4       7    6.9     goldenrod
 
 # ------- producing the Sankey plot -------
-node, link = build_sankey_data(node_df, link_df)
+node, link = build_sankey_data(link_df, node_df)
 # link['label'] = link_label   # build_sankey_data doesn't pass this column through, so add it manually
 
 fig = go.Figure(go.Sankey(

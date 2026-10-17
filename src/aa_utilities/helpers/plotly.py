@@ -1,12 +1,17 @@
 import pandas as pd
 
-def build_sankey_data(node_df: pd.DataFrame, link_df: pd.DataFrame) -> tuple[dict, dict]:
+def build_sankey_data(link_df: pd.DataFrame, node_df: pd.DataFrame = None) -> tuple[dict, dict]:
     """Turn a node table and a link table into the `node`/`link` dicts that
     `go.Sankey(node=..., link=...)` expects, so callers can work with
     human-readable, arbitrary node ids instead of manually managing the
     positional (0-based) indices Plotly requires.
 
     Args:
+        link_df: One row per flow, with columns:
+            - source, target (required): values that must exist in
+              `node_df['id']`; define which nodes each flow connects.
+            - value (required): flow size; controls the link's band thickness.
+            - color (optional): per-link color (name or hex string).
         node_df: One row per node, with columns:
             - id (required): arbitrary, unique, hashable key (int, str, ...)
               used to reference this node from `link_df['source']`/`['target']`.
@@ -21,11 +26,9 @@ def build_sankey_data(node_df: pd.DataFrame, link_df: pd.DataFrame) -> tuple[dic
               in the `[0, 1]` plot area. Plotly rejects values of exactly 0
               or 1, so nudge those to e.g. 0.001/0.999 before calling this.
               Omit both columns to let Plotly auto-arrange nodes.
-        link_df: One row per flow, with columns:
-            - source, target (required): values that must exist in
-              `node_df['id']`; define which nodes each flow connects.
-            - value (required): flow size; controls the link's band thickness.
-            - color (optional): per-link color (name or hex string).
+            If `node_df` is omitted, its rows are inferred from `link_df['source']`/`['target']`:
+            sources first, then the remaining targets, each in order of first appearance,
+            with `label` defaulting to `str(id)` and no `color`/`x`/`y`.
 
     Returns:
         (node, link) dict pair suitable for `go.Sankey(node=node, link=link)`
@@ -36,6 +39,10 @@ def build_sankey_data(node_df: pd.DataFrame, link_df: pd.DataFrame) -> tuple[dic
         ValueError: if `node_df['id']` has duplicates, or `link_df['source']`/
             `['target']` references an id not present in `node_df['id']`.
     """
+
+    if node_df is None:
+        ids = pd.concat([link_df['source'], link_df['target']]).drop_duplicates(ignore_index=True)
+        node_df = pd.DataFrame({'id': ids, 'label': ids.astype(str)})
 
     if node_df['id'].duplicated().any():
         dupes = node_df.loc[node_df['id'].duplicated(), 'id'].tolist()

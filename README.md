@@ -38,14 +38,20 @@ The further details about this is explained [here](https://stackoverflow.com/que
 ## How to use
 
 #### `links`:
-Draws one or more comparison "links" (a bracket connecting two x-positions with a text, e.g.
-a p-value, above it), automatically packing overlapping ones onto separate vertical levels so
-a link's bar always clears any position/link it spans over, and expanding the y-axis at most
-once to fit them all. `x_left`, `x_right`, and `text` are array-likes with one entry per link.
-`y_bases` is an optional mapping from x-position to its real starting height - positions you
-don't list default to the current axis top. The level packing (and its results) don't depend
-on the order links are given in; pass `auto_order=False` to assign levels using the given
-input order instead of the narrowest-span-first packing.
+Draws one or more comparison "links" (a bracket connecting two positions with a text, e.g.
+a p-value, next to it), automatically packing overlapping ones onto separate levels so
+a link's bar always clears any position/link it spans over, and expanding the value axis at
+most once to fit them all. `anchors` is an `(n, 2)` array-like (list of pairs, array, or
+2-column DataFrame) with the two positions each link connects, and `texts` has one entry per
+link. `bases` is an optional mapping (or Series) from position to its real starting value -
+positions you don't list default to the current axis boundary in the direction the brackets
+grow. The level packing (and its results) don't depend on the order links are given in; pass
+`auto_order=False` to assign levels using the given input order instead of the
+narrowest-span-first packing. Pass `orient='horizontal'` (or `'h'`) for horizontal
+boxplots/bars: `anchors`/`bases` are then interpreted along the y/x axes respectively, and the
+brackets grow rightward, expanding the x-axis instead of the y-axis. The returned result lists,
+for every link, its `line` and `text` artists plus its `level`, `feet`, `bar_value` and
+`bar_top`, so the drawn elements can be found and restyled afterwards.
 
 **Example**:
 ```python
@@ -55,12 +61,12 @@ fig = plt.figure()
 ax = fig.gca()
 ax.boxplot(x=[range(100), range(40, 140)], positions=[0, 1])
 result = links(
-    x_lefts=[0],
-    x_rights=[1],
+    anchors=[(0, 1)],
     texts=['test p-value = string'],
-    y_bases={0: 130, 1: 150},
+    bases={0: 130, 1: 150},
     ax=ax,
 )
+result.links[0].text.set_color('red')  # restyle a drawn element afterwards
 plt.show()
 ```
 
