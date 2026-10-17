@@ -13,18 +13,109 @@ from rpy2.robjects import (
     numpy2ri,
     pandas2ri,
 )
-from rpy2.rinterface_lib import callbacks as rpy2_callbacks
 
 logger = logging.getLogger(__name__)
 
+# Name of the hidden R closure (defined once per instance by `RSpace.__init__`) that runs a
+# snippet and reports its outcome plus every warning/message it raised, see `RSpace.__call__`.
+# `withCallingHandlers` + `invokeRestart` record each condition's full text (no console
+# truncation/line-wrapping) and muffle it so R's own default handler never re-prints it; the
+# `tryCatch` around it means an R error never escapes as a raw rpy2 exception, it's reported
+# back as structured data (`status`/`error`) instead, alongside any warnings/messages raised
+# before it. This changes nothing about the computation itself: `eval(parse(text=.code), ...)`
+# runs in `globalenv()` exactly like `ro.r(code)` already does, and muffling a warning only
+# skips R's console print of it (warnings/messages never affect a function's return value).
+# `withVisible()` replicates `ro.r()`'s own `invisible=True` default (e.g. `x <- 1` reports a
+# NULL value here, same as plain `ro.r("x <- 1")` returns `None`) -- without it, wrapping the
+# result in `list(value = ...)` would make every result "visible" and change that behavior.
+_RUNNER_NAME = '.aa_utilities_run'
+_RUNNER_SOURCE = r"""
+.aa_utilities_run <- function(.code) {
+    .collector <- new.env(parent = emptyenv())
+    .collector$warnings <- list()
+    .collector$messages <- list()
+
+    .record <- function(.cond, .bucket) {
+        .call <- conditionCall(.cond)
+        .entry <- list(
+            message = conditionMessage(.cond),
+            call = if (is.null(.call)) NULL else paste(deparse(.call), collapse = " "),
+            classes = class(.cond)
+        )
+        .collector[[.bucket]] <- c(.collector[[.bucket]], list(.entry))
+    }
+
+    .outcome <- tryCatch(
+        withCallingHandlers(
+            {
+                .visible <- withVisible(eval(parse(text = .code), envir = globalenv()))
+                list(status = "ok", value = if (.visible$visible) .visible$value else NULL, error = NULL)
+            },
+            warning = function(w) { .record(w, "warnings"); invokeRestart("muffleWarning") },
+            message = function(m) { .record(m, "messages"); invokeRestart("muffleMessage") }
+        ),
+        error = function(e) {
+            .call <- conditionCall(e)
+            list(
+                status = "error",
+                value = NULL,
+                error = list(
+                    message = conditionMessage(e),
+                    call = if (is.null(.call)) NULL else paste(deparse(.call), collapse = " "),
+                    classes = class(e)
+                )
+            )
+        }
+    )
+    .outcome$warnings <- .collector$warnings
+    .outcome$messages <- .collector$messages
+    .outcome
+}
+"""
+
+
+def _as_classes(value) -> tuple:
+    """Normalizes a converted R `class(...)` vector (str, list, or pd.Series) into a tuple of str."""
+    if value is None:
+        return ()
+    if isinstance(value, (list, tuple, pd.Series, np.ndarray)):
+        return tuple(value)
+    return (value,)
+
 
 @dataclass(frozen=True)
-class RWarning:
-    """A single warning raised by R, with the snippet that triggered it."""
+class _RCondition:
+    """Shared shape for a single structured R condition, with the snippet that raised it."""
 
     timestamp: datetime
     snippet: str
     message: str
+    call: str | None = None
+    classes: tuple[str, ...] = ()
+
+    def __repr__(self):
+        snippet = ' '.join(self.snippet.split())[:20]
+        return f"[{self.timestamp:%H:%M:%S}] {snippet} | {self.message.strip()} "
+
+
+class RWarning(_RCondition):
+    """A single warning raised by R, with the snippet that triggered it."""
+
+
+class RMessage(_RCondition):
+    """A single `message()` emitted by R, with the snippet that triggered it."""
+
+
+class RError(RuntimeError):
+    """An error raised by R, carrying its structured condition (message/call/classes)."""
+
+    def __init__(self, message: str, snippet: str = '', call: str | None = None, classes: tuple[str, ...] = ()):
+        super().__init__(message)
+        self.timestamp = datetime.now()
+        self.snippet = snippet
+        self.message = message
+        self.call = call
+        self.classes = classes
 
     def __repr__(self):
         snippet = ' '.join(self.snippet.split())[:20]
@@ -68,7 +159,11 @@ class RSpace:
         self.logger = logger
         self.ipython_loaded = ipython
         self.warnings: list[RWarning] = []  # append-only log of captured R warnings, see `capture_warnings()`
-        self._current_snippet = None
+        self.messages: list[RMessage] = []  # append-only log of captured R messages, see `capture_messages()`
+
+        # defines (or harmlessly redefines) the hidden runner closure used by `__call__`
+        ro.r(_RUNNER_SOURCE)
+        self._runner = ro.globalenv[_RUNNER_NAME]
 
         # loads IPython extension: https://rpy2.github.io/doc/latest/html/interactive.html#usage
         if ipython:
@@ -263,6 +358,10 @@ class RSpace:
         """Discard all warnings captured so far."""
         self.warnings = []
 
+    def clear_messages(self):
+        """Discard all messages captured so far."""
+        self.messages = []
+
     @contextmanager
     def capture_warnings(self):
         """Collect the `RWarning`s raised by any R() calls made inside this block.
@@ -282,32 +381,77 @@ class RSpace:
         finally:
             captured.extend(self.warnings[n_past_warnings:])
 
-    def __call__(self, r_snippet, convert=True):
-        n_past_warnings = len(self.warnings)
-        self._current_snippet = r_snippet
-
-        # run the R script and capture warnings
-        previous_warn_handler = rpy2_callbacks.consolewrite_warnerror
-        rpy2_callbacks.consolewrite_warnerror = self.r_warn_handler  # Override the default warning/error writer
+    @contextmanager
+    def capture_messages(self):
+        """Collect the `RMessage`s raised by any R() calls made inside this block. Mirrors `capture_warnings()`."""
+        n_past_messages = len(self.messages)
+        captured = []
         try:
-            returned_object = ro.r(r_snippet)
+            yield captured
+        finally:
+            captured.extend(self.messages[n_past_messages:])
+
+    def __call__(self, r_snippet, convert=True):
+        """Runs `r_snippet` in R (in `globalenv()`, exactly like plain `ro.r(code)`) and returns its value.
+
+        Every warning and `message()` call raised while running it is captured as a structured
+        `RWarning`/`RMessage` (full, untruncated message text; one entry per condition, no matter
+        how many lines its message spans) and appended to `self.warnings`/`self.messages` -
+        including repeats, and including ones raised before an eventual error. An R error is
+        raised here as an `RError`, carrying the same structured `message`/`call`/`classes` fields.
+        """
+        try:
+            wrapped = self._runner(ro.StrVector([r_snippet]))
         except Exception as e:
-            raise RuntimeError(f'R execution failed: {e}')
-        finally:  # Ensure that we restore the original warning handler even if an error occurs
-            rpy2_callbacks.consolewrite_warnerror = (
-                previous_warn_handler  # Restore the original warning handler after execution
+            raise RuntimeError(f'R execution failed unexpectedly: {e}') from e
+
+        fields = {name: position for position, name in enumerate(self._r_names(wrapped))}
+        timestamp = datetime.now()
+
+        new_warnings = self._r_to_py(wrapped[fields['warnings']]) or []
+        self.warnings.extend(
+            RWarning(
+                timestamp=timestamp,
+                snippet=r_snippet,
+                message=entry['message'],
+                call=entry.get('call'),
+                classes=_as_classes(entry.get('classes')),
             )
-            self._current_snippet = None
+            for entry in new_warnings
+        )
+        if new_warnings:
+            self.logger.warning(
+                '%d warning(s) issued during execution. Check `self.warnings` for details.', len(new_warnings)
+            )
 
-        if len(self.warnings) != n_past_warnings:  # If new warnings were issued, log it
-            self.logger.warning('Warning(s) issued during execution. Check `self.warnings` for details.')
+        new_messages = self._r_to_py(wrapped[fields['messages']]) or []
+        self.messages.extend(
+            RMessage(
+                timestamp=timestamp,
+                snippet=r_snippet,
+                message=entry['message'].rstrip('\n'),  # message() always appends a trailing newline
+                call=entry.get('call'),
+                classes=_as_classes(entry.get('classes')),
+            )
+            for entry in new_messages
+        )
 
+        if self._r_to_py(wrapped[fields['status']]) == 'error':
+            error = self._r_to_py(wrapped[fields['error']])
+            raise RError(
+                message=error['message'],
+                snippet=r_snippet,
+                call=error.get('call'),
+                classes=_as_classes(error.get('classes')),
+            )
+
+        value = wrapped[fields['value']]
         if convert:
             try:
-                return self._r_to_py(returned_object)
+                return self._r_to_py(value)
             except Exception as e:
                 raise RuntimeError(f'Failed to convert the returned object to Python: {e}.') from e
-        return returned_object
+        return value
 
     def __repr__(self):
         var_infos = []
@@ -348,9 +492,3 @@ class RSpace:
     @classmethod
     def as_lines(cls, strings: list):
         return '\n'.join(map(str, strings))
-
-    # capturing R warnings in a Python list
-    def r_warn_handler(self, warning):
-        r_warning = RWarning(timestamp=datetime.now(), snippet=self._current_snippet or '', message=str(warning))
-        self.warnings.append(r_warning)
-        # self.logger.warning(repr(r_warning))  # Optional: still print it to console

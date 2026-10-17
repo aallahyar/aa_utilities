@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    from aa_utilities.wrappers import RSpace  # noqa: F401  (availability probe; the `rspace` fixture is in conftest.py)
+    from aa_utilities.wrappers import RSpace, RWarning, RMessage, RError  # noqa: F401  (availability probe; the `rspace` fixture is in conftest.py)
 
     RSPACE_AVAILABLE = True
 except Exception:
@@ -484,3 +484,99 @@ def test_list_of_dataframes_roundtrip(rspace, two_dataframes):
     assert len(out) == 2
     _assert_df_values_equal(out[0], df1)
     _assert_df_values_equal(out[1], df2)
+
+
+# ----- Warnings / messages / errors -----
+
+
+@requires_rspace
+def test_multiline_warning_is_a_single_entry(rspace):
+    rspace('warning("first line\nsecond line\nthird line")')
+    assert len(rspace.warnings) == 1
+    assert rspace.warnings[0].message == 'first line\nsecond line\nthird line'
+
+
+@requires_rspace
+def test_repeated_identical_warnings_are_each_recorded(rspace):
+    rspace('warning("same message"); warning("same message")')
+    assert len(rspace.warnings) == 2
+    assert [w.message for w in rspace.warnings] == ['same message', 'same message']
+
+
+@requires_rspace
+def test_warning_call_reflects_the_raising_function(rspace):
+    rspace('f <- function(x) { warning("oops"); x }; f(10)')
+    assert rspace.warnings[-1].call == 'f(10)'
+    assert 'warning' in rspace.warnings[-1].classes
+
+
+@requires_rspace
+def test_suppress_warnings_is_respected(rspace):
+    rspace.clear_warnings()
+    rspace('suppressWarnings(warning("should not be recorded"))')
+    assert rspace.warnings == []
+
+
+@requires_rspace
+def test_message_is_captured_separately_from_warnings(rspace):
+    rspace.clear_warnings()
+    rspace.clear_messages()
+    rspace('message("hello\nsecond line")')
+    assert rspace.warnings == []
+    assert len(rspace.messages) == 1
+    assert rspace.messages[0].message == 'hello\nsecond line'  # trailing message() newline is stripped
+
+
+@requires_rspace
+def test_warnings_before_an_error_are_still_recorded(rspace):
+    rspace.clear_warnings()
+    with pytest.raises(RError):
+        rspace('warning("before the error"); stop("boom")')
+    assert len(rspace.warnings) == 1
+    assert rspace.warnings[0].message == 'before the error'
+
+
+@requires_rspace
+def test_error_raises_rerror_with_structured_fields(rspace):
+    with pytest.raises(RError) as excinfo:
+        rspace('stop("custom failure message")')
+    error = excinfo.value
+    assert isinstance(error, RuntimeError)
+    assert error.message == 'custom failure message'
+    assert 'error' in error.classes
+
+
+@requires_rspace
+def test_error_message_is_not_truncated(rspace):
+    long_message = 'x' * 2000
+    with pytest.raises(RError) as excinfo:
+        rspace(f'stop("{long_message}")')
+    assert excinfo.value.message == long_message
+
+
+@requires_rspace
+def test_capture_warnings_still_slices_correctly(rspace):
+    rspace.clear_warnings()
+    rspace('warning("outside the block")')
+    with rspace.capture_warnings() as warnings:
+        rspace('warning("inside the block 1")')
+        rspace('warning("inside the block 2")')
+    assert [w.message for w in warnings] == ['inside the block 1', 'inside the block 2']
+
+
+@requires_rspace
+def test_wrapper_does_not_alter_the_computed_value(rspace):
+    from rpy2 import robjects as ro
+
+    code = 'set.seed(123); x <- rnorm(200); y <- 2 * x + rnorm(200, sd = 0.5); unname(coef(lm(y ~ x)))'
+    direct = np.array(list(ro.r(code)))
+    via_rspace = np.array(rspace(code))
+    assert np.array_equal(direct, via_rspace)
+
+
+@requires_rspace
+def test_invisible_assignment_still_returns_none(rspace):
+    # matches plain `ro.r()`'s own `invisible=True` default, see `_RUNNER_SOURCE`
+    assert rspace('some_var <- 1') is None
+    assert rspace('invisible(42)') is None
+    assert rspace('42') == pytest.approx(42.0)
