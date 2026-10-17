@@ -1,34 +1,46 @@
 import pandas as pd
 
+# Plotly rejects node positions of exactly 0 or 1
+_POSITION_MIN, _POSITION_MAX = 0.001, 0.999
+
+
+def _as_lists(df: pd.DataFrame, exclude=()) -> dict:
+    return {column: df[column].tolist() for column in df.columns if column not in exclude}
+
+
 def build_sankey_data(link_df: pd.DataFrame, node_df: pd.DataFrame = None) -> tuple[dict, dict]:
-    """Turn a node table and a link table into the `node`/`link` dicts that
+    """Turn a link table and a node table into the `link`/`node` dicts that
     `go.Sankey(node=..., link=...)` expects, so callers can work with
     human-readable, arbitrary node ids instead of manually managing the
     positional (0-based) indices Plotly requires.
+
+    Only the columns that need translating are treated specially (`id`, `source`,
+    `target`). Every other column is forwarded, as a list, under its own name, so any
+    per-node/per-link Plotly attribute works (`label`, `color`, `x`, `y`, `customdata`,
+    `hovertemplate`, ...). Plotly rejects names it does not know, so select the columns
+    you want before calling.
 
     Args:
         link_df: One row per flow, with columns:
             - source, target (required): values that must exist in
               `node_df['id']`; define which nodes each flow connects.
             - value (required): flow size; controls the link's band thickness.
-            - color (optional): per-link color (name or hex string).
+            - any other per-link attribute, e.g. `color` (name or hex string) or `label`.
         node_df: One row per node, with columns:
-            - id (required): arbitrary, unique, hashable key (int, str, ...)
+            - id (required): arbitrary, unique, hashable key (int, str, tuple, ...)
               used to reference this node from `link_df['source']`/`['target']`.
               Row order in `node_df` determines the 0-based position each id
               is mapped to (i.e. node order as passed to `go.Sankey`).
-            - label (required): text displayed on/for the node. Unlike `id`,
+              It is not forwarded to Plotly.
+            - label: text displayed on/for the node. Unlike `id`,
               this does not need to be unique (e.g. two nodes can both be
               labeled "Other").
-            - color (optional): per-node fill color (name or hex string).
-              Omit the column entirely to let Plotly pick colors.
-            - x, y (optional, both required together): manual node position
-              in the `[0, 1]` plot area. Plotly rejects values of exactly 0
-              or 1, so nudge those to e.g. 0.001/0.999 before calling this.
-              Omit both columns to let Plotly auto-arrange nodes.
+            - x, y: manual node position in the `[0, 1]` plot area. Values outside
+              (0, 1) are clipped to 0.001/0.999, because Plotly rejects exactly 0 or 1.
+            - any other per-node attribute, e.g. `color`.
             If `node_df` is omitted, its rows are inferred from `link_df['source']`/`['target']`:
             sources first, then the remaining targets, each in order of first appearance,
-            with `label` defaulting to `str(id)` and no `color`/`x`/`y`.
+            with `label` defaulting to `str(id)`.
 
     Returns:
         (node, link) dict pair suitable for `go.Sankey(node=node, link=link)`
@@ -36,9 +48,12 @@ def build_sankey_data(link_df: pd.DataFrame, node_df: pd.DataFrame = None) -> tu
         as needed).
 
     Raises:
-        ValueError: if `node_df['id']` has duplicates, or `link_df['source']`/
-            `['target']` references an id not present in `node_df['id']`.
+        ValueError: if `link_df` has no `value` column, if `node_df['id']` has duplicates, or
+            `link_df['source']`/`['target']` references an id not present in `node_df['id']`.
     """
+
+    if 'value' not in link_df:
+        raise ValueError("link_df needs a 'value' column")
 
     if node_df is None:
         ids = pd.concat([link_df['source'], link_df['target']]).drop_duplicates(ignore_index=True)
@@ -63,19 +78,14 @@ def build_sankey_data(link_df: pd.DataFrame, node_df: pd.DataFrame = None) -> tu
     if len(unknown) > 0:
         raise ValueError(f"link_df references unknown node id(s): {list(unknown)}")
 
-    node = dict(label=node_df['label'].tolist())
-    if 'color' in node_df:
-        node['color'] = node_df['color'].tolist()
-    if {'x', 'y'}.issubset(node_df.columns):
-        node['x'] = node_df['x'].tolist()
-        node['y'] = node_df['y'].tolist()
+    node = _as_lists(node_df, exclude=('id',))
+    for axis in ('x', 'y'):
+        if axis in node_df:
+            node[axis] = node_df[axis].clip(_POSITION_MIN, _POSITION_MAX).tolist()
 
-    link = dict(
+    link = _as_lists(link_df, exclude=('source', 'target')) | dict(
         source=source_pos.astype(int).tolist(),
         target=target_pos.astype(int).tolist(),
-        value=link_df['value'].tolist(),
     )
-    if 'color' in link_df:
-        link['color'] = link_df['color'].tolist()
 
     return node, link

@@ -23,9 +23,7 @@ x = [0.12, 0.12, 0.12, 0.25, 0.30, 0.35, 0.35, 0.5, 0.6, 0.6, 0.7, 0.7, 0.7, 0.7
      0.90, 0.90, 0.90, 0.90, 0.90, 0.90]
 y = [0.20, 0.42, 0.55, 0.70, 0.85, 0.95, 0.30, 0.40, 0.25, 0.70, 0.1, 0.40, 0.75, 0.90,
      0.0, 0.15, 0.30, 0.45, 0.60, 0.75]
-# Plotly rejects x/y values of exactly 0 or 1, so nudge them just inside the valid range.
-clamp = lambda v: 0.001 if v == 0 else 0.999 if v == 1 else v
-x, y = [clamp(v) for v in x], [clamp(v) for v in y]
+# `build_sankey_data` clips x/y of exactly 0 or 1 just inside the valid range, as Plotly rejects them.
 
 # Flow endpoints — one entry per link, each referencing a node_df['id'] value (see below).
 source = [0, 1, 2, 3, 4, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 10, 11, 11, 11]
@@ -41,6 +39,7 @@ link_color = ['LightSkyBlue', 'LightSkyBlue', 'LightSkyBlue', 'goldenrod', 'gold
               'PaleVioletRed', 'PaleVioletRed', 'PaleVioletRed']
 
 # Optional short per-link text (distinct from hover), referenced via '%{label}' in link.hovertemplate.
+# Any extra link_df/node_df column is forwarded to Plotly under its own name, so a 'label' column works.
 # link_label = ['Ad Revenue', 'Ad Revenue', 'Ad Revenue', 'Revenue', 'Revenue', 'Revenue', 'Revenue',
 #               'Gross Profit', 'Cost of Revenues', 'Operating Profit', 'Operating Expenses',
 #               'TAC', 'Others', 'Net Profit', 'Tax', 'Other', 'R&D', 'S&M', 'G&A']
@@ -79,7 +78,6 @@ print(link_df.iloc[:5, :])
 
 # ------- producing the Sankey plot -------
 node, link = build_sankey_data(link_df, node_df)
-# link['label'] = link_label   # build_sankey_data doesn't pass this column through, so add it manually
 
 fig = go.Figure(go.Sankey(
     textfont=dict(color='#000000', size=5),
@@ -118,4 +116,45 @@ fig.show() # open the interactive Sankey diagram in the default web browser
 
 # Image export requires the Kaleido package: pip install --upgrade "kaleido>=1"
 # fig.write_image("plotly_sankey_demo.pdf", width=1600, height=1000, scale=2)  # scale = 2x for high-DPI when an image is rendered
+
+
+# ------- recipe: longitudinal (tall) data, one column per timepoint -------
+# One row per subject and visit; some visits are missing. The same group at two visits are two different nodes,
+# so node ids are (visit, group) tuples.
+tall = pd.DataFrame({
+    'subject': ['subj0', 'subj1', 'subj1', 'subj2', 'subj2', 'subj3', 'subj3'],
+    'group':   ['grpB', 'grpA', 'grpA', 'grpA', 'grpB', 'grpA', 'grpB'],
+    'visit':   ['w4', 'baseline', 'w4', 'baseline', 'w4', 'baseline', 'w12'],
+})
+visits = ['baseline', 'w4', 'w12']  # visits don't sort alphabetically
+
+# subject x visit table of groups (pivot raises if a subject has two rows at a visit); a missing visit becomes its own state
+wide = (
+    tall
+    .pivot(index='subject', columns='visit', values='group')
+    .reindex(columns=visits)
+    .fillna('Missing')
+)
+
+# count the subjects moving between each pair of consecutive visits
+link_df = pd.concat(
+    wide
+    .groupby([v1, v2]).size().rename('value').reset_index() # count the subjects moving between each pair of consecutive visits
+    .set_axis(['source', 'target', 'value'], axis=1) # rename the columns to the expected Sankey format
+
+    # generate source/target IDs; can be string or tuple (this case)
+    .assign(source=lambda d: [(v1, s) for s in d['source']], target=lambda d: [(v2, s) for s in d['target']])
+    for v1, v2 in zip(visits[:-1], visits[1:])
+)
+print(link_df)
+
+# optional: inferred if not provided; sources nodes come first, so the nodes are already ordered visit by visit; Plotly puts each visit in its own column
+node_ids = pd.concat([link_df['source'], link_df['target']]).drop_duplicates(ignore_index=True)
+node_df = pd.DataFrame({'id': node_ids, 'label': [group for _, group in node_ids]})
+print(node_df)
+
+node, link = build_sankey_data(link_df, node_df)
+
+fig = go.Figure(go.Sankey(node=dict(pad=20, thickness=20, **node), link=link))
+fig.show()
 # fig.write_html("plotly_sankey_demo.html") # an interactive, self-contained file 

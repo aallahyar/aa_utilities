@@ -3,7 +3,9 @@
 - `graphics.links` now accepts `orient='vertical'|'horizontal'` (or `'v'|'h'`) to draw comparison links for horizontal boxplots/bars as well (bars grow rightward and expand the x-axis instead of the y-axis).
 - `graphics.links` returns more about what it placed: `LinkArtists` (now exported from `graphics`) carries `anchors`, `level`, `feet`, `bar_value` and `bar_top` next to the `line`/`text` artists, and `LinksResult` has `levels` and `orient`, so drawn elements can be identified and adjusted afterwards.
 - `graphics.links` accepts a 2-column DataFrame as `anchors` and a `pd.Series` as `bases`.
+- `helpers.plotly.build_sankey_data` forwards every other column of `link_df`/`node_df` to Plotly under its own name (e.g. link `label`/`customdata`, node `hovertemplate`), and clips node `x`/`y` into (0, 1) as Plotly rejects exactly 0 or 1. `node_df` is optional: nodes are then inferred from `link_df` (sources first, then targets, by first appearance).
 ### Changed:
+- **Breaking:** `helpers.plotly.build_sankey_data` now takes `(link_df, node_df=None)` (arguments swapped), no longer requires `label`, and no longer ignores unknown columns: Plotly rejects names it does not know, so select the columns to pass.
 - **Breaking:** `graphics.links` arguments `x_lefts`/`x_rights` are replaced by a single `anchors` `(n, 2)` array-like, and `y_bases` is renamed to `bases`, as they are no longer always x/y. Everything after `texts` is keyword-only. `LinksResult.y_bases` is now `LinksResult.bases`, and `LinkArtists` is a dataclass with `y_top` renamed to `bar_value` (no longer unpackable as a tuple).
 
 ## [0.0.53] - 2026-10-08
