@@ -77,7 +77,7 @@ print(link_df.iloc[:5, :])
 # 4       4       7    6.9     goldenrod
 
 # ------- producing the Sankey plot -------
-node, link = build_sankey_data(link_df, node_df)
+link, node = build_sankey_data(link_df, node_df)
 
 fig = go.Figure(go.Sankey(
     textfont=dict(color='#000000', size=5),
@@ -153,7 +153,7 @@ node_ids = pd.concat([link_df['source'], link_df['target']]).drop_duplicates(ign
 node_df = pd.DataFrame({'id': node_ids, 'label': [group for _, group in node_ids]})
 print(node_df)
 
-node, link = build_sankey_data(link_df, node_df)
+link, node = build_sankey_data(link_df, node_df)
 
 fig = go.Figure(go.Sankey(node=dict(pad=20, thickness=20, **node), link=link))
 fig.show()

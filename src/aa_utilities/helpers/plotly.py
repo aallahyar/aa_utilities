@@ -43,7 +43,7 @@ def build_sankey_data(link_df: pd.DataFrame, node_df: pd.DataFrame = None) -> tu
             with `label` defaulting to `str(id)`.
 
     Returns:
-        (node, link) dict pair suitable for `go.Sankey(node=node, link=link)`
+        (link, node) dict pair suitable for `go.Sankey(link=link, node=node)`
         (merge in extra display kwargs like `pad`/`thickness`/`hovertemplate`
         as needed).
 
@@ -88,4 +88,4 @@ def build_sankey_data(link_df: pd.DataFrame, node_df: pd.DataFrame = None) -> tu
         target=target_pos.astype(int).tolist(),
     )
 
-    return node, link
+    return link, node

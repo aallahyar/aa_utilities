@@ -1,5 +1,7 @@
+
 ## [0.0.55] - 2026-10-17
 ### Changed:
+- **Breaking:** `helpers.plotly.build_sankey_data` now returns `(link, node)` instead of `(node, link)`, matching its `(link_df, node_df)` argument order.
 - `RSpace` no longer captures warnings/errors by scraping R's console text (which could split one multi-line warning into several entries, and conflated warnings with errors). It now runs every snippet through a hidden R closure that uses `withCallingHandlers`/`tryCatch` to capture each condition as structured data (full, untruncated `message`, `call`, and `classes`) - repeated identical warnings are still each recorded individually. This is a transparent change: the snippet still runs via `eval(parse(text=...), envir=globalenv())` exactly like plain `ro.r()`, including its invisible-result semantics (e.g. `x <- 1` still returns `None`), and the actual computed values are unaffected (verified bit-for-bit against direct `rpy2` calls).
 - An R error now raises `RError` (a `RuntimeError` subclass carrying `message`/`call`/`classes`) instead of a generic `RuntimeError` built from `rpy2`'s flat error string. Any warnings/messages raised before the error are still recorded in `self.warnings`/`self.messages`.
 ### Added:
