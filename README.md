@@ -98,4 +98,5 @@ ruff check .
 
 ## Future developments (TODOs):
 - Implementing gene module detection. Details are [described here](./src/aa_utilities/computation/gene_module_detection.md).
-- A text positioning utility for annotations in `matplotlib` plots, that works better than the existing approaches
+- A text positioning utility for annotations in `matplotlib` plots, that works better than the existing approaches. Some early ideas are [described here](/Users/kxsj048/astrazeneca/projects/auxiliary/text_repel/).
+- An RNA-seq simulator. Details are described in [this document](./src/aa_utilities/computation/rna_seq_simulator.md).
