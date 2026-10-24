@@ -572,3 +572,158 @@ The simulator should be built around the following conceptual components:
 
 The most important requirement is that every generated count should be traceable to known simulation parameters. This will make it possible to determine whether a downstream method failed because of low power, dispersion, confounding, normalization, or incorrect model specification.
 
+# 20. Decision record: adopting powsimR as the simulation engine
+
+## 20.1 Decision
+
+We will use **powsimR** (R) as the core engine for count simulation and power
+analysis, instead of building the custom simulator specified in Sections 1-19.
+Python remains the orchestration layer (via `rpy2` or subprocess/CLI calls).
+The custom design in this document is retained as a **fallback specification**.
+
+## 20.2 Context
+
+- Primary goals: power analysis, DE benchmarking, and (secondarily)
+  confounder-adjustment testing.
+- Audience: internal methods work.
+- The analysis is a one-off, with thousands of replicates; computational cost
+  is not a major concern.
+- Confounders and a continuous covariate were rated as nice-to-have.
+- Comfortable calling R from Python.
+
+## 20.3 Why powsimR
+
+- **Parameter estimation from real data**: mean, dispersion, and library-size
+  distributions are estimated from a user-supplied count matrix, which reduces
+  reliance on invented parametric assumptions.
+- **Built-in power workflow**: simulation, DE testing, and power/FDR
+  evaluation across sample sizes are integrated.
+- **Ground truth is preserved**: DE status and log fold changes are injected
+  by the simulator, so truth is known even though nuisance parameters come
+  from real data.
+- **Established method**: reduces the need to validate a custom generator.
+
+## 20.4 Pros
+
+- Much less development and validation effort than a custom simulator
+- Realistic mean-dispersion structure from real data
+- Direct support for power across sample sizes and effect sizes
+- Wraps common DE tools, enabling method comparison
+
+## 20.5 Cons and limitations
+
+- **Two-group focus**: multi-condition designs (e.g., control, case_1, case_2)
+  are not directly supported. Workaround: run each case versus control
+  separately.
+- **Limited confounder support**: designed batch/gender/age confounding with
+  per-gene confounder truth is not provided out of the box.
+- **R dependency**: requires R, Bioconductor, and interop with Python.
+- **Output reshaping**: results are R objects and must be converted to the
+  three target tables (counts, gene metadata, sample metadata).
+- **Version sensitivity**: the API has changed across releases; pin versions.
+- **Independent genes**: no gene-gene correlation, which can make FDR look
+  optimistic compared with real data.
+
+## 20.6 Triggers to revisit this decision
+
+Reconsider a custom simulator (Sections 1-19) if any of the following
+becomes a hard requirement:
+
+1. Multi-condition designs analyzed jointly
+2. Designed confounding with controlled association strength
+3. A continuous covariate with a known per-gene effect
+4. Composition effects or gene-gene correlation
+
+## 20.7 Validation checklist
+
+- Confirm null simulations give a false-positive rate near the nominal level
+- Confirm injected log fold changes are recovered on average
+- Compare simulated versus real mean-dispersion plots
+- Record package versions and random seeds for every run
+
+## Example code: real data to power analysis in powsimR
+
+This follows the standard powsimR workflow: **estimate parameters, define a simulation setup, run the simulation and DE testing, then evaluate power**. Argument names may differ in your version, so check `?estimateParam`, `?Setup`, `?simulateDE`, and `?evaluateDE`.
+
+```r
+# --- Install (run once) -----------------------------------------------
+# install.packages("devtools")
+# BiocManager::install(c("DESeq2", "edgeR", "limma"))
+# devtools::install_github("bvieth/powsimR")
+
+library(powsimR)
+
+set.seed(42)
+
+# --- 1. Load real data ------------------------------------------------
+# counts: genes x samples integer matrix; rownames = gene IDs
+counts <- as.matrix(read.csv("real_counts.csv", row.names = 1))
+
+# Basic filtering: remove genes that are almost never expressed
+keep   <- rowSums(counts >= 5) >= 3
+counts <- counts[keep, ]
+
+# --- 2. Estimate parameters from real data ----------------------------
+est <- estimateParam(
+  countData     = counts,
+  readData      = NULL,
+  Lengths       = NULL,
+  MeanFragLengths = NULL,
+  RNAseq        = "bulk",
+  Protocol      = "Read",
+  Distribution  = "NB",
+  Normalisation = "MR",     # DESeq2 median-ratio normalization
+  GeneFilter    = 0.1,
+  SampleFilter  = 3,
+  sigma         = 1.96,
+  NCores        = 1
+)
+
+plotParam(est, annotate = TRUE)   # check mean-dispersion fit
+
+# --- 3. Define simulation setup ---------------------------------------
+# Effect sizes: log2 fold changes drawn from a distribution
+lfc_fun <- function(x) rnorm(x, mean = 0, sd = 1.5)
+
+setup <- Setup(
+  ngenes   = 5000,
+  nsims    = 25,              # increase for final run (e.g., 1000+)
+  p.DE     = 0.1,             # proportion of truly DE genes
+  pLFC     = lfc_fun,
+  p.G      = 1,
+  p.B      = NULL,            # batch effects: not used here
+  bLFC     = NULL,
+  sim.seed = 42
+)
+
+# --- 4. Simulate data and run DE testing ------------------------------
+# Compare sample sizes per group
+sim <- simulateDE(
+  n1           = c(3, 6, 10),
+  n2           = c(3, 6, 10),
+  sim.settings = setup,
+  DEmethod     = "DESeq2",
+  Normalisation = "MR",
+  Label        = "power_demo",
+  DropGenes    = FALSE,
+  Preclust     = FALSE,
+  NCores       = 1,
+  verbose      = TRUE
+)
+
+# --- 5. Evaluate power and error rates --------------------------------
+evaluation <- evaluateDE(
+  simRes         = sim,
+  alpha.type     = "adjusted",
+  MTC            = "BH",
+  alpha.nominal  = 0.05,
+  stratify.by    = "mean",     # performance by expression level
+  filter.by      = "none",
+  strata.filtered = 1,
+  target.by      = "lfc",
+  delta          = 0
+)
+
+plotEvalDE(evaluation, rate = "marginal", quick = FALSE, annotate = TRUE)
+plotEvalDE(evaluation, rate = "stratified", quick = FALSE, annotate = TRUE)
+```
