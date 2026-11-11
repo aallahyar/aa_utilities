@@ -257,7 +257,10 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
     spacing = min(ideal_spacing, marker_ymax / n_bins)
 
     # x-coordinate of the right edge shared by all boxes (right-aligns all sizes).
-    right_edge = max_v / 2
+    # `max_v` (not `max_v / 2`) so the largest box's left edge sits at 0, flush with the axes'
+    # own left edge instead of straddling it and bleeding into whatever is to the left (e.g. the
+    # heatmap itself).
+    right_edge = max_v
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
         cy = mi * spacing + spacing / 2 + spacing / 10  # center y of the current marker
         ax.add_patch(

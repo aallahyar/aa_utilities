@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 import seaborn as sns
 from matplotlib import colors as mpl_colors
+from matplotlib import patches as mpl_patches
 
 from aa_utilities.graphics import heatmap, overlay_boxes
 
@@ -171,3 +172,14 @@ def test_default_legend_does_not_overlap_the_colorbar(heatmap_ax):
     colorbar_ax = heatmap_ax.collections[0].colorbar.ax
     fig.canvas.draw()
     assert not legend_ax.get_window_extent().overlaps(colorbar_ax.get_window_extent())
+
+
+def test_legend_boxes_do_not_bleed_past_the_legend_axes_left_edge(heatmap_ax):
+    # regression: `right_edge` used to be `max_v / 2`, centering the largest box on x=0 (the
+    # axes' own left edge) and drawing roughly half of it past that edge (over the heatmap/
+    # colorbar), since boxes are drawn with `clip_on=False`.
+    overlay_boxes(heatmap_ax, legend={})
+    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')
+    boxes = [p for p in legend_ax.patches if isinstance(p, mpl_patches.Rectangle)]
+    assert boxes
+    assert all(box.get_x() >= 0 for box in boxes)

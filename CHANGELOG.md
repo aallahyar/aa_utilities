@@ -1,4 +1,8 @@
 
+## [0.0.56] - 2026-11-11
+### Fixed:
+- `graphics.overlay_boxes`/`graphics.heatmap`'s marker-range legend (`_draw_box_legend`) no longer draws its largest box straddling the legend axes' left edge (previously `clip_on=False` let roughly half of it bleed into the heatmap/colorbar to its left); all legend boxes are now right-aligned flush within the legend axes.
+
 ## [0.0.55] - 2026-10-17
 ### Changed:
 - **Breaking:** `helpers.plotly.build_sankey_data` now returns `(link, node)` instead of `(node, link)`, matching its `(link_df, node_df)` argument order.
