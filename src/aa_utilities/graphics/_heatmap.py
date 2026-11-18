@@ -1,5 +1,6 @@
 import logging
 import textwrap
+from functools import cache
 
 import numpy as np
 import seaborn as sns
@@ -9,6 +10,10 @@ from matplotlib import (
 )
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
+from matplotlib.markers import MarkerStyle
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
+from matplotlib.transforms import Affine2D
 from seaborn.matrix import ClusterGrid
 
 logger = logging.getLogger(__name__)
@@ -85,6 +90,89 @@ def _to_grid(value, shape, name, is_color=False):
     raise ValueError(f'`{name}` must be {expected}, got {np.shape(value)}')
 
 
+# Filled matplotlib marker codes, plus '?' (drawn by `_question_mark_path`); unfilled markers ('+', 'x', '_', ...)
+# have no area to outline.
+_SHAPES = ('s', 'o', 'D', 'd', '^', 'v', '<', '>', 'p', 'h', 'H', '8', '*', 'P', 'X', '?')
+_DEFAULT_SHAPE = 's'
+
+
+def _to_shape_grid(value, shape):
+    """Broadcast a single shape code to `shape`, or validate an array of codes that already has it."""
+    array = np.asarray(_DEFAULT_SHAPE if value is None else value, dtype=object)
+    if array.ndim == 0:
+        array = np.full(shape, array.item(), dtype=object)
+    elif array.shape != shape:
+        raise ValueError(f'`shapes` must be a single code or an array of shape {shape}, got {array.shape}')
+    unknown = {code for code in array.ravel().tolist() if not (isinstance(code, str) and code in _SHAPES)}
+    if unknown:
+        raise ValueError(
+            f'`shapes` has unsupported code(s) {sorted(map(repr, unknown))}; supported: {", ".join(_SHAPES)}. '
+            "Use 'P' and 'X' for a plus and a cross."
+        )
+    return array
+
+
+def _question_mark_path(thickness=0.24, width=0.7, hook_radius_y=0.2, dot_gap=0.08):
+    """Closed outline of a '?' with strokes of constant `thickness`, as tall as the centred unit square and `width` wide."""
+    half = thickness / 2
+    radius_x = (width - thickness) / 2  # the hook's outer edge touches the left and right sides of the `width`
+    center_y = 0.5 - half - hook_radius_y  # ... and its top side touches the top of the square
+
+    # centreline: an elliptical hook from its left tip over the top and down the right side, a quarter-circle-like
+    # turn into the vertical stem, and the stem down to a gap above the dot. The hook stops early enough for that
+    # turn to be wider than half the thickness, otherwise the inner edge of the stroke folds over itself.
+    end_angle = -np.degrees(np.arccos(min(1, 1.1 * half / radius_x)))
+    angles = np.radians(np.arange(200, end_angle - 1, -2))
+    hook = np.column_stack([radius_x * np.cos(angles), center_y + hook_radius_y * np.sin(angles)])
+    start, direction = hook[-1], hook[-1] - hook[-2]
+    direction /= np.linalg.norm(direction)
+    turn = start[0]
+    stem_top = np.array([0, start[1] - turn])
+    stem_end = np.array([0, -0.5 + thickness + dot_gap])
+    handles = [start + 0.55 * turn * direction, stem_top + [0, 0.55 * turn]]
+    t = np.linspace(0, 1, 40)[1:, None]
+    curve = (1 - t) ** 3 * start + 3 * (1 - t) ** 2 * t * handles[0] + 3 * (1 - t) * t**2 * handles[1] + t**3 * stem_top
+    stem = stem_top + np.linspace(0, 1, 10)[1:, None] * (stem_end - stem_top)
+    centerline = np.vstack([hook, curve, stem])
+
+    # offset the centreline to both sides by half the thickness, and join them into one polygon
+    tangent = np.gradient(centerline, axis=0)
+    tangent /= np.linalg.norm(tangent, axis=1, keepdims=True)
+    normal = np.column_stack([-tangent[:, 1], tangent[:, 0]])
+    outline = np.vstack([centerline + half * normal, (centerline - half * normal)[::-1]])
+
+    dot = Path.circle((0, -0.5 + half), half)
+    return Path.make_compound_path(Path(np.vstack([outline, outline[:1]]), closed=True), dot)
+
+
+@cache
+def _unit_shape(code):
+    """Outline of marker `code`, centred on the origin and scaled so its larger bounding-box side is 1."""
+    if code == '?':
+        path = _question_mark_path()
+    else:
+        marker = MarkerStyle(code)
+        path = marker.get_path().transformed(marker.get_transform())
+    box = path.get_extents()
+    fit = Affine2D().translate(-(box.x0 + box.x1) / 2, -(box.y0 + box.y1) / 2).scale(1 / max(box.width, box.height))
+    return fit.transform_path(path)
+
+
+def _shape_patch(ax, code, center_x, center_y, size, **style):
+    """Patch of shape `code` fitted to the `size` x `size` square centred on (center_x, center_y)."""
+    # a heatmap's y axis is inverted: flip the outline there, so that '^' still points up on screen
+    flip_x = -1 if ax.xaxis_inverted() else 1
+    flip_y = -1 if ax.yaxis_inverted() else 1
+    placed = Affine2D().scale(flip_x * size, flip_y * size).translate(center_x, center_y)
+    return PathPatch(placed.transform_path(_unit_shape(code)), **style)
+
+
+def _reference_shape(shapes):
+    """Shape drawn by the size legend: the one shared by every cell, otherwise a square."""
+    unique = np.unique(shapes)
+    return unique[0] if len(unique) == 1 else _DEFAULT_SHAPE
+
+
 def _resolve_legend_bins(sizes, bins):
     if np.ndim(bins) == 0:
         if not isinstance(bins, (int, np.integer)):
@@ -135,10 +223,10 @@ def _extract_face_colors(ax):
 
 
 def _overlay_boxes(ax, shape, face_colors, sizes, box_kws):
-    """Draw sized rectangles on top of the heatmap mesh (skipping hidden cells) and dim the original."""
-    from matplotlib import patches
+    """Draw sized shapes (squares by default) on top of the heatmap mesh (skipping hidden cells) and dim the original."""
     from matplotlib.collections import PatchCollection
 
+    shapes = _to_shape_grid(box_kws.get('shapes'), shape)
     edgecolors = box_kws.get('edgecolors')
     edgecolors = _to_grid('none' if edgecolors is None else edgecolors, shape, 'edgecolors', is_color=True)
     linewidths = box_kws.get('linewidths')
@@ -155,28 +243,30 @@ def _overlay_boxes(ax, shape, face_colors, sizes, box_kws):
         quad_mesh._facecolors_pristine = quad_mesh.get_facecolors().copy()
     quad_mesh.set_alpha(background_alpha)
 
-    rectangles = []
+    boxes = []
     for ri in range(shape[0]):
         for ci in range(shape[1]):
             if is_hidden[ri, ci]:
                 continue
-            rectangles.append(
-                patches.Rectangle(
-                    (ci + 0.5 - sizes[ri, ci] / 2, ri + 0.5 - sizes[ri, ci] / 2),
-                    width=sizes[ri, ci],
-                    height=sizes[ri, ci],
+            boxes.append(
+                _shape_patch(
+                    ax,
+                    shapes[ri, ci],
+                    ci + 0.5,
+                    ri + 0.5,
+                    sizes[ri, ci],
                     facecolor=face_colors[ri, ci],
                     edgecolor=edgecolors[ri, ci],
                     linewidth=linewidths[ri, ci],
                 )
             )
-    patch_collection = PatchCollection(rectangles, match_original=True)
+    patch_collection = PatchCollection(boxes, match_original=True)
     ax.add_collection(patch_collection)
 
     return patch_collection
 
 
-def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
+def _draw_box_legend(ax, ax_heat, sizes, legend_kws, shape=_DEFAULT_SHAPE):
     """Draw a marker-range legend showing representative box sizes.
 
     The legend axes xlim/ylim are derived from the *rendered* pixel size
@@ -193,6 +283,7 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
         ax_heat: The heatmap axes to match scale against.
         sizes (np.ndarray): The per-cell sizes matrix (typically in [0, 1]).
         legend_kws (dict): Configuration dict. Keys:
+            - shape (str): Marker code of the legend boxes. Default: `shape`.
             - bins (int or array-like): Number of evenly spaced sizes or
               explicit values. Default: 4.
             - labels (list[str]): Explicit labels per bin.
@@ -203,8 +294,9 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
             - facecolor (str): Box fill color. Default: '#cccccc'.
             - edgecolor (str): Box border color. Default: '#333333'.
             - linewidth (float): Box border width. Default: 1.
+        shape (str): Marker code of the legend boxes, unless `legend_kws` has a ``'shape'`` key.
     """
-    from matplotlib import patches
+    shape_code = _to_shape_grid(legend_kws.get('shape', shape), (1, 1))[0, 0]
 
     bins = legend_kws.get('bins', 4)
     bin_values = _resolve_legend_bins(sizes, bins)
@@ -264,10 +356,12 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
     for mi, (v, lbl) in enumerate(reversed(list(zip(bin_values, labels)))):
         cy = mi * spacing + spacing / 2 + spacing / 10  # center y of the current marker
         ax.add_patch(
-            patches.Rectangle(
-                (right_edge - v, cy - v / 2),
-                width=v,
-                height=v,
+            _shape_patch(
+                ax,
+                shape_code,
+                right_edge - v / 2,
+                cy,
+                v,
                 facecolor=facecolor,
                 edgecolor=edgecolor,
                 linewidth=linewidth,
@@ -298,7 +392,7 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws):
 
 
 def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
-    """Plot a heatmap with sized rectangles per cell and a marker-range legend.
+    """Plot a heatmap with a sized shape (a square by default) per cell and a marker-range legend.
 
     Creates a figure with a 2x2 GridSpec::
 
@@ -315,13 +409,15 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
 
     Args:
         matrix_df (pd.DataFrame): Data matrix.
-        box_kws (dict): Rectangle overlay configuration. Per-cell options accept either a full
+        box_kws (dict): Shape overlay configuration. Per-cell options accept either a full
             matrix or a single value that is applied to every cell:
             - sizes (float or np.ndarray): Per-cell box sizes. 1 fills a cell; values in [0, 1]
               are recommended, but larger ones are allowed (boxes then overlap their neighbours).
               Default: 0.8 uniform.
             - edgecolors (color or np.ndarray): Per-cell edge colors. Default: none.
             - linewidths (float or np.ndarray): Per-cell border widths. Default: 1.5 uniform.
+            - shapes (str or np.ndarray): Per-cell matplotlib marker code(s), see ``overlay_boxes``.
+              Default: 's' (square).
             - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.1.
             - legend (dict): Marker legend config passed to
                             ``_draw_box_legend``. Omit the key or pass ``{}`` to draw the
@@ -378,12 +474,13 @@ def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
     face_colors = _extract_face_colors(heat_ax)
     sizes = box_kws.get('sizes')
     sizes = _to_grid(0.8 if sizes is None else sizes, (n_rows, n_cols), 'sizes')
-    _overlay_boxes(heat_ax, (n_rows, n_cols), face_colors, sizes, box_kws)
+    shapes = _to_shape_grid(box_kws.get('shapes'), (n_rows, n_cols))
+    _overlay_boxes(heat_ax, (n_rows, n_cols), face_colors, sizes, {**box_kws, 'shapes': shapes})
 
     # Draw marker legend
     legend_kws = box_kws.get('legend', {})
     if legend_kws is not None:
-        _draw_box_legend(marker_ax, heat_ax, sizes, legend_kws)
+        _draw_box_legend(marker_ax, heat_ax, sizes, legend_kws, shape=_reference_shape(shapes))
 
     return fig
 
@@ -396,10 +493,11 @@ def overlay_boxes(
     linewidths=None,
     background_alpha=0.1,
     legend=None,
+    shapes=None,
 ):
-    """Overlay sized rectangles on a seaborn clustermap or heatmap.
+    """Overlay sized shapes (squares by default) on a seaborn clustermap or heatmap.
 
-    The per-cell options (`sizes`, `facecolors`, `edgecolors`, `linewidths`) accept either a full
+    The per-cell options (`sizes`, `facecolors`, `edgecolors`, `linewidths`, `shapes`) accept either a full
     matrix in the **original** data order (pre-clustering for a clustermap), or a single value
     applied to every cell. Cells hidden by seaborn (`mask=` or NaN) get no box.
 
@@ -427,6 +525,16 @@ def overlay_boxes(
             key, a narrow inset axes is created just outside the
             heatmap's bottom-right corner (past the colorbar, if that sits on the right);
             pass ``{'ax': my_ax}`` to draw into an axes of your own instead.
+            The legend boxes use the shape shared by all cells, or squares if the shapes are mixed;
+            add ``'shape': <code>`` to choose another one.
+        shapes (str or np.ndarray, optional): A single matplotlib marker code applied to every
+            cell, or per-cell codes. Supported: 's' (square), 'o' (circle), 'D' and 'd' (diamonds),
+            '^', 'v', '<' and '>' (triangles), 'p' (pentagon), 'h' and 'H' (hexagons), '8' (octagon),
+            '*' (star), 'P' (plus), 'X' (cross) and '?' (question mark). Unfilled markers such as '+' and
+            'x' are not supported. Every shape is scaled so that its larger bounding-box side equals `size`
+            (a `size` of 1 reaches the cell edges in that direction); shapes that are narrower than tall
+            ('d', 'h', 'H', '?') fill less of the other, and the shapes differ in how much of the square
+            they cover. Default: 's'.
 
     Returns:
         matplotlib.collections.PatchCollection: The overlay patch collection.
@@ -457,9 +565,13 @@ def overlay_boxes(
     linewidths = _to_grid(1.5 if linewidths is None else linewidths, shape, 'linewidths')
     linewidths_reordered = linewidths[np.ix_(row_order, col_order)]
 
+    shapes = _to_shape_grid(shapes, shape)
+    shapes_reordered = shapes[np.ix_(row_order, col_order)]
+
     box_kws = {
         'edgecolors': edgecolors_reordered,
         'linewidths': linewidths_reordered,
+        'shapes': shapes_reordered,
         'background_alpha': background_alpha,
     }
 
@@ -478,6 +590,6 @@ def overlay_boxes(
         if ax_legend is None:
             ax_legend = heat_ax.inset_axes(_default_legend_rect(heat_ax))
         ax_legend.set_label('marker_legend')
-        _draw_box_legend(ax_legend, heat_ax, sizes_reordered, legend_kws)
+        _draw_box_legend(ax_legend, heat_ax, sizes_reordered, legend_kws, shape=_reference_shape(shapes))
 
     return patch_collection

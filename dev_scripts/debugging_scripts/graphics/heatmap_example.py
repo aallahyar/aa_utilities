@@ -140,4 +140,45 @@ overlay_boxes(
 # clsmap.figure.show()
 plt.show()
 
+#%% shapes: any filled matplotlib marker code, fitted to the size x size square of each cell
+# '^'/'v' encode the sign, 'o' a (near) zero value, and 'X' marks cells that, e.g., failed
+shapes = np.where(corr_df.values >= 0, '^', 'v')
+shapes[np.abs(corr_df.values) < 0.1] = 'o'
+shapes[2:4, 2:4] = 'X'
+shape_sizes = sizes.copy()
+shape_sizes[2:4, 2:4] = 0.8
+
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.heatmap(corr_df, cmap=cmap, ax=ax)
+overlay_boxes(
+    ax,
+    sizes=shape_sizes,
+    shapes=shapes,
+    edgecolors='#333333',
+    linewidths=0.5,
+    background_alpha=0.3,
+    legend={'bins': [0.1, 0.5, 1.0], 'title': 'Size'},  # mixed shapes: the legend shows squares
+)
+ax.set_title('Shapes on sns.heatmap')
+
+#%% the same shapes on a clustermap (given in the ORIGINAL data order)
+clsmap = sns.clustermap(corr_df, cmap=cmap, figsize=(8, 8))
+overlay_boxes(clsmap, sizes=shape_sizes, shapes=shapes, edgecolors='#333333', linewidths=0.5, background_alpha=0.3)
+clsmap.figure.canvas.manager.set_window_title('Clustermap with shapes')
+
+#%% heatmap() with a single shape: the legend uses it as well
+fig = aa_heatmap(
+    corr_df,
+    box_kws={
+        'sizes': sizes,
+        'shapes': 'o',
+        'background_alpha': 0.3,
+        'legend': {'bins': 4, 'title': 'Circle size'},
+    },
+    fig=plt.figure(figsize=(10, 8)),
+    cmap=cmap,
+)
+fig.axes[0].set_title('heatmap() with circles')
+plt.show()
+
 # %%

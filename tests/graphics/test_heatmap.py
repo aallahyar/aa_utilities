@@ -7,6 +7,7 @@ from matplotlib import colors as mpl_colors
 from matplotlib import patches as mpl_patches
 
 from aa_utilities.graphics import heatmap, overlay_boxes
+from aa_utilities.graphics._heatmap import _SHAPES, _unit_shape
 
 plt.switch_backend('Agg')
 
@@ -94,6 +95,9 @@ def test_color_matrices_with_and_without_channels(data, clustermap):
         ({'facecolors': 'not-a-color'}, 'facecolors'),
         ({'facecolors': 0.5}, 'facecolors'),
         ({'edgecolors': np.full((5, 4), 'red')}, 'edgecolors'),
+        ({'shapes': 'square'}, 'shapes'),
+        ({'shapes': '+'}, 'shapes'),
+        ({'shapes': np.full((5, 4), 's')}, 'shapes'),
     ],
 )
 def test_invalid_values_raise_a_clear_error(clustermap, kwargs, name):
@@ -180,6 +184,96 @@ def test_legend_boxes_do_not_bleed_past_the_legend_axes_left_edge(heatmap_ax):
     # colorbar), since boxes are drawn with `clip_on=False`.
     overlay_boxes(heatmap_ax, legend={})
     legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')
-    boxes = [p for p in legend_ax.patches if isinstance(p, mpl_patches.Rectangle)]
+    boxes = [p for p in legend_ax.patches if isinstance(p, mpl_patches.PathPatch)]
     assert boxes
-    assert all(box.get_x() >= 0 for box in boxes)
+    assert all(box.get_path().get_extents().x0 >= -1e-9 for box in boxes)
+
+
+# ----- shapes -----
+
+
+def _vertex_counts(patch_collection):
+    return [len(path.vertices) for path in patch_collection.get_paths()]
+
+
+def _legend_vertex_counts(heatmap_ax):
+    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')
+    return {len(patch.get_path().vertices) for patch in legend_ax.patches}
+
+
+def test_default_shape_is_a_square(heatmap_ax):
+    boxes = overlay_boxes(heatmap_ax)
+    assert set(_vertex_counts(boxes)) == {len(_unit_shape('s').vertices)}
+    for path in boxes.get_paths():
+        extents = path.get_extents()
+        assert extents.width == pytest.approx(0.8) and extents.height == pytest.approx(0.8)
+
+
+@pytest.mark.parametrize('code', _SHAPES)
+def test_every_shape_fits_the_size_square_of_its_cell(heatmap_ax, data, code):
+    boxes = overlay_boxes(heatmap_ax, sizes=0.5, shapes=code)
+    assert len(boxes.get_paths()) == data.size
+    for path in boxes.get_paths():
+        extents = path.get_extents()
+        assert max(extents.width, extents.height) == pytest.approx(0.5)
+
+    first = boxes.get_paths()[0].get_extents()  # row 0, column 0
+    assert (first.x0 + first.x1) / 2 == pytest.approx(0.5)
+    assert (first.y0 + first.y1) / 2 == pytest.approx(0.5)
+
+
+def test_shape_matrices_follow_the_original_data_order(data, clustermap):
+    shapes = np.full(data.shape, 's')
+    shapes[0, 1] = shapes[2, 3] = 'o'
+    boxes = overlay_boxes(clustermap, shapes=shapes)
+
+    n_vertices = np.where(shapes == 'o', len(_unit_shape('o').vertices), len(_unit_shape('s').vertices))
+    row_order = clustermap.dendrogram_row.reordered_ind
+    col_order = clustermap.dendrogram_col.reordered_ind
+    assert _vertex_counts(boxes) == n_vertices[np.ix_(row_order, col_order)].ravel().tolist()
+
+
+@pytest.mark.parametrize('code, apex_is_on_top', [('^', True), ('v', False)])
+def test_triangles_point_the_way_they_look_on_the_inverted_heatmap_axis(heatmap_ax, code, apex_is_on_top):
+    path = overlay_boxes(heatmap_ax, sizes=0.5, shapes=code).get_paths()[0]
+    ys = path.vertices[:, 1]  # y grows downwards on a heatmap
+    apex = path.vertices[np.argmin(ys) if apex_is_on_top else np.argmax(ys)]
+    assert apex[0] == pytest.approx(0.5)
+
+
+def test_question_mark_is_as_tall_as_its_size_square_and_narrower(heatmap_ax):
+    extents = overlay_boxes(heatmap_ax, sizes=0.5, shapes='?').get_paths()[0].get_extents()
+    assert extents.height == pytest.approx(0.5, rel=1e-3)
+    assert extents.width < 0.5
+
+
+def test_question_mark_is_upright_on_the_inverted_heatmap_axis(heatmap_ax):
+    vertices = overlay_boxes(heatmap_ax, sizes=0.5, shapes='?').get_paths()[0].vertices
+    ys = vertices[:, 1]  # y grows downwards on a heatmap
+    quarter = np.ptp(ys) / 4
+    hook_width = np.ptp(vertices[ys < ys.min() + quarter, 0])
+    dot_width = np.ptp(vertices[ys > ys.max() - quarter, 0])
+    assert hook_width > dot_width  # the wide hook is on top, the narrow dot at the bottom
+
+
+def test_heatmap_accepts_shapes(data):
+    fig = heatmap(data, {'shapes': 'o'})
+    heat_ax = next(ax for ax in fig.axes if ax.get_label() == 'heatmap')
+    assert set(_vertex_counts(heat_ax.collections[-1])) == {len(_unit_shape('o').vertices)}
+
+
+def test_legend_uses_the_shape_shared_by_all_cells(heatmap_ax):
+    overlay_boxes(heatmap_ax, shapes='o', legend={})
+    assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('o').vertices)}
+
+
+def test_legend_uses_squares_for_mixed_shapes(heatmap_ax, data):
+    shapes = np.full(data.shape, 'o')
+    shapes[0, 0] = '^'
+    overlay_boxes(heatmap_ax, shapes=shapes, legend={})
+    assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('s').vertices)}
+
+
+def test_legend_shape_can_be_chosen(heatmap_ax):
+    overlay_boxes(heatmap_ax, legend={'shape': 'o'})
+    assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('o').vertices)}
