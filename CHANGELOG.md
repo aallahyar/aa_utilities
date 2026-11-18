@@ -1,4 +1,10 @@
 
+## [0.0.57] - 2026-11-18
+### Added:
+- `graphics.overlay_boxes` (and `graphics.heatmap`'s `box_kws`) accept `shapes`: a single matplotlib marker code, or per-cell codes in the original data order (like `sizes`), to draw shapes other than squares. Supported: `s o D d ^ v < > p h H 8 * P X` and `?` (a question mark). Every shape is scaled so that its larger bounding-box side equals the cell's `size`, and `^`/`v`/`<`/`>` point the way they look on screen. Unfilled markers such as `+` and `x` are rejected; use `P` and `X`. The default is `'s'`, so existing calls look the same. The size legend draws the shape shared by all cells (squares if they are mixed); pass `legend={'shape': <code>}` to choose another.
+### Changed:
+- The boxes drawn by `graphics.overlay_boxes`/`graphics.heatmap` and by their size legend are now `PathPatch`es instead of `Rectangle`s (same geometry and rendering for squares).
+
 ## [0.0.56] - 2026-11-11
 ### Fixed:
 - `graphics.overlay_boxes`/`graphics.heatmap`'s marker-range legend (`_draw_box_legend`) no longer draws its largest box straddling the legend axes' left edge (previously `clip_on=False` let roughly half of it bleed into the heatmap/colorbar to its left); all legend boxes are now right-aligned flush within the legend axes.
