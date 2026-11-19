@@ -1,4 +1,10 @@
 
+## [0.0.58] - 2026-11-19
+### Changed:
+- **Breaking:** `graphics.overlay_boxes` is renamed to `graphics.overlay_shapes`, as it draws shapes and not only boxes. The axes of its size legend are now labelled `size_legend` (was `marker_legend`). Its docstring has an example that lays out the heatmap, the colorbar and the size legend with a `GridSpec` and passes the legend axes through `legend={'ax': ...}`.
+### Removed:
+- **Breaking:** `graphics.heatmap` is removed. `sns.heatmap` on a `GridSpec` followed by `overlay_shapes(..., legend={'ax': legend_ax})` produces the same figure (pixel-identical), and also supports `facecolors` and clustermaps. See the example in `overlay_shapes`.
+
 ## [0.0.57] - 2026-11-18
 ### Added:
 - `graphics.overlay_boxes` (and `graphics.heatmap`'s `box_kws`) accept `shapes`: a single matplotlib marker code, or per-cell codes in the original data order (like `sizes`), to draw shapes other than squares. Supported: `s o D d ^ v < > p h H 8 * P X` and `?` (a question mark). Every shape is scaled so that its larger bounding-box side equals the cell's `size`, and `^`/`v`/`<`/`>` point the way they look on screen. Unfilled markers such as `+` and `x` are rejected; use `P` and `X`. The default is `'s'`, so existing calls look the same. The size legend draws the shape shared by all cells (squares if they are mixed); pass `legend={'shape': <code>}` to choose another.

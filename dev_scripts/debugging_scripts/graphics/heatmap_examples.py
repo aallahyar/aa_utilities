@@ -5,7 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt, colors
 import seaborn as sns
 
-from aa_utilities.graphics import heatmap as aa_heatmap, overlay_boxes
+from aa_utilities.graphics import overlay_shapes
 
 # data preparation
 corr_df = pd.DataFrame(np.arange(-112, 113).reshape(15, 15) / 224)
@@ -16,13 +16,20 @@ cmap = colors.LinearSegmentedColormap.from_list(
 sizes = corr_df.abs().values * 0.98 / corr_df.abs().values.max()
 linewidths = np.ones_like(corr_df, dtype=float) * 0.9
 
+
+def grid_figure(figsize=(10, 8)):
+    """A figure with a large axes for the heatmap, plus axes for the colorbar and for the size legend."""
+    fig = plt.figure(figsize=figsize)
+    grid = fig.add_gridspec(2, 2, width_ratios=[10, 0.5], height_ratios=[1, 1], hspace=0.5, wspace=0.1)
+    return fig, fig.add_subplot(grid[:, 0]), fig.add_subplot(grid[0, 1]), fig.add_subplot(grid[1, 1])
+
 #%% sanity check: For reference, plain sns.heatmap
 fig, ax = plt.subplots(figsize=(7, 6))
 sns.heatmap(corr_df, cmap=cmap, ax=ax)
 ax.set_title('Sanity check: For reference, plain sns.heatmap')
 fig.show()
 
-#%% example of using overlay_boxes with sns.clustermap
+#%% example of using overlay_shapes with sns.clustermap
 clsmap = sns.clustermap(
     corr_df, 
     row_cluster=False,
@@ -31,20 +38,13 @@ clsmap = sns.clustermap(
 )
 clsmap.figure.canvas.manager.set_window_title('Clustermap, reference')
 
-#%% basic heatmap with boxes + legend, only showing boxes for negative values
-fig = aa_heatmap(
+#%% basic heatmap with shapes + legend, only the negative values get an edge
+# heatmap, colorbar and size legend each have their own axes (see `grid_figure`)
+fig, heat_ax, cbar_ax, legend_ax = grid_figure()
+sns.heatmap(
     corr_df,
-    box_kws={
-        'background_alpha': 0.7,
-        'sizes': sizes,
-        'linewidths': linewidths,
-        'edgecolors': np.where(corr_df.le(0), '#000000', 'none'),
-        'legend': {
-            'bins': 4,
-            'title': 'Box size',
-        },
-    },
-    fig=plt.figure(figsize=(10, 8)),
+    ax=heat_ax,
+    cbar_ax=cbar_ax,
     cmap=cmap,
     cbar_kws={
         'label': 'Label of the colorbar',
@@ -52,53 +52,61 @@ fig = aa_heatmap(
         'ticks': [-0.5, 0, 0.5],
     },
 )
-fig.axes[0].set_title('Basic heatmap with bins=4')
+overlay_shapes(
+    heat_ax,
+    sizes=sizes,
+    linewidths=linewidths,
+    edgecolors=np.where(corr_df.le(0), '#000000', 'none'),
+    background_alpha=0.7,
+    legend={
+        'ax': legend_ax,
+        'bins': 4,
+        'title': 'Box size',
+    },
+)
+heat_ax.set_title('Basic heatmap with bins=4')
 fig.subplots_adjust(wspace=0.3, hspace=0.5)  # adjust spacing between subplots
-# gs = fig.axes[0].get_subplotspec().get_gridspec() # similar effect
-# gs.update(wspace=0.3, hspace=0.5)
 fig.show()
 
 #%% legend with explicit bin values, and a customized formating of ticks
-fig = aa_heatmap(
-    corr_df,
-    box_kws={
-        'sizes': sizes,
-        'linewidths': linewidths,
-        'background_alpha': 0.5,
-        'legend': {
-            'bins': [0.1, 0.3, 0.6, 0.9],
-            'title': 'Custom bins',
-            'label_fmt': '{:.3f}',
-            'facecolor': '#aaaaee',
-            'edgecolor': '#222222',
-        },
+fig, heat_ax, cbar_ax, legend_ax = grid_figure()
+sns.heatmap(corr_df, ax=heat_ax, cbar_ax=cbar_ax, cmap=cmap)
+overlay_shapes(
+    heat_ax,
+    sizes=sizes,
+    linewidths=linewidths,
+    background_alpha=0.5,
+    legend={
+        'ax': legend_ax,
+        'bins': [0.1, 0.3, 0.6, 0.9],
+        'title': 'Custom bins',
+        'label_fmt': '{:.3f}',
+        'facecolor': '#aaaaee',
+        'edgecolor': '#222222',
     },
-    fig=plt.figure(figsize=(10, 8)),
-    cmap=cmap,
 )
-fig.axes[0].set_title('Legend with explicit bin values')
+heat_ax.set_title('Legend with explicit bin values')
 fig.show()
 
 #%% legend with custom labels
-fig = aa_heatmap(
-    corr_df,
-    box_kws={
-        'sizes': sizes,
-        'background_alpha': 0.3,
-        'linewidths': linewidths,
-        'legend': {
-            'bins': 3,
-            'labels': ['Low', 'Medium', 'High'],
-            'title': 'Strength',
-        },
+fig, heat_ax, cbar_ax, legend_ax = grid_figure()
+sns.heatmap(corr_df, ax=heat_ax, cbar_ax=cbar_ax, cmap=cmap)
+overlay_shapes(
+    heat_ax,
+    sizes=sizes,
+    linewidths=linewidths,
+    background_alpha=0.3,
+    legend={
+        'ax': legend_ax,
+        'bins': 3,
+        'labels': ['Low', 'Medium', 'High'],
+        'title': 'Strength',
     },
-    fig=plt.figure(figsize=(10, 8)),
-    cmap=cmap,
 )
-fig.axes[0].set_title('Legend with custom labels')
+heat_ax.set_title('Legend with custom labels')
 fig.show()
 
-#%% Overlay boxes, on top of clustermap
+#%% overlay_shapes on top of a clustermap
 # Note: arguments (e.g., edgecolors and linewidths) are specified in the ORIGINAL data order 
 # (i.e., before clustering/reordering).
 clsmap = sns.clustermap(
@@ -107,10 +115,10 @@ clsmap = sns.clustermap(
     cmap=cmap,
     figsize=(8, 8),
 )
-clsmap.figure.canvas.manager.set_window_title('Clustermap with box overlays')
+clsmap.figure.canvas.manager.set_window_title('Clustermap with shape overlays')
 
 # 1st overlay: boxes with varying edge colors and linewidths, and a legend
-overlay_boxes(
+overlay_shapes(
     clsmap,
     sizes=sizes,
 
@@ -128,7 +136,7 @@ overlay_boxes(
 
 # 2nd overlay: additional boxes with full size and black edge color,
 # increasing the background alpha to 0.9, and add no additional legend
-overlay_boxes(
+overlay_shapes(
     clsmap,
     sizes=0.98,  # a single value is applied to every cell
     linewidths=1,
@@ -150,7 +158,7 @@ shape_sizes[2:4, 2:4] = 0.8
 
 fig, ax = plt.subplots(figsize=(8, 6))
 sns.heatmap(corr_df, cmap=cmap, ax=ax)
-overlay_boxes(
+overlay_shapes(
     ax,
     sizes=shape_sizes,
     shapes=shapes,
@@ -163,22 +171,20 @@ ax.set_title('Shapes on sns.heatmap')
 
 #%% the same shapes on a clustermap (given in the ORIGINAL data order)
 clsmap = sns.clustermap(corr_df, cmap=cmap, figsize=(8, 8))
-overlay_boxes(clsmap, sizes=shape_sizes, shapes=shapes, edgecolors='#333333', linewidths=0.5, background_alpha=0.3)
+overlay_shapes(clsmap, sizes=shape_sizes, shapes=shapes, edgecolors='#333333', linewidths=0.5, background_alpha=0.3)
 clsmap.figure.canvas.manager.set_window_title('Clustermap with shapes')
 
-#%% heatmap() with a single shape: the legend uses it as well
-fig = aa_heatmap(
-    corr_df,
-    box_kws={
-        'sizes': sizes,
-        'shapes': 'o',
-        'background_alpha': 0.3,
-        'legend': {'bins': 4, 'title': 'Circle size'},
-    },
-    fig=plt.figure(figsize=(10, 8)),
-    cmap=cmap,
+#%% the same recipe with a single shape: the legend uses it as well
+fig, heat_ax, cbar_ax, legend_ax = grid_figure()
+sns.heatmap(corr_df, ax=heat_ax, cbar_ax=cbar_ax, cmap=cmap)
+overlay_shapes(
+    heat_ax,
+    sizes=sizes,
+    shapes='o',
+    background_alpha=0.3,
+    legend={'ax': legend_ax, 'bins': 4, 'title': 'Circle size'},
 )
-fig.axes[0].set_title('heatmap() with circles')
+heat_ax.set_title('Circles')
 plt.show()
 
 # %%

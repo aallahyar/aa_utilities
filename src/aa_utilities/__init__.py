@@ -10,7 +10,7 @@ from ._configurations import configs
 from .loggers import setup_logger as _setup_logger
 _setup_logger(__name__)
 
-# lazily expose submodules (e.g. `import aa_utilities; aa_utilities.graphics.heatmap(...)`)
+# lazily expose submodules (e.g. `import aa_utilities; aa_utilities.graphics.overlay_shapes(...)`)
 # without eagerly importing their (sometimes heavy/optional) dependencies at package import time.
 _SUBMODULES = frozenset({'computation', 'graphics', 'helpers', 'loggers', 'stats', 'storage', 'wrappers'})
 

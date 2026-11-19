@@ -6,7 +6,7 @@ import seaborn as sns
 from matplotlib import colors as mpl_colors
 from matplotlib import patches as mpl_patches
 
-from aa_utilities.graphics import heatmap, overlay_boxes
+from aa_utilities.graphics import overlay_shapes
 from aa_utilities.graphics._heatmap import _SHAPES, _unit_shape
 
 plt.switch_backend('Agg')
@@ -38,25 +38,25 @@ def _box_sizes(patch_collection):
 
 @pytest.mark.parametrize('size', [0.5, 1.5])  # sizes above 1 are allowed, boxes then overlap
 def test_scalar_sizes_apply_to_every_cell(clustermap, size):
-    boxes = overlay_boxes(clustermap, sizes=size)
+    boxes = overlay_shapes(clustermap, sizes=size)
     assert len(boxes.get_paths()) == 20
     assert np.allclose(_box_sizes(boxes), size)
 
 
 @pytest.mark.parametrize('color', ['black', (1, 0, 0), (1, 0, 0, 0.5)], ids=['name', 'rgb', 'rgba'])
 def test_scalar_facecolors_apply_to_every_cell(clustermap, color):
-    boxes = overlay_boxes(clustermap, facecolors=color)
+    boxes = overlay_shapes(clustermap, facecolors=color)
     assert np.allclose(boxes.get_facecolor(), mpl_colors.to_rgba(color))
 
 
 def test_scalar_edgecolors_and_linewidths_apply_to_every_cell(clustermap):
-    boxes = overlay_boxes(clustermap, edgecolors='red', linewidths=3)
+    boxes = overlay_shapes(clustermap, edgecolors='red', linewidths=3)
     assert np.allclose(boxes.get_edgecolor(), mpl_colors.to_rgba('red'))
     assert np.allclose(boxes.get_linewidth(), 3)
 
 
 def test_defaults_are_unchanged(clustermap):
-    boxes = overlay_boxes(clustermap)
+    boxes = overlay_shapes(clustermap)
     assert np.allclose(_box_sizes(boxes), 0.8)
     assert np.allclose(boxes.get_linewidth(), 1.5)
     assert len(boxes.get_edgecolor()) == 0 or np.allclose(boxes.get_edgecolor()[:, 3], 0)
@@ -67,7 +67,7 @@ def test_defaults_are_unchanged(clustermap):
 
 def test_matrices_follow_the_original_data_order(data, clustermap):
     sizes = np.linspace(0.1, 0.9, data.size).reshape(data.shape)
-    boxes = overlay_boxes(clustermap, sizes=sizes)
+    boxes = overlay_shapes(clustermap, sizes=sizes)
 
     row_order = clustermap.dendrogram_row.reordered_ind
     col_order = clustermap.dendrogram_col.reordered_ind
@@ -77,10 +77,10 @@ def test_matrices_follow_the_original_data_order(data, clustermap):
 
 def test_color_matrices_with_and_without_channels(data, clustermap):
     names = np.full(data.shape, 'blue')
-    assert np.allclose(overlay_boxes(clustermap, facecolors=names).get_facecolor(), mpl_colors.to_rgba('blue'))
+    assert np.allclose(overlay_shapes(clustermap, facecolors=names).get_facecolor(), mpl_colors.to_rgba('blue'))
 
     rgba = np.tile(mpl_colors.to_rgba('green'), (*data.shape, 1))
-    assert np.allclose(overlay_boxes(sns.clustermap(data), facecolors=rgba).get_facecolor(), rgba[0, 0])
+    assert np.allclose(overlay_shapes(sns.clustermap(data), facecolors=rgba).get_facecolor(), rgba[0, 0])
 
 
 # ----- validation -----
@@ -102,19 +102,7 @@ def test_color_matrices_with_and_without_channels(data, clustermap):
 )
 def test_invalid_values_raise_a_clear_error(clustermap, kwargs, name):
     with pytest.raises(ValueError, match=name):
-        overlay_boxes(clustermap, **kwargs)
-
-
-# ----- heatmap() -----
-
-
-def test_heatmap_accepts_scalar_box_options(data):
-    fig = heatmap(data, {'sizes': 0.6, 'edgecolors': 'black', 'linewidths': 2})
-    heat_ax = next(ax for ax in fig.axes if ax.get_label() == 'heatmap')
-    boxes = heat_ax.collections[-1]
-    assert np.allclose(_box_sizes(boxes), 0.6)
-    assert np.allclose(boxes.get_edgecolor(), mpl_colors.to_rgba('black'))
-    assert np.allclose(boxes.get_linewidth(), 2)
+        overlay_shapes(clustermap, **kwargs)
 
 
 # ----- plain sns.heatmap -----
@@ -126,7 +114,7 @@ def heatmap_ax(data):
 
 
 def test_overlay_on_plain_heatmap_axes(heatmap_ax, data):
-    boxes = overlay_boxes(heatmap_ax, sizes=0.5, facecolors='black', edgecolors='red', linewidths=2)
+    boxes = overlay_shapes(heatmap_ax, sizes=0.5, facecolors='black', edgecolors='red', linewidths=2)
     assert len(boxes.get_paths()) == data.size
     assert np.allclose(_box_sizes(boxes), 0.5)
     assert np.allclose(boxes.get_facecolor(), mpl_colors.to_rgba('black'))
@@ -136,12 +124,12 @@ def test_overlay_on_plain_heatmap_axes(heatmap_ax, data):
 
 def test_plain_heatmap_matrices_are_used_as_drawn(heatmap_ax, data):
     sizes = np.linspace(0.1, 0.9, data.size).reshape(data.shape)
-    assert np.allclose(_box_sizes(overlay_boxes(heatmap_ax, sizes=sizes)), sizes.ravel())
+    assert np.allclose(_box_sizes(overlay_shapes(heatmap_ax, sizes=sizes)), sizes.ravel())
 
 
 def test_two_consecutive_overlays_on_a_plain_heatmap(heatmap_ax, data):
-    overlay_boxes(heatmap_ax, sizes=0.9)
-    boxes = overlay_boxes(heatmap_ax, sizes=0.4)
+    overlay_shapes(heatmap_ax, sizes=0.9)
+    boxes = overlay_shapes(heatmap_ax, sizes=0.4)
     assert len(boxes.get_paths()) == data.size
 
 
@@ -149,30 +137,30 @@ def test_masked_and_nan_cells_get_no_box(data):
     mask = np.triu(np.ones(data.shape, dtype=bool))
     data = data.copy()
     data.iloc[3, 0] = np.nan  # a visible cell turned into a NaN cell
-    boxes = overlay_boxes(sns.heatmap(data, mask=mask))
+    boxes = overlay_shapes(sns.heatmap(data, mask=mask))
     assert len(boxes.get_paths()) == (~mask).sum() - 1
 
 
 def test_masked_cells_are_skipped_in_clustermaps_too(data):
     mask = np.triu(np.ones(data.shape, dtype=bool))
-    boxes = overlay_boxes(sns.clustermap(data, mask=mask))
+    boxes = overlay_shapes(sns.clustermap(data, mask=mask))
     assert len(boxes.get_paths()) == (~mask).sum()
 
 
 def test_axes_without_a_heatmap_raises():
     with pytest.raises(ValueError, match='heatmap'):
-        overlay_boxes(plt.subplots()[1])
+        overlay_shapes(plt.subplots()[1])
 
 
 def test_unsupported_target_raises():
     with pytest.raises(TypeError, match='target'):
-        overlay_boxes('not-a-plot')
+        overlay_shapes('not-a-plot')
 
 
 def test_default_legend_does_not_overlap_the_colorbar(heatmap_ax):
-    overlay_boxes(heatmap_ax, legend={})
+    overlay_shapes(heatmap_ax, legend={})
     fig = heatmap_ax.get_figure()
-    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')  # inset axes
+    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'size_legend')  # inset axes
     colorbar_ax = heatmap_ax.collections[0].colorbar.ax
     fig.canvas.draw()
     assert not legend_ax.get_window_extent().overlaps(colorbar_ax.get_window_extent())
@@ -182,8 +170,8 @@ def test_legend_boxes_do_not_bleed_past_the_legend_axes_left_edge(heatmap_ax):
     # regression: `right_edge` used to be `max_v / 2`, centering the largest box on x=0 (the
     # axes' own left edge) and drawing roughly half of it past that edge (over the heatmap/
     # colorbar), since boxes are drawn with `clip_on=False`.
-    overlay_boxes(heatmap_ax, legend={})
-    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')
+    overlay_shapes(heatmap_ax, legend={})
+    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'size_legend')
     boxes = [p for p in legend_ax.patches if isinstance(p, mpl_patches.PathPatch)]
     assert boxes
     assert all(box.get_path().get_extents().x0 >= -1e-9 for box in boxes)
@@ -197,12 +185,12 @@ def _vertex_counts(patch_collection):
 
 
 def _legend_vertex_counts(heatmap_ax):
-    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'marker_legend')
+    legend_ax = next(ax for ax in heatmap_ax.child_axes if ax.get_label() == 'size_legend')
     return {len(patch.get_path().vertices) for patch in legend_ax.patches}
 
 
 def test_default_shape_is_a_square(heatmap_ax):
-    boxes = overlay_boxes(heatmap_ax)
+    boxes = overlay_shapes(heatmap_ax)
     assert set(_vertex_counts(boxes)) == {len(_unit_shape('s').vertices)}
     for path in boxes.get_paths():
         extents = path.get_extents()
@@ -211,7 +199,7 @@ def test_default_shape_is_a_square(heatmap_ax):
 
 @pytest.mark.parametrize('code', _SHAPES)
 def test_every_shape_fits_the_size_square_of_its_cell(heatmap_ax, data, code):
-    boxes = overlay_boxes(heatmap_ax, sizes=0.5, shapes=code)
+    boxes = overlay_shapes(heatmap_ax, sizes=0.5, shapes=code)
     assert len(boxes.get_paths()) == data.size
     for path in boxes.get_paths():
         extents = path.get_extents()
@@ -225,7 +213,7 @@ def test_every_shape_fits_the_size_square_of_its_cell(heatmap_ax, data, code):
 def test_shape_matrices_follow_the_original_data_order(data, clustermap):
     shapes = np.full(data.shape, 's')
     shapes[0, 1] = shapes[2, 3] = 'o'
-    boxes = overlay_boxes(clustermap, shapes=shapes)
+    boxes = overlay_shapes(clustermap, shapes=shapes)
 
     n_vertices = np.where(shapes == 'o', len(_unit_shape('o').vertices), len(_unit_shape('s').vertices))
     row_order = clustermap.dendrogram_row.reordered_ind
@@ -235,20 +223,20 @@ def test_shape_matrices_follow_the_original_data_order(data, clustermap):
 
 @pytest.mark.parametrize('code, apex_is_on_top', [('^', True), ('v', False)])
 def test_triangles_point_the_way_they_look_on_the_inverted_heatmap_axis(heatmap_ax, code, apex_is_on_top):
-    path = overlay_boxes(heatmap_ax, sizes=0.5, shapes=code).get_paths()[0]
+    path = overlay_shapes(heatmap_ax, sizes=0.5, shapes=code).get_paths()[0]
     ys = path.vertices[:, 1]  # y grows downwards on a heatmap
     apex = path.vertices[np.argmin(ys) if apex_is_on_top else np.argmax(ys)]
     assert apex[0] == pytest.approx(0.5)
 
 
 def test_question_mark_is_as_tall_as_its_size_square_and_narrower(heatmap_ax):
-    extents = overlay_boxes(heatmap_ax, sizes=0.5, shapes='?').get_paths()[0].get_extents()
+    extents = overlay_shapes(heatmap_ax, sizes=0.5, shapes='?').get_paths()[0].get_extents()
     assert extents.height == pytest.approx(0.5, rel=1e-3)
     assert extents.width < 0.5
 
 
 def test_question_mark_is_upright_on_the_inverted_heatmap_axis(heatmap_ax):
-    vertices = overlay_boxes(heatmap_ax, sizes=0.5, shapes='?').get_paths()[0].vertices
+    vertices = overlay_shapes(heatmap_ax, sizes=0.5, shapes='?').get_paths()[0].vertices
     ys = vertices[:, 1]  # y grows downwards on a heatmap
     quarter = np.ptp(ys) / 4
     hook_width = np.ptp(vertices[ys < ys.min() + quarter, 0])
@@ -256,24 +244,30 @@ def test_question_mark_is_upright_on_the_inverted_heatmap_axis(heatmap_ax):
     assert hook_width > dot_width  # the wide hook is on top, the narrow dot at the bottom
 
 
-def test_heatmap_accepts_shapes(data):
-    fig = heatmap(data, {'shapes': 'o'})
-    heat_ax = next(ax for ax in fig.axes if ax.get_label() == 'heatmap')
-    assert set(_vertex_counts(heat_ax.collections[-1])) == {len(_unit_shape('o').vertices)}
+def test_legend_can_be_drawn_into_an_own_axes(data):
+    fig = plt.figure()
+    grid = fig.add_gridspec(2, 2, width_ratios=[10, 0.5])
+    heat_ax, cbar_ax, legend_ax = (fig.add_subplot(grid[:, 0]), fig.add_subplot(grid[0, 1]), fig.add_subplot(grid[1, 1]))
+    sns.heatmap(data, ax=heat_ax, cbar_ax=cbar_ax)
+    overlay_shapes(heat_ax, shapes='o', legend={'ax': legend_ax, 'bins': 3})
+
+    assert legend_ax.get_label() == 'size_legend'
+    assert len(legend_ax.patches) == 3
+    assert not heat_ax.child_axes  # no inset axes was created
 
 
 def test_legend_uses_the_shape_shared_by_all_cells(heatmap_ax):
-    overlay_boxes(heatmap_ax, shapes='o', legend={})
+    overlay_shapes(heatmap_ax, shapes='o', legend={})
     assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('o').vertices)}
 
 
 def test_legend_uses_squares_for_mixed_shapes(heatmap_ax, data):
     shapes = np.full(data.shape, 'o')
     shapes[0, 0] = '^'
-    overlay_boxes(heatmap_ax, shapes=shapes, legend={})
+    overlay_shapes(heatmap_ax, shapes=shapes, legend={})
     assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('s').vertices)}
 
 
 def test_legend_shape_can_be_chosen(heatmap_ax):
-    overlay_boxes(heatmap_ax, legend={'shape': 'o'})
+    overlay_shapes(heatmap_ax, legend={'shape': 'o'})
     assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('o').vertices)}

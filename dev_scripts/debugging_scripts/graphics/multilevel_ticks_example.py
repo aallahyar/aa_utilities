@@ -4,7 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 
-from aa_utilities.graphics import draw_multilevel_ticks, overlay_boxes
+from aa_utilities.graphics import draw_multilevel_ticks, overlay_shapes
 
 rng = np.random.default_rng(0)
 
@@ -106,12 +106,12 @@ for cell, panel in zip(grid, panels):
     draw_multilevel_ticks(ax, index=panel.index, columns=panel.columns)
 fig.suptitle('Panels with different size ratios')
 
-#%% together with overlay_boxes (which accepts the Axes of a plain sns.heatmap)
+#%% together with overlay_shapes (which accepts the Axes of a plain sns.heatmap)
 fig, ax = plt.subplots(figsize=(10, 6))
 sns.heatmap(df, ax=ax, cmap='viridis')
-overlay_boxes(ax, sizes=np.abs(df.values) / np.abs(df.values).max(), edgecolors='#444444', linewidths=0.5, background_alpha=0.4)
+overlay_shapes(ax, sizes=np.abs(df.values) / np.abs(df.values).max(), edgecolors='#444444', linewidths=0.5, background_alpha=0.4)
 draw_multilevel_ticks(ax, index=df.index, columns=df.columns)
-ax.set_title('Multi-level ticks and overlay_boxes')
+ax.set_title('Multi-level ticks and overlay_shapes')
 
 #%% clustermap: pass the heatmap axes and the drawn (clustered) order
 # Without clustering the groups stay contiguous. Seaborn puts the row labels on the right, and so do the levels.

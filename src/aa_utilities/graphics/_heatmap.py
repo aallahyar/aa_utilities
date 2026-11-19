@@ -1,13 +1,8 @@
-import logging
 import textwrap
 from functools import cache
 
 import numpy as np
-import seaborn as sns
-from matplotlib import (
-    pyplot as plt,
-    colors as mpl_colors,
-)
+from matplotlib import colors as mpl_colors
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from matplotlib.markers import MarkerStyle
@@ -15,8 +10,6 @@ from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 from matplotlib.transforms import Affine2D
 from seaborn.matrix import ClusterGrid
-
-logger = logging.getLogger(__name__)
 
 
 def _find_mesh(ax):
@@ -199,11 +192,11 @@ def _extract_face_colors(ax):
 
     # Force a canvas draw so that QuadMesh expands broadcast colors to per-cell
     # values before we read them.  Without this, a second call (e.g. two
-    # consecutive overlay_boxes() calls) returns a single RGBA row instead of
+    # consecutive overlay_shapes() calls) returns a single RGBA row instead of
     # one row per cell.
     ax.get_figure().canvas.draw()
 
-    # Prefer colors stashed before any _overlay_boxes() dimming; otherwise a
+    # Prefer colors stashed before any _overlay_shapes() dimming; otherwise a
     # later call would extract this mesh's already-dimmed (background_alpha)
     # state instead of the true original colors.
     face_colors = getattr(quad_mesh, '_facecolors_pristine', None)
@@ -222,18 +215,18 @@ def _extract_face_colors(ax):
     return face_colors_hex.reshape(n_rows, n_cols)
 
 
-def _overlay_boxes(ax, shape, face_colors, sizes, box_kws):
+def _overlay_shapes(ax, shape, face_colors, sizes, shape_kws):
     """Draw sized shapes (squares by default) on top of the heatmap mesh (skipping hidden cells) and dim the original."""
     from matplotlib.collections import PatchCollection
 
-    shapes = _to_shape_grid(box_kws.get('shapes'), shape)
-    edgecolors = box_kws.get('edgecolors')
+    shapes = _to_shape_grid(shape_kws.get('shapes'), shape)
+    edgecolors = shape_kws.get('edgecolors')
     edgecolors = _to_grid('none' if edgecolors is None else edgecolors, shape, 'edgecolors', is_color=True)
-    linewidths = box_kws.get('linewidths')
+    linewidths = shape_kws.get('linewidths')
     linewidths = _to_grid(1.5 if linewidths is None else linewidths, shape, 'linewidths')
 
     # Dim the original heatmap mesh by setting its alpha to the specified background_alpha.
-    background_alpha = box_kws.get('background_alpha', 0.1)
+    background_alpha = shape_kws.get('background_alpha', 0.1)
     quad_mesh = _find_mesh(ax)
     is_hidden = np.ma.getmaskarray(quad_mesh.get_array())  # cells hidden by seaborn (`mask=` or NaN)
     # Stash the pristine (pre-dimming) colors once, so a later call's automatic
@@ -266,8 +259,8 @@ def _overlay_boxes(ax, shape, face_colors, sizes, box_kws):
     return patch_collection
 
 
-def _draw_box_legend(ax, ax_heat, sizes, legend_kws, shape=_DEFAULT_SHAPE):
-    """Draw a marker-range legend showing representative box sizes.
+def _draw_size_legend(ax, ax_heat, sizes, legend_kws, shape=_DEFAULT_SHAPE):
+    """Draw a size legend showing representative shape sizes.
 
     The legend axes xlim/ylim are derived from the *rendered* pixel size
     of ``ax`` and ``ax_heat`` (via ``get_window_extent``), so that 1
@@ -391,101 +384,7 @@ def _draw_box_legend(ax, ax_heat, sizes, legend_kws, shape=_DEFAULT_SHAPE):
     ax.patch.set_visible(False)
 
 
-def heatmap(matrix_df, box_kws, fig=None, gs_kws=None, **heat_kws):
-    """Plot a heatmap with a sized shape (a square by default) per cell and a marker-range legend.
-
-    Creates a figure with a 2x2 GridSpec::
-
-        +----------------+-----------+
-        |                | colorbar  |
-        |    heatmap     +-----------+
-        |                | markers   |
-        +----------------+-----------+
-
-    Access individual axes via ``fig.axes`` (creation order: heatmap,
-    colorbar, marker_legend) or by label, e.g.::
-
-        next(a for a in fig.axes if a.get_label() == 'heatmap')
-
-    Args:
-        matrix_df (pd.DataFrame): Data matrix.
-        box_kws (dict): Shape overlay configuration. Per-cell options accept either a full
-            matrix or a single value that is applied to every cell:
-            - sizes (float or np.ndarray): Per-cell box sizes. 1 fills a cell; values in [0, 1]
-              are recommended, but larger ones are allowed (boxes then overlap their neighbours).
-              Default: 0.8 uniform.
-            - edgecolors (color or np.ndarray): Per-cell edge colors. Default: none.
-            - linewidths (float or np.ndarray): Per-cell border widths. Default: 1.5 uniform.
-            - shapes (str or np.ndarray): Per-cell matplotlib marker code(s), see ``overlay_boxes``.
-              Default: 's' (square).
-            - background_alpha (float): Original heatmap (mesh) alpha. Default: 0.1.
-            - legend (dict): Marker legend config passed to
-                            ``_draw_box_legend``. Omit the key or pass ``{}`` to draw the
-                            default 4-bin auto legend. Pass ``None`` to suppress the legend.
-        fig (matplotlib.figure.Figure, optional): Pre-created figure to draw
-            into.  If ``None``, a new ``(10, 8)`` figure is created.
-        gs_kws (dict): Keyword arguments forwarded to
-            ``fig.add_gridspec()``.  Use this to control the layout, e.g.
-            ``{'width_ratios': [10, 0.5], 'height_ratios': [1, 1],
-            'wspace': 0.3, 'hspace': 0.5}``.
-        **heat_kws: Forwarded to ``sns.heatmap()``.  The ``ax`` key is ignored;
-            ``cbar_ax`` is overridden to point at the colorbar subplot.
-
-    Returns:
-        matplotlib.figure.Figure
-
-    
-    Example: See ``dev_scripts/debugging_scripts/graphics/heatmap_example.py`` for usage examples.
-    """
-
-    gs_kws = dict(gs_kws or {})
-    gs_kws.setdefault('width_ratios', [10, 0.5])
-    gs_kws.setdefault('height_ratios', [1, 1])
-    gs_kws.setdefault('hspace', 0.5)
-    gs_kws.setdefault('wspace', 0.1)
-
-    if fig is None:
-        fig = plt.figure(figsize=(10, 8))
-    gs = fig.add_gridspec(2, 2, **gs_kws)
-
-    heat_ax = fig.add_subplot(gs[:, 0])
-    cbar_ax = fig.add_subplot(gs[0, 1])
-    marker_ax = fig.add_subplot(gs[1, 1])
-
-    heat_ax.set_label('heatmap')
-    cbar_ax.set_label('colorbar')
-    marker_ax.set_label('marker_legend')
-
-    # Redirect colorbar to its dedicated axes; ignore user-supplied ax
-    if 'ax' in heat_kws or 'cbar_ax' in heat_kws:
-        logger.warning(
-            '`ax` and `cbar_ax` arguments are ignored; this function produces its own heatmap, '
-            'colorbar, and marker-legend axes. You may provide a pre-created figure'
-            ' via the `fig` argument, or adjust the layout via `gs_kws`.'
-        )
-        heat_kws.pop('ax', None)
-        heat_kws.pop('cbar_ax', None)
-
-    # Produce the heatmap
-    sns.heatmap(data=matrix_df, ax=heat_ax, cbar_ax=cbar_ax, **heat_kws)
-
-    # Overlay boxes
-    n_rows, n_cols = matrix_df.shape
-    face_colors = _extract_face_colors(heat_ax)
-    sizes = box_kws.get('sizes')
-    sizes = _to_grid(0.8 if sizes is None else sizes, (n_rows, n_cols), 'sizes')
-    shapes = _to_shape_grid(box_kws.get('shapes'), (n_rows, n_cols))
-    _overlay_boxes(heat_ax, (n_rows, n_cols), face_colors, sizes, {**box_kws, 'shapes': shapes})
-
-    # Draw marker legend
-    legend_kws = box_kws.get('legend', {})
-    if legend_kws is not None:
-        _draw_box_legend(marker_ax, heat_ax, sizes, legend_kws, shape=_reference_shape(shapes))
-
-    return fig
-
-
-def overlay_boxes(
+def overlay_shapes(
     target,
     sizes=None,
     facecolors=None,
@@ -499,13 +398,13 @@ def overlay_boxes(
 
     The per-cell options (`sizes`, `facecolors`, `edgecolors`, `linewidths`, `shapes`) accept either a full
     matrix in the **original** data order (pre-clustering for a clustermap), or a single value
-    applied to every cell. Cells hidden by seaborn (`mask=` or NaN) get no box.
+    applied to every cell. Cells hidden by seaborn (`mask=` or NaN) get no shape.
 
     Args:
         target: The ``ClusterGrid`` returned by ``sns.clustermap()``, or the ``Axes`` returned by
             ``sns.heatmap()``.
-        sizes (float or np.ndarray, optional): Per-cell box sizes. 1 fills a cell; values in [0, 1]
-            are recommended, but larger ones are allowed (boxes then overlap their neighbours).
+        sizes (float or np.ndarray, optional): Per-cell shape sizes. 1 fills a cell; values in [0, 1]
+            are recommended, but larger ones are allowed (shapes then overlap their neighbours).
             Default: 0.8 uniform.
         facecolors (color or np.ndarray, optional): A single color, or per-cell RGBA colors with
             shape either `(n_rows, n_cols, 4)` or `(n_rows, n_cols)`.  If not provided, colors are
@@ -518,14 +417,14 @@ def overlay_boxes(
             Default: 1.5 uniform.
         background_alpha (float): Heatmap mesh alpha after dimming.
             Default: 0.1.
-        legend (dict, optional): Marker legend config, passed to
-            ``_draw_box_legend`` (see that function for keys such as
+        legend (dict, optional): Size legend config, passed to
+            ``_draw_size_legend`` (see that function for keys such as
             ``bins``, ``labels``, ``title``, ...). If ``None`` (default),
             no legend is drawn. If a dict is given without an ``'ax'``
             key, a narrow inset axes is created just outside the
             heatmap's bottom-right corner (past the colorbar, if that sits on the right);
-            pass ``{'ax': my_ax}`` to draw into an axes of your own instead.
-            The legend boxes use the shape shared by all cells, or squares if the shapes are mixed;
+            pass ``{'ax': my_ax}`` to draw into an axes of your own instead (see the example).
+            The legend shapes use the shape shared by all cells, or squares if the shapes are mixed;
             add ``'shape': <code>`` to choose another one.
         shapes (str or np.ndarray, optional): A single matplotlib marker code applied to every
             cell, or per-cell codes. Supported: 's' (square), 'o' (circle), 'D' and 'd' (diamonds),
@@ -543,6 +442,34 @@ def overlay_boxes(
         When ``row_cluster=False`` or ``col_cluster=False`` was passed to
         ``sns.clustermap()``, the corresponding dendrogram is ``None`` and
         the original row/column order is used as-is.
+
+    Example:
+        A heatmap with its own colorbar and size-legend axes, laid out with a ``GridSpec``::
+
+            import matplotlib.pyplot as plt
+            import numpy as np
+            import pandas as pd
+            import seaborn as sns
+            from aa_utilities.graphics import overlay_shapes
+
+            values = np.linspace(-1, 1, 64).reshape(8, 8)
+            df = pd.DataFrame(values)
+
+            fig = plt.figure(figsize=(8, 6))
+            grid = fig.add_gridspec(2, 2, width_ratios=[10, 0.5], height_ratios=[1, 1], hspace=0.5, wspace=0.1)
+            heat_ax = fig.add_subplot(grid[:, 0])    # large axes: the heatmap
+            cbar_ax = fig.add_subplot(grid[0, 1])    # colorbar
+            legend_ax = fig.add_subplot(grid[1, 1])  # size legend
+
+            sns.heatmap(df, ax=heat_ax, cbar_ax=cbar_ax, cmap='vlag')
+            overlay_shapes(
+                heat_ax,
+                sizes=np.abs(values),                    # the size encodes |value|
+                shapes=np.where(values >= 0, '^', 'v'),  # the shape encodes the sign
+                background_alpha=0.5,
+                legend={'ax': legend_ax, 'bins': [0.25, 0.5, 1.0], 'title': '|value|'},
+            )
+            plt.show()
     """
     heat_ax, shape, row_order, col_order = _resolve_target(target)
 
@@ -568,20 +495,20 @@ def overlay_boxes(
     shapes = _to_shape_grid(shapes, shape)
     shapes_reordered = shapes[np.ix_(row_order, col_order)]
 
-    box_kws = {
+    shape_kws = {
         'edgecolors': edgecolors_reordered,
         'linewidths': linewidths_reordered,
         'shapes': shapes_reordered,
         'background_alpha': background_alpha,
     }
 
-    # Draw the boxes on top of the heatmap mesh
-    patch_collection = _overlay_boxes(
+    # Draw the shapes on top of the heatmap mesh
+    patch_collection = _overlay_shapes(
         ax=heat_ax,
         shape=shape,
         face_colors=facecolors_reordered,
         sizes=sizes_reordered,
-        box_kws=box_kws,
+        shape_kws=shape_kws,
     )
 
     if legend is not None:
@@ -589,7 +516,7 @@ def overlay_boxes(
         ax_legend = legend_kws.get('ax')
         if ax_legend is None:
             ax_legend = heat_ax.inset_axes(_default_legend_rect(heat_ax))
-        ax_legend.set_label('marker_legend')
-        _draw_box_legend(ax_legend, heat_ax, sizes_reordered, legend_kws, shape=_reference_shape(shapes))
+        ax_legend.set_label('size_legend')
+        _draw_size_legend(ax_legend, heat_ax, sizes_reordered, legend_kws, shape=_reference_shape(shapes))
 
     return patch_collection
