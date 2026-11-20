@@ -19,10 +19,28 @@ class UpsetPlot:
         Ordered dictionary of set names to sets of elements.
         The key order determines the display order of sets.
     mode : {'inclusive', 'exclusive'}, default 'inclusive'
-        Default value for non-member sets in the generated matrix.
+        How each intersection treats the sets it does *not* include. This
+        sets the value of non-member sets in the matrix, and therefore how
+        the intersection size is computed. The same combinations of included
+        sets are generated in both modes; only the sizes (and labels) differ.
 
-        - ``'inclusive'``: non-member sets are ``0`` (don't care).
-        - ``'exclusive'``: non-member sets are ``-1`` (explicitly excluded).
+        - ``'inclusive'``: non-member sets are ``0`` (don't care, drawn as
+          grey dots). The size is the number of elements shared by all
+          included sets, regardless of whether they are also in other sets.
+          Intersections overlap, so an element can be counted in several
+          bars. Label: ``"A & B"``.
+        - ``'exclusive'``: non-member sets are ``-1`` (explicitly excluded,
+          drawn as red dots). The size is the number of elements shared by
+          all included sets and absent from every other set. Intersections
+          are disjoint, so each element is counted in exactly one bar.
+          Label: ``"A & B \\ C"``.
+
+        For ``A = {1, 2, 3}`` and ``B = {2, 3, 4}``, ``'inclusive'`` gives
+        ``A`` = 3, ``B`` = 3, ``A & B`` = 2, whereas ``'exclusive'`` gives
+        ``A \\ B`` = 1, ``B \\ A`` = 1, ``A & B`` = 2.
+
+        ``min_intersection_size`` / ``max_intersection_size`` are applied to
+        the sizes of the chosen mode.
     min_included_sets : int or None, default None
         Minimum number of included sets (value ``1``) required for an
         intersection to be generated/kept. ``None`` defaults to ``1``.
@@ -46,7 +64,7 @@ class UpsetPlot:
         One row per intersection.  Set columns contain ``1`` (member),
         ``0`` (ignored) or ``-1`` (excluded).  Metadata columns:
         ``_size``, ``_n_included``, ``_n_excluded``.
-    fig : Figure or None
+    figure : Figure or None
         Matplotlib Figure, available after :meth:`plot`.
     ax_set_sizes : Axes or None
         Axes for the horizontal set-size bars (left panel).
