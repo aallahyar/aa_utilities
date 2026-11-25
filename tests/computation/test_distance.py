@@ -178,3 +178,23 @@ def test_empty_x_gives_empty_matrix_for_any_worker_count():
     Y = np.ones((3, 2))
     assert pairwise_distances(X, Y, n_jobs=1).shape == (0, 3)
     assert pairwise_distances(X, Y, n_jobs=2).shape == (0, 3)
+
+
+def test_float32_input_does_not_overflow_the_variance():
+    samples = np.array([[0], [1e20], [2e20]], dtype=np.float32)
+    np.testing.assert_allclose(
+        pairwise_distances(samples, metric='seuclidean'),
+        pairwise_distances(samples.astype(np.float64), metric='seuclidean'),
+    )
+
+
+@pytest.mark.parametrize(
+    'options',
+    [{'metric': 'se'}, {'metric': 's'}, {'metric': 'seuclidean', 'V': None}, {'metric': 'mah'}, {'metric': 'mahal'}, {'metric': 'mahalanobis', 'VI': None}],
+)
+def test_metric_aliases_and_none_parameters_match_across_worker_counts(options):
+    samples = np.array([[0.0, 1.0], [1.0, 3.0], [2.0, 2.0], [10.0, 4.0], [3.0, 9.0]])
+    np.testing.assert_allclose(
+        pairwise_distances(samples, n_jobs=1, **options),
+        pairwise_distances(samples, n_jobs=2, backend='threading', **options),
+    )

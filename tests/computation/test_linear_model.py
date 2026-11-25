@@ -463,3 +463,26 @@ def test_numeric_predictors_keep_their_values_in_contrasts(model, two_factor_df)
     assert contrasts['operator'].tolist() == ['-']
     assert (contrasts['num_left'].iloc[0], contrasts['num_right'].iloc[0]) == (2, 1)
     assert model.get_contrast('num', (2, 1)) is not None
+
+
+def test_model_formula_is_refused_when_another_model_replaced_the_fit(fitted, trial_df):
+    from aa_utilities.computation.modeling import LinearModel, StaleResultError
+
+    assert fitted.get_model_formula() == fitted.results['formula']
+
+    other = LinearModel(space=fitted.R)
+    other.set_data(trial_df)
+    other.fit_lm('y ~ 1')
+
+    with pytest.raises(StaleResultError):
+        fitted.get_model_formula()
+    assert other.get_model_formula() == other.results['formula']
+
+
+def test_operator_of_contrasts_whose_levels_contain_operator_characters(model):
+    df = pd.DataFrame({'y': [1.0, 2.0, 4.0, 5.0, 3.0, 7.0], 'group': ['A / B', 'C / D'] * 3})
+    model.set_data(df)
+    model.fit_lm('y ~ group')
+    model.add_emmeans('group')
+    model.add_contrasts()
+    assert model.results.contrasts['operator'].tolist() == ['-']

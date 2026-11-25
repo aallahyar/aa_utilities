@@ -51,11 +51,12 @@ def _with_global_metric_parameters(X: np.ndarray, Y: np.ndarray, metric, metric_
     if not isinstance(metric, str):
         return metric_kwargs
     name = metric.lower()
-    if name == 'seuclidean' and 'V' not in metric_kwargs:
-        pooled = np.vstack([X, Y])
+    # `None` means "estimate it" to scipy, as does leaving the argument out; aliases are the ones scipy accepts
+    if name in ('seuclidean', 'se', 's') and metric_kwargs.get('V') is None:
+        pooled = np.vstack([X, Y]).astype(np.float64)  # scipy estimates in float64, float32 would overflow
         return metric_kwargs | {'V': np.var(pooled, axis=0, ddof=1)}
-    if name in ('mahalanobis', 'mahal', 'maha') and 'VI' not in metric_kwargs:
-        pooled = np.vstack([X, Y])
+    if name in ('mahalanobis', 'mahal', 'mah') and metric_kwargs.get('VI') is None:
+        pooled = np.vstack([X, Y]).astype(np.float64)
         return metric_kwargs | {'VI': np.linalg.inv(np.atleast_2d(np.cov(pooled.T))).T}
     return metric_kwargs
 

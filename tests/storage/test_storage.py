@@ -50,3 +50,18 @@ def test_container_filter_and_drop_keep_non_string_keys():
 
     assert dict(container.drop(labels=['a'])) == {'b': 2, 7: 3}
     assert dict(container.filter(items=[7, 'a'])) == {7: 3, 'a': 1}
+
+
+def test_overlapping_saves_do_not_share_a_temporary_file(tmp_path):
+    checkpoint = Checkpoint(path=tmp_path, verbose=False)
+    checkpoint.save('previous')
+
+    class SavesWhilePickling:
+        def __reduce__(self):
+            checkpoint.save('inner')  # a second save to the same destination while this one is being written
+            return (str, ('outer',))
+
+    checkpoint.save(SavesWhilePickling())
+
+    assert checkpoint.load() == 'outer'
+    assert [p.name for p in tmp_path.iterdir()] == ['data.pkl.gz']

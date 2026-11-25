@@ -46,3 +46,10 @@ def test_empty_removal_list_removes_nothing(df):
 def test_empty_keep_list_keeps_only_the_intercept(df):
     fit = remove_effects(df, 'y', covs_all=['age'], covs_keep=[])
     assert fit.covs_kept == ['Intercept']
+
+
+def test_keeping_terms_works_for_a_formula_without_an_intercept():
+    frame = pd.DataFrame({'y': [2.0, 4.0, 6.0, 8.0], 'x': [1.0, 2.0, 3.0, 4.0]})
+    fit = remove_effects(frame, 'y', covs_all=['0', 'x'], covs_keep=['x'])
+    assert fit.covs_kept == ['x']
+    np.testing.assert_allclose(fit.response_adjusted, frame['y'])

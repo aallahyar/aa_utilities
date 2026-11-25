@@ -4,6 +4,7 @@ import gzip
 import pickle
 import os
 import stat
+import uuid
 
 
 class Checkpoint:
@@ -60,7 +61,7 @@ class Checkpoint:
                 if self.verbose:
                     print(f'Warning, destination file is overwritten: {fpath}')
 
-        tmp_path = fpath.with_name(f'.{fpath.name}.{os.getpid()}.tmp')
+        tmp_path = fpath.with_name(f'.{fpath.name}.{uuid.uuid4().hex}.tmp')  # unique per call: saves may overlap
         try:
             with gzip.open(tmp_path, mode='wb', compresslevel=5) as file:
                 pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)

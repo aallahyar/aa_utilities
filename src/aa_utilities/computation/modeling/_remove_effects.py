@@ -71,7 +71,8 @@ def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=No
             logger.debug(f'Columns to drop: {columns_drop}')
         columns_keep = X.drop(columns=columns_drop).columns.tolist()
     else:
-        columns_keep = columns_of(['Intercept', *covs_keep])
+        # a formula without an intercept (`0 + x`) has no such term to keep
+        columns_keep = columns_of([*(['Intercept'] if 'Intercept' in term_slices else []), *covs_keep])
 
     if verbose:
         logger.debug(f'Columns to keep: {columns_keep}')

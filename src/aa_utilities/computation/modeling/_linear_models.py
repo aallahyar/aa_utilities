@@ -306,6 +306,11 @@ class LinearModel:
             self._forget('contrasts')
 
     def get_model_formula(self):
+        """Formula of the current fit; refused if the R `fit` is no longer the one this model created."""
+        self._verify('fit')
+        return self.results['formula']
+
+    def _read_model_formula(self):
         self.R("""
             # chatgpt: deparse is more reliable than capture.output(print(...))
             # model_formula <- capture.output(print(formula(fit)))
@@ -338,7 +343,7 @@ class LinearModel:
             """)
         self.results.setdefault('warnings', []).extend(warnings)
         self.results['model_name'] = 'lm'
-        self.results['formula'] = self.get_model_formula()
+        self.results['formula'] = self._read_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
         self._stamp('fit')
@@ -368,7 +373,7 @@ class LinearModel:
             """)
         self.results.setdefault('warnings', []).extend(warnings)
         self.results['model_name'] = 'logistic'
-        self.results['formula'] = self.get_model_formula()
+        self.results['formula'] = self._read_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
         self._stamp('fit')
@@ -426,7 +431,7 @@ class LinearModel:
         )
 
         self.results['model_name'] = 'mmrm'
-        self.results['formula'] = self.get_model_formula()
+        self.results['formula'] = self._read_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['n_subjects'] = int(self.R['n_subjects'])
         self.results['fit_coefs'] = fit_coefs
@@ -466,7 +471,7 @@ class LinearModel:
             """)
         self.results.setdefault('warnings', []).extend(warnings)
         self.results['model_name'] = 'negative_binomial'
-        self.results['formula'] = self.get_model_formula()
+        self.results['formula'] = self._read_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['fit_theta'] = float(self.R['fit_theta'])
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
@@ -633,10 +638,14 @@ class LinearModel:
             comb2.iloc[position, :] = preds2[0]
             label = str(label)
             left, right = label_text(comb1.iloc[position].tolist()), label_text(comb2.iloc[position].tolist())
-            if label.startswith(left) and label.endswith(right) and len(left) + len(right) <= len(label):
-                operators.iloc[position, 0] = label[len(left):len(label) - len(right)].strip()
-            elif match := re.search(r'\s([-/])\s', label):  # unexpected label format
-                operators.iloc[position, 0] = match.group(1)
+            # emmeans wraps a side in parentheses when its level contains an operator character, e.g. `(A / B) - (C / D)`
+            for side_left, side_right in ((left, right), (f'({left})', f'({right})')):
+                if label.startswith(side_left) and label.endswith(side_right) and len(side_left) + len(side_right) <= len(label):
+                    operators.iloc[position, 0] = label[len(side_left):len(label) - len(side_right)].strip()
+                    break
+            else:
+                if match := re.search(r'\s([-/])\s', label):  # unexpected label format
+                    operators.iloc[position, 0] = match.group(1)
         expanded = pd.concat([
             contrasts_df, 
             comb1.add_suffix('_left'), 
