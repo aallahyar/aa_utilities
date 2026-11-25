@@ -200,3 +200,17 @@ def test_final_bases_rise_over_spanned_positions(ax):
     result = links([(0, 2)], ['p'], bases={0: 10, 1: 50, 2: 20}, ax=ax)
     assert result.bases[0] == result.bases[1] == result.bases[2] == result.links[0].bar_top
     assert result.bases[1] > 50
+
+
+def test_levels_do_not_depend_on_the_input_order_of_equally_wide_links(ax):
+    _draw_boxes(ax)
+    forward = links([(0, 1), (1, 2)], ['a', 'b'], ax=ax)
+    levels_forward = {tuple(link.anchors): link.level for link in forward.links}
+
+    plt.close('all')
+    _, other = plt.subplots()
+    _draw_boxes(other)
+    backward = links([(1, 2), (0, 1)], ['b', 'a'], ax=other)
+    levels_backward = {tuple(link.anchors): link.level for link in backward.links}
+
+    assert levels_forward == levels_backward

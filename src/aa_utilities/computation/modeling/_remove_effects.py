@@ -1,5 +1,4 @@
 import logging
-import re
 
 import numpy as np
 import patsy
@@ -55,27 +54,24 @@ def remove_effects(dataframe, response, covs_all, covs_remove=None, covs_keep=No
         logger.warning(f'Missing columns in the fitted model (likely dropped due to collinearity): {sorted(missing)}')
 
     # determine which columns to keep
+    # Terms are matched exactly through patsy's term -> columns map (a prefix match would, e.g., let `age`
+    # also select `age_baseline`). A categorical term owns one column per level, e.g. `sex[T.M]`.
+    term_slices = X.design_info.term_name_slices
+
+    def columns_of(terms):
+        unknown = [term for term in terms if term not in term_slices]
+        if unknown:
+            raise ValueError(f'Terms {unknown} are not in the design matrix. Available terms: {list(term_slices)}')
+        selected = {column for term in terms for column in X.columns[term_slices[term]]}
+        return [column for column in X.columns if column in selected]
+
     if covs_remove is not None:
-        # guard against an empty list: '|'.join([]) is '', which would otherwise match every column name
-        if len(covs_remove) == 0:
-            columns_drop = []
-        else:
-            columns_drop = (
-                X
-                # column names are suffixed with their levels by patsy. So `.*` is needed to match them.
-                .filter(regex=r'^(' + '|'.join(map(re.escape, covs_remove)) + ').*')
-                .columns
-                .tolist()
-            )
+        columns_drop = columns_of(covs_remove)
         if verbose:
             logger.debug(f'Columns to drop: {columns_drop}')
         columns_keep = X.drop(columns=columns_drop).columns.tolist()
     else:
-        if len(covs_keep) == 0:
-            columns_keep = X.filter(regex=r'^Intercept.*')
-        else:
-            columns_keep = X.filter(regex=r'^(Intercept|' + '|'.join(map(re.escape, covs_keep)) + ').*')
-        columns_keep = columns_keep.columns.tolist()
+        columns_keep = columns_of(['Intercept', *covs_keep])
 
     if verbose:
         logger.debug(f'Columns to keep: {columns_keep}')

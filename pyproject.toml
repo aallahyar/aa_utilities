@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aa_utilities"
-version = "0.0.58"
+version = "0.0.59"
 description = "General utilities that I often use during my day-to-day work"
 readme = "README.md"
 authors = [{ name = "Amin Allahyar", email = "amin.allahyar@gmail.com" }]
@@ -34,8 +34,6 @@ dependencies = {file = ["requirements.txt"]}
 
 extras = [
     "ipympl", # if interactive visualization is needed
-    "patsy", # for expression level correction
-    "joblib", # for parallelization of R calls
 ]
 
 # pyproject.toml — pytest defaults (optional but recommended)

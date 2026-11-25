@@ -20,10 +20,10 @@ def _infer_dtypes(df, enforce: dict=None):
     for col in df.columns:
         if col in enforce:
             dtypes.at[col] = enforce[col]
+        elif pd.api.types.is_bool_dtype(df[col]):  # checked before numeric, as pandas treats booleans as numeric
+            dtypes.at[col] = 'string'  # treated as categorical, tests via chi2
         elif pd.api.types.is_numeric_dtype(df[col]):
             dtypes.at[col] = 'numeric'
-        elif pd.api.types.is_bool_dtype(df[col]): # treat boolean as categorical, tests via chi2
-            dtypes.at[col] = 'string'
         else:
             dtypes.at[col] = 'string'
     return dtypes
@@ -52,10 +52,11 @@ def pairwise_associations(df, enforced_dtypes=None):
 
         # convert NaN to a category for categorical variables (if there is any NaN), 
         # but keep NaN for numeric variables.
+        # `astype(object)` first: a Categorical or nullable column can not take a new 'NaN' level otherwise
         if a_is_cat and df[col_a].isna().any():
-            df[col_a] = df[col_a].fillna('NaN')
+            df[col_a] = df[col_a].astype(object).fillna('NaN')
         if b_is_cat and df[col_b].isna().any():
-            df[col_b] = df[col_b].fillna('NaN')
+            df[col_b] = df[col_b].astype(object).fillna('NaN')
 
         # only consider pairs with at least 5 complete samples
         pair = df[[col_a, col_b]].dropna(how='any')

@@ -271,3 +271,18 @@ def test_legend_uses_squares_for_mixed_shapes(heatmap_ax, data):
 def test_legend_shape_can_be_chosen(heatmap_ax):
     overlay_shapes(heatmap_ax, legend={'shape': 'o'})
     assert _legend_vertex_counts(heatmap_ax) == {len(_unit_shape('o').vertices)}
+
+
+def test_automatic_legend_bins_ignore_masked_and_non_finite_sizes(data):
+    mask = np.zeros(data.shape, dtype=bool)
+    mask[0, 0] = True
+    sizes = np.linspace(0.2, 0.6, data.size).reshape(data.shape)
+    sizes[0, 0] = 5.0  # hidden by the mask
+    sizes[1, 1] = np.nan  # no valid size, would otherwise turn every bin into NaN
+    visible = sizes[~mask & np.isfinite(sizes)]
+
+    heat_ax = sns.heatmap(data, mask=mask)
+    overlay_shapes(heat_ax, sizes=sizes, legend={'bins': 2})
+
+    legend_ax = next(ax for ax in heat_ax.child_axes if ax.get_label() == 'size_legend')
+    assert sorted(text.get_text() for text in legend_ax.texts) == [f'{visible.min():.2f}', f'{visible.max():.2f}']

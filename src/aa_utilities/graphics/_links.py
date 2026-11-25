@@ -303,7 +303,10 @@ def links(
         return max(a[0], b[0]) <= min(a[1], b[1])
 
     # assign each link to the lowest level whose already-placed spans don't overlap it
-    assignment_order = sorted(range(n), key=lambda i: (spans[i][1] - spans[i][0], i)) if auto_order else range(n)
+    # narrowest span first; ties are broken by position (not by input order) so the result does not depend on it
+    assignment_order = (
+        sorted(range(n), key=lambda i: (spans[i][1] - spans[i][0], spans[i][0], spans[i][1], i)) if auto_order else range(n)
+    )
     level_of = {}
     level_spans = []
     for i in assignment_order:

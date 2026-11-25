@@ -60,6 +60,11 @@ class LinkageTreeParser:
         self.model = model
         if hasattr(model, 'children_'):  # scikit-learn
             merging_nodes = model.children_
+            if getattr(model, 'distances_', None) is None:
+                raise ValueError(
+                    'The scikit-learn model has no `distances_`. Fit it with `compute_distances=True` '
+                    '(or `distance_threshold=0`, `n_clusters=None`) to get the full tree.'
+                )
             distances = model.distances_
             self.n_sample = len(model.labels_)
         else:  # scipy

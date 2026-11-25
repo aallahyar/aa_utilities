@@ -56,6 +56,7 @@ for every link, its `line` and `text` artists plus its `level`, `feet`, `bar_val
 **Example**:
 ```python
 from aa_utilities.graphics import links
+import matplotlib.pyplot as plt
 
 fig = plt.figure()
 ax = fig.gca()

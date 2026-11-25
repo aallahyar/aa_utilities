@@ -440,6 +440,8 @@ def repel_text(
     y = np.asarray(y, dtype=float)
     if len(x) != len(y) or len(x) != len(texts):
         raise ValueError('x, y, and texts must have the same length')
+    if not (np.isfinite(x).all() and np.isfinite(y).all()):
+        raise ValueError('x and y must be finite, drop the missing anchors first')
 
     fig = ax.get_figure()
     try:

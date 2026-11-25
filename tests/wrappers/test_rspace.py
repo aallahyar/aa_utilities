@@ -1,5 +1,7 @@
 # tests/wrappers/test_rspace.py
 
+import os
+
 import pytest
 import numpy as np
 import pandas as pd
@@ -8,7 +10,9 @@ try:
     from aa_utilities.wrappers import RSpace, RWarning, RMessage, RError  # noqa: F401  (availability probe; the `rspace` fixture is in conftest.py)
 
     RSPACE_AVAILABLE = True
-except Exception:
+except (ImportError, OSError):  # a broken import of our own code must fail, not skip
+    if os.environ.get('CI'):
+        raise  # R and rpy2 are installed on CI, so a missing RSpace there must not silently skip these tests
     RSPACE_AVAILABLE = False
 
 requires_rspace = pytest.mark.skipif(
@@ -580,3 +584,62 @@ def test_invisible_assignment_still_returns_none(rspace):
     assert rspace('some_var <- 1') is None
     assert rspace('invisible(42)') is None
     assert rspace('42') == pytest.approx(42.0)
+
+
+@requires_rspace
+def test_zero_column_matrix_keeps_its_rows(rspace):
+    rspace('m <- matrix(numeric(0), 3, 0)')
+    assert rspace['m'].shape == (3, 0)
+    rspace('m2 <- matrix(numeric(0), 3, 0, dimnames = list(c("a", "b", "c"), NULL))')
+    assert rspace['m2'].index.tolist() == ['a', 'b', 'c']
+
+
+@requires_rspace
+def test_non_atomic_r_objects_are_not_turned_into_series(rspace):
+    out = rspace('function(x) x')
+    assert not isinstance(out, pd.Series)
+    assert callable(out)
+
+
+@requires_rspace
+def test_clear_warnings_inside_a_capture_does_not_lose_later_warnings(rspace):
+    rspace('warning("before")')
+    with rspace.capture_warnings() as warnings:
+        rspace.clear_warnings()
+        rspace('warning("after")')
+    assert [w.message for w in warnings] == ['after']
+
+
+@requires_rspace
+def test_clear_messages_inside_a_capture_does_not_lose_later_messages(rspace):
+    rspace('message("before")')
+    with rspace.capture_messages() as messages:
+        rspace.clear_messages()
+        rspace('message("after")')
+    assert [m.message for m in messages] == ['after']
+
+
+@requires_rspace
+def test_nested_captures_each_receive_the_warnings(rspace):
+    with rspace.capture_warnings() as outer:
+        rspace('warning("one")')
+        with rspace.capture_warnings() as inner:
+            rspace('warning("two")')
+    assert [w.message for w in outer] == ['one', 'two']
+    assert [w.message for w in inner] == ['two']
+
+
+@requires_rspace
+def test_warnings_become_errors_when_r_is_set_to_do_so(rspace):
+    rspace('options(warn = 2)')
+    try:
+        with pytest.raises(RError, match='converted from warning'):
+            rspace('as.integer("x")')
+    finally:
+        rspace('options(warn = 0)')
+
+
+@requires_rspace
+def test_close_without_a_running_ipython_shell_does_not_fail():
+    rspace = RSpace(ipython=True)
+    rspace.close()

@@ -14,7 +14,7 @@ class IterativeStats:
         self.M2_ += delta * delta2
 
     def mean(self):
-        return self.mean_
+        return self.mean_ if self.count > 0 else float('nan')
 
     def var(self):
         n = self.count - self.ddof

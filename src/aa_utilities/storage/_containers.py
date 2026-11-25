@@ -139,7 +139,8 @@ class Container(dict):
             # https://pandas.pydata.org/docs/reference/api/pandas.Series.copy.html
             return deepcopy(self)
         else:
-            new = Container(**self)  # __init__ already creates a fresh _logger; only _pp carries user-set state
+            new = Container()  # a fresh _logger comes with it; only _pp carries user-set state
+            dict.update(new, self)  # copies keys as they are, including ones starting with '_' or non-strings
             super(Container, new).__setattr__('_pp', deepcopy(self._pp))
             return new
     
@@ -155,16 +156,16 @@ class Container(dict):
             # support both mapping and iterable-of-pairs, like dict.update
             other_items = other.items() if hasattr(other, 'items') else other
             for key, value in other_items:
-                new.__setattr__(key, value)
+                new[key] = value
         for key, value in kwargs.items():
-            new.__setattr__(key, value)
+            new[key] = value
         return new
 
     @classmethod
     def from_series(cls, series):
-        # or equally: Container(**series)
-        # or equally: Container(**{'A': [1,2,3]})
-        return cls(**series)
+        new = cls()
+        dict.update(new, series.items())  # keeps every key, unlike `cls(**series)`
+        return new
 
     def to_series(self):
         return pd.Series(self)

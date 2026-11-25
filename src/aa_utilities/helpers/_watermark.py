@@ -32,7 +32,7 @@ def watermark(
 
     Example:
         ```
-        from aa_utilities.wrappers import watermark as aa_watermark
+        from aa_utilities.helpers import watermark as aa_watermark
         output_str = aa_watermark(
             author="Amin Allahyar",
             email='Amin.Allahyar@astrazeneca.com',
@@ -50,10 +50,11 @@ def watermark(
         "Email": email,
     })
 
-    # Date / time
-    date_section = {"Date": datetime.now().strftime("%Y-%m-%d")}
+    # Date / time, both taken from one timestamp so they can not describe different days
+    now = datetime.now(tz=ZoneInfo(timezone)) if timezone is not None else datetime.now()
+    date_section = {"Date": now.strftime("%Y-%m-%d")}
     if timezone is not None:
-        date_section["Time"] = datetime.now(tz=ZoneInfo(timezone)).strftime("%H:%M:%S %Z")
+        date_section["Time"] = now.strftime("%H:%M:%S %Z")
     sections.append(date_section)
 
     # Python and IPython versions

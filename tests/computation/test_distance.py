@@ -157,3 +157,24 @@ def test_metric_kwargs_forwarded(sample_matrices):
     D_p3 = pairwise_distances(X, metric='minkowski', p=3, n_jobs=1)
     D_expected = cdist(X, X, metric='minkowski', p=3)
     np.testing.assert_allclose(D_p3, D_expected, rtol=1e-10)
+
+
+# --- data-dependent metrics must not depend on the number of workers ---
+
+
+@pytest.mark.parametrize('metric', ['seuclidean', 'mahalanobis'])
+def test_data_dependent_metrics_match_across_worker_counts(sample_matrices, metric):
+    X, Y = sample_matrices
+    np.testing.assert_allclose(
+        pairwise_distances(X, Y, metric=metric, n_jobs=3),
+        pairwise_distances(X, Y, metric=metric, n_jobs=1),
+        rtol=1e-10,
+    )
+    np.testing.assert_allclose(pairwise_distances(X, Y, metric=metric, n_jobs=1), cdist(X, Y, metric=metric), rtol=1e-10)
+
+
+def test_empty_x_gives_empty_matrix_for_any_worker_count():
+    X = np.empty((0, 2))
+    Y = np.ones((3, 2))
+    assert pairwise_distances(X, Y, n_jobs=1).shape == (0, 3)
+    assert pairwise_distances(X, Y, n_jobs=2).shape == (0, 3)

@@ -58,7 +58,6 @@ def is_true(
             .pipe(is_true, lambda df: df.b.gt(50).all())
             .pipe(lambda df: is_true(data=df, condition=True))
             .pipe(lambda df: is_true(df.iloc[:-2], condition=df.c.ge(200).all())) # note: df.iloc[:-2] is returned
-            .pipe(lambda df: is_true(df.iloc[:-2], condition=df.c.ge(200).all()) and df) # note: df is returned
             .pipe(lambda df: is_true(df.iloc[1:], df.a.ge(0).all())) # note: df.iloc[1:] is returned
         )
 
@@ -97,12 +96,10 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
             'day2': [22, 21, 25, 26, 23],
         })
 
-        (
-            df
-            .pipe(select, 'id in ["A"] and day1 >= 25') # this is equivalent to .query()
-            .pipe(select, ['id in ["A"]', 'day1 >= 25']) # two queries, results are indicated by 0, 1
-            .pipe(select, {'set1': 'id in ["A"]', 'set2': 'day1 >= 25'})
-        )
+        # each call below starts from `df`: the result has an indicator column, so it can not be selected from again
+        select(df, 'id in ["A"] and day1 >= 25') # this is equivalent to .query()
+        select(df, ['id in ["A"]', 'day1 >= 25']) # two queries, results are indicated by 0, 1
+        select(df, {'set1': 'id in ["A"]', 'set2': 'day1 >= 25'})
     """
 
     # sanity checks
@@ -115,6 +112,8 @@ def select(dataframe: pd.DataFrame, queries: Union[str, dict, list], indicator='
         queries = {'': queries}
     if isinstance(queries, list):
         queries = {idx: que for idx, que in enumerate(queries)}
+    if len(queries) == 0:
+        raise ValueError('`queries` must contain at least one query')
 
     # select subsets of dataframe based on each query
     subsets = []
@@ -246,20 +245,22 @@ def sort(
             raise TypeError('For a `pd.Series`, `orders` must be a list-like of values')
         ordered_values = _unique_ordered(list(orders))
         cat_dtype = pd.CategoricalDtype(categories=ordered_values, ordered=True)
-        data_ordered = data.astype(cat_dtype).sort_values(
+        # sorting a copy with a positional index, so a duplicated index label can not duplicate rows below
+        data_ordered = data.reset_index(drop=True).astype(cat_dtype).sort_values(
             ascending=ascending,
+            kind=method,
             na_position=na_position,
         )
         if validate and data_ordered.isna().all():
             raise ValueError(
                 'Every value in the series is now undefined! Are you sure you defined the `order` properly?'
             )
-        return data.loc[data_ordered.index].copy()
+        return data.iloc[data_ordered.index].copy()
 
     if not isinstance(orders, dict):
         raise TypeError('For a `pd.DataFrame`, `orders` must be a dict of column->order')
 
-    data_ordered = data.copy()
+    data_ordered = data.reset_index(drop=True)  # positional index, see the Series branch
     for col, col_order in orders.items():
         if col not in data_ordered.columns:
             raise KeyError(f'Column "{col}" does not exist in the dataframe')
@@ -276,7 +277,7 @@ def sort(
         kind=method,
         na_position=na_position,
     )
-    return data.loc[data_ordered.index, :].copy()
+    return data.iloc[data_ordered.index, :].copy()
 
 
 def search(
@@ -331,16 +332,25 @@ def search(
     is_str = isinstance(value, str)
     if not (is_num or is_str):
         raise TypeError(f'Unsupported value type for search: expected numeric or string, got {type(value).__name__}')
+    # columns are handled by position, so duplicated column names and the reported `col_number` stay correct
+    columns = [df.iloc[:, position] for position in range(df.shape[1])]
     if is_num:
-        selected_cols = [
-            c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) or 'mixed' in pd.api.types.infer_dtype(df[c])
+        selected_positions = [
+            position
+            for position, col in enumerate(columns)
+            if pd.api.types.is_numeric_dtype(col) or 'mixed' in pd.api.types.infer_dtype(col)
         ]
     elif is_str:
-        # selected_cols = [c for c in df.columns if pd.api.types.is_string_dtype(df[c]) or 'mixed' in pd.api.types.infer_dtype(df[c])]
-        selected_cols = df.select_dtypes('object').columns.tolist() + df.select_dtypes('string').columns.tolist()
-    if len(selected_cols) == 0:
+        # `.str` only works on string-like columns, an object column holding only numbers would raise
+        selected_positions = [
+            position
+            for position, col in enumerate(columns)
+            if (col.dtype == object or isinstance(col.dtype, pd.StringDtype))
+            and pd.api.types.infer_dtype(col) in ('string', 'mixed', 'mixed-integer', 'empty')
+        ]
+    if len(selected_positions) == 0:
         return pd.DataFrame(columns=out_cols)
-    sub = df[selected_cols]
+    sub = df.iloc[:, selected_positions]
 
     # performing the search
     if is_num:
@@ -355,11 +365,12 @@ def search(
                 # Float with tolerance: |x - value| <= tolerance on finite entries only
                 # Build mask efficiently using NumPy, then convert to DataFrame
                 mask_array = np.zeros(sub.shape, dtype=bool)
-                for c_idx, c_name in enumerate(sub.columns):
-                    if 'mixed' in pd.api.types.infer_dtype(sub[c_name]):
-                        arr = pd.to_numeric(sub[c_name], errors='coerce').to_numpy(copy=False)
+                for c_idx in range(sub.shape[1]):
+                    col = sub.iloc[:, c_idx]
+                    if 'mixed' in pd.api.types.infer_dtype(col):
+                        arr = pd.to_numeric(col, errors='coerce').to_numpy(copy=False)
                     else:
-                        arr = sub[c_name].to_numpy(copy=False)
+                        arr = col.to_numpy(copy=False)
                     is_finite = np.isfinite(arr)
                     mask_array[is_finite, c_idx] = np.abs(arr[is_finite] - value) <= tolerance
                 mask = pd.DataFrame(mask_array, index=sub.index, columns=sub.columns)
@@ -367,7 +378,9 @@ def search(
     elif is_str:
         if regex:
             # Regex match
-            mask = sub.apply(lambda col: col.str.contains(value, na=False, case=case), axis=0)
+            mask = pd.DataFrame(
+                {c_idx: sub.iloc[:, c_idx].str.contains(value, na=False, case=case) for c_idx in range(sub.shape[1])}
+            )
         elif case:
             mask = sub.eq(value)
         else:
@@ -375,13 +388,14 @@ def search(
             # Build mask efficiently using NumPy, then convert to DataFrame
             mask_array = np.zeros(sub.shape, dtype=bool)
             value_cf = value.casefold()
-            for c_idx, c_name in enumerate(sub.columns):
-                col_cf = sub[c_name].str.casefold()
-                mask_array[:, c_idx] = col_cf.eq(value_cf).fillna(False).values
+            for c_idx in range(sub.shape[1]):
+                col_cf = sub.iloc[:, c_idx].str.casefold()
+                mask_array[:, c_idx] = col_cf.eq(value_cf).fillna(False).to_numpy(dtype=bool)
             mask = pd.DataFrame(mask_array, index=sub.index, columns=sub.columns)
 
     # Vectorized extraction of matches using np.where
-    row_indices, col_indices = np.where(mask.values)
+    # nullable dtypes give a mask holding `pd.NA`, which counts as no match
+    row_indices, col_indices = np.where(mask.fillna(False).to_numpy(dtype=bool))
     if len(row_indices) == 0:
         return pd.DataFrame(columns=out_cols)
 
@@ -391,7 +405,7 @@ def search(
             'row_name': sub.index[row_indices],
             'col_name': sub.columns[col_indices],
             'row_number': row_indices,
-            'col_number': col_indices,
+            'col_number': np.asarray(selected_positions)[col_indices],
         }
     )
 
@@ -462,10 +476,13 @@ def reorder_by_similarity(
     if df.isna().any().any():
         raise ValueError('DataFrame contains NaN values! Please handle them before reordering (e.g., by imputation or dropping).')
 
+    # nullable numeric dtypes (e.g., Int64) become object arrays otherwise, which scipy rejects
+    values = df.to_numpy(dtype=float)
+
     # Cluster rows
     if cluster_rows and df.shape[0] >= 2:
         row_kws = {'method': 'average', 'metric': 'euclidean', **(row_kws or {})}
-        row_dist = pdist(df, metric=row_kws['metric'])
+        row_dist = pdist(values, metric=row_kws['metric'])
         row_linkage = hierarchy.linkage(row_dist, method=row_kws['method'])
         row_order = hierarchy.leaves_list(row_linkage)
     else:
@@ -474,7 +491,7 @@ def reorder_by_similarity(
     # Cluster columns
     if cluster_cols and df.shape[1] >= 2:
         col_kws = {'method': 'average', 'metric': 'euclidean', **(col_kws or {})}
-        col_dist = pdist(df.T, metric=col_kws['metric'])
+        col_dist = pdist(values.T, metric=col_kws['metric'])
         col_linkage = hierarchy.linkage(col_dist, method=col_kws['method'])
         col_order = hierarchy.leaves_list(col_linkage)
     else:
@@ -536,8 +553,7 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
     show_categorical : bool
         Whether to display the categorical/string summary table.
     return_dfs : bool
-        If True, return the numeric and categorical summary tables as DataFrames instead 
-        of printing them.
+        If True, compute both summary tables and return them instead of displaying them.
     renderer : str
         Renderer to use for displaying the tables. 'auto' (default) uses 'display' in 
         Jupyter and 'print' otherwise. Can also be explicitly set to 'display' or 'print'.
@@ -548,23 +564,17 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
     or if no columns of that type exist.
     """
 
-    # Conflict check: return_dfs=True and show_*=True are mutually exclusive.
-    if return_dfs and (show_numeric or show_categorical):
-        raise ValueError(
-            'If `return_dfs` is True, both `show_numeric` and `show_categorical` must be False '
-            'to avoid displaying the tables.'
-        )
-    # If return_dfs is True, we won't display the tables, but will still compute them and return as DataFrames.
-    if return_dfs:
-        show_numeric = False
-        show_categorical = False
+    # `return_dfs` computes both tables, and suppresses the display of them.
+    compute_numeric = show_numeric or return_dfs
+    compute_categorical = show_categorical or return_dfs
+    display_tables = not return_dfs
 
     # ------------------------------------------------------------------ #
     #  Numeric Table                                                     #
     # ------------------------------------------------------------------ #
     numeric_df = None
 
-    if show_numeric:
+    if compute_numeric:
         numeric_cols = df.select_dtypes(include='number').columns.tolist()
 
         if numeric_cols:
@@ -574,15 +584,16 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
                 count=lambda num_df: num_df['count'].astype(int),  # .fillna(0)
             )
         else:
-            print('No numeric columns found.')
+            if display_tables:
+                print('No numeric columns found.')
 
     # ------------------------------------------------------------------ #
     #  Categorical Table                                                 #
     # ------------------------------------------------------------------ #
     categorical_df = None
 
-    if show_categorical:
-        categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+    if compute_categorical:
+        categorical_cols = df.select_dtypes(include=['object', 'category', 'string']).columns.tolist()
 
         if categorical_cols:
             rows = []
@@ -615,15 +626,16 @@ def describe(df, n_top=3, show_numeric=True, show_categorical=True, return_dfs=F
             categorical_df[count_cols] = categorical_df[count_cols].astype('Int64')
 
         else:
-            print('No categorical/string columns found.')
+            if display_tables:
+                print('No categorical/string columns found.')
 
     # ------------------------------------------------------------------ #
     #  Display                                                             #
     # ------------------------------------------------------------------ #
-    if show_numeric and numeric_df is not None:
+    if display_tables and show_numeric and numeric_df is not None:
         _render(numeric_df, 'NUMERIC SUMMARY', renderer=renderer)
 
-    if show_categorical and categorical_df is not None:
+    if display_tables and show_categorical and categorical_df is not None:
         _render(categorical_df, 'CATEGORICAL SUMMARY', renderer=renderer)
 
     if return_dfs:

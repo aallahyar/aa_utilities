@@ -25,7 +25,7 @@ class InteractiveSelection:
     collection : `matplotlib.collections.Collection` subclass
         Collection you want to select from.
     ax : `~matplotlib.axes.Axes`
-        Axes to interact with.
+        Axes to interact with. Defaults to the axes that holds `collection`.
     alpha_other : 0 <= float <= 1
         To highlight a selection, this tool sets all selected points to an
         alpha value of 1 and non-selected points to *alpha_other*.
@@ -39,7 +39,9 @@ class InteractiveSelection:
             )
 
         if ax is None:
-            ax = plt.gca()
+            ax = collection.axes if collection.axes is not None else plt.gca()
+        elif collection.axes is not None and collection.axes is not ax:
+            raise ValueError('`ax` must be the axes that holds `collection`')
         self.ax = ax
         self.canvas = ax.figure.canvas
         self.alpha_other = alpha_other

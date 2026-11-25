@@ -97,11 +97,17 @@ class UpsetPlot:
     ):
         if mode not in ('inclusive', 'exclusive'):
             raise ValueError(f"mode must be 'inclusive' or 'exclusive', got {mode!r}")
+        if len(sets) == 0:
+            raise ValueError('`sets` must contain at least one set')
+        reserved = sorted({'_size', '_n_included', '_n_excluded'} & set(sets))
+        if reserved:
+            raise ValueError(f'Set names {reserved} are reserved for the intersection metadata columns')
 
+        members = [set(s) for s in sets.values()]  # materialized once, so generators work and duplicates collapse
         self.sets = pd.DataFrame(
             {
-                'members': [set(s) for s in sets.values()],
-                'size': [len(s) for s in sets.values()],
+                'members': members,
+                'size': [len(s) for s in members],
             },
             index=sets.keys(),
         )
@@ -283,9 +289,9 @@ class UpsetPlot:
         # Relabel from surviving set columns
         ixs.index = self._derive_labels(ixs, set_cols)
 
-        # Deduplicate (keep first occurrence)
-        # : improves readability by making it clear that we're dropping duplicate rows, not columns
-        ixs = ixs.loc[~ixs.index.duplicated(keep='first'), :]
+        # Deduplicate by membership pattern (keep first occurrence); labels alone can collide for
+        # distinct patterns, e.g. a set that is itself named 'A & B'
+        ixs = ixs.loc[~ixs[set_cols].duplicated(keep='first'), :]
 
         # Respect included-set bounds configured at construction.
         ixs = self._apply_included_set_limits(ixs, set_cols)

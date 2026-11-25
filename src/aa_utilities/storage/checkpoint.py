@@ -47,7 +47,11 @@ class Checkpoint:
         return cls(path=latest_dir, verbose=verbose)
 
     def save(self, obj, file_name='data.pkl.gz', overwrite=True):
-        """Save an object to the checkpoint folder using gzip compression."""
+        """Save an object to the checkpoint folder using gzip compression.
+
+        The object is written to a temporary file first, so a failed save never damages an existing checkpoint.
+        Load checkpoints only from sources you trust: `pickle` can execute code while loading.
+        """
         fpath = self.path / file_name
         if fpath.exists():
             if not overwrite:
@@ -55,8 +59,19 @@ class Checkpoint:
             else:
                 if self.verbose:
                     print(f'Warning, destination file is overwritten: {fpath}')
-        with gzip.open(fpath, mode='wb', compresslevel=5) as file:
-            pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
+
+        tmp_path = fpath.with_name(f'.{fpath.name}.{os.getpid()}.tmp')
+        try:
+            with gzip.open(tmp_path, mode='wb', compresslevel=5) as file:
+                pickle.dump(obj, file, protocol=pickle.HIGHEST_PROTOCOL)
+            if overwrite:
+                os.replace(tmp_path, fpath)
+            else:
+                os.link(tmp_path, fpath)  # fails atomically if another writer created `fpath` meanwhile
+        except FileExistsError:
+            raise FileExistsError(f'File exists: {fpath}') from None
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
         # Get size after write
         if self.verbose:

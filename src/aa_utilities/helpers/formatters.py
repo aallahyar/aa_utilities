@@ -125,7 +125,7 @@ class TextWrapper(textwrap.TextWrapper):
         text_wrapper = textwrap.TextWrapper(width=25, replace_whitespace=False)
         print(text_wrapper.fill(text))
 
-        text_wrapper = TextWrap(width=25, keep_newlines=True)
+        text_wrapper = TextWrapper(width=25, keep_newlines=True)
         print(text_wrapper(text))
 
         # output
@@ -209,6 +209,10 @@ def interval2str(interval, fmt='{:0.1f}, {:0.1f}'):
 
 
 def pvalue_to_asterisks(p_value):
+    import pandas as pd
+
+    if pd.isna(p_value):  # a missing p-value is not evidence of non-significance
+        return 'NA'
     if p_value <= 0.0001:
         return '****'
     if p_value <= 0.001:

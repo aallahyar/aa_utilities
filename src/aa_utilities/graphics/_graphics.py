@@ -261,6 +261,8 @@ def jitter(values, n_bins=10, max_spread=0.9, seed=None):
         seed = 42
     rng = np.random.default_rng(seed=seed)
 
+    values = pd.Series(np.asarray(values))  # lists and arrays too: `pd.cut` would return a Categorical for them
+
     # categorize values into bins
     bin_membership = pd.cut(
         values, bins=n_bins, duplicates='drop'
@@ -342,11 +344,19 @@ def to_colors(
     default_hex = mpl_colors.to_hex(mpl_colors.to_rgba(default), keep_alpha=include_alpha)
 
     # Input validation and preprocessing
-    values = np.asarray(values)
+    if isinstance(values, (list, tuple)):
+        values = np.asarray(values, dtype=object)  # keeps None/NaN among strings, instead of the text 'nan'
+    else:
+        values = np.asarray(values)
     if values.size == 0:  # handle empty input
         return []
     if values.ndim > 1:
         raise ValueError(f'values must be a 1D vector, got shape {values.shape}.')
+    if values.dtype == object:
+        # numbers mixed with None/NaN are numeric data; decided from the non-missing entries only
+        present = values[~pd.isna(values)]
+        if all(isinstance(v, (int, float, np.integer, np.floating)) and not isinstance(v, bool) for v in present):
+            values = pd.to_numeric(pd.Series(values)).to_numpy(dtype=float)
     if np.all(pd.isna(values)):  # all-NaN/None: return default color for every position
         return [default_hex] * len(values)
 

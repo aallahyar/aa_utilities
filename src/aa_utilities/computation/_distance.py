@@ -42,6 +42,24 @@ def _compute_chunk(
     return cdist(X_chunk, Y, metric=metric, **metric_kwargs)
 
 
+def _with_global_metric_parameters(X: np.ndarray, Y: np.ndarray, metric, metric_kwargs: dict) -> dict:
+    """Fills in the data-dependent defaults that `cdist` would estimate from `vstack([X, Y])`.
+
+    Without this, every chunk of `X` would estimate its own variance/covariance, so the result would
+    depend on the number of workers.
+    """
+    if not isinstance(metric, str):
+        return metric_kwargs
+    name = metric.lower()
+    if name == 'seuclidean' and 'V' not in metric_kwargs:
+        pooled = np.vstack([X, Y])
+        return metric_kwargs | {'V': np.var(pooled, axis=0, ddof=1)}
+    if name in ('mahalanobis', 'mahal', 'maha') and 'VI' not in metric_kwargs:
+        pooled = np.vstack([X, Y])
+        return metric_kwargs | {'VI': np.linalg.inv(np.atleast_2d(np.cov(pooled.T))).T}
+    return metric_kwargs
+
+
 def pairwise_distances(
     X: np.ndarray,
     Y: np.ndarray | None = None,
@@ -160,6 +178,11 @@ def pairwise_distances(
         raise ValueError(f"'chunk_size' must be >= 1, got {chunk_size}")
 
     n_workers = effective_n_jobs(n_jobs)
+
+    if X.shape[0] == 0:
+        return np.empty((0, Y.shape[0]))
+
+    metric_kwargs = _with_global_metric_parameters(X, Y, metric, metric_kwargs)
 
     # Single-worker fast path — skip joblib overhead entirely.
     if n_workers == 1:

@@ -1,5 +1,6 @@
 from numba import jit as _jit
 import numpy as _np
+from scipy.stats import rankdata as _rankdata
 
 
 # source: https://stackoverflow.com/questions/52371329
@@ -21,13 +22,12 @@ def std(mat):
     return b
 
 
-@_jit(nopython=True)
 def rank(mat):
-    i, j = _np.meshgrid(*map(_np.arange, mat.shape), indexing='ij')
-    s = mat.argsort(1)
-    out = _np.empty_like(s)
-    out[i, s] = j
-    return out
+    """Row-wise ranks, where tied values share their average rank (as Spearman's correlation requires)."""
+    mat = _np.asarray(mat, dtype=float)
+    if _np.isnan(mat).any():
+        raise ValueError('Ranks are undefined for NaN values. Remove or impute them first.')
+    return _rankdata(mat, axis=1)
 
 
 @_jit(nopython=True)

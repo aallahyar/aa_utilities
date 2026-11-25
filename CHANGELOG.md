@@ -1,4 +1,36 @@
 
+## [0.0.59] - 2026-11-24
+Fixes from an independent review of the whole package.
+### Added:
+- `LinearModel` now tracks where its R objects come from. `data`, `fit`, `emmeans` and `contrasts` each get a token, kept in `LinearModel.lineage` and in a hidden R-side registry (`.__aa_token`) that also holds a reference to each registered R object. `fit_*()`, `add_emmeans()` and `add_contrasts()` check that the R objects they need (and everything upstream) are still the ones this model created, and raise the new `StaleResultError` otherwise: after `set_data()`/`set_reference()`, after a failed refit, when another `LinearModel` sharing the R session re-created `fit`, or when `fit`/`LSmeans`/`data` was re-assigned or edited by hand in R. Editing `data` by hand *before* fitting is adopted with a warning. A model only removes registry entries it owns, so clearing one model does not affect another sharing the R session, and a variable deleted in R (e.g., `rm(data)`) is refused instead of resolving to an R function of the same name.
+### Changed:
+- **Breaking:** `LinearModel.fit_*()` need `set_data()` first: data assigned directly in R is refused. `LinearModel()` without `space` now creates its own `RSpace` (it used to crash).
+- **Breaking:** `computation.modeling.remove_effects` matches `covs_remove`/`covs_keep` to design-matrix terms exactly (through patsy's term map), instead of by name prefix: removing `age` no longer also removes `age_baseline`, and no longer removes interactions such as `age:sex` unless they are listed.
+- `helpers.formatters.pvalue_to_asterisks` returns `'NA'` for a missing p-value (it was `'ns'`). `stats.IterativeStats.mean()` is `nan` before any value is included (it was `0.0`).
+- `computation.pairwise_associations` tests boolean columns as categorical (chi-square/Kruskal-Wallis), as intended, instead of as numeric.
+- `RSpace` no longer mutes warnings when R runs with `options(warn = 2)`, so they become errors as in plain R.
+- `helpers.pandas.describe(return_dfs=True)` works with the default flags and also summarizes `string` columns.
+- `LinearModel` confidence levels are no longer rounded to 2 decimals (`ci=0.954` used to become `0.95`), and must be between 0 and 1.
+- `storage.Checkpoint.save()` writes to a temporary file and replaces the target only on success. `overwrite=False` is now atomic.
+- Requirements: `scipy`, `joblib` and `patsy` are declared as dependencies (they were imported but only available through other packages or extras). CI installs the R packages used by `LinearModel` (and fails if one cannot be installed), and R-dependent tests fail instead of skipping on CI, also when `RSpace` cannot be imported.
+### Fixed:
+- `computation.pairwise_distances` gave different results for `seuclidean` and `mahalanobis` depending on `n_jobs`, as every chunk estimated its own variance/covariance. An empty `X` now works for any `n_jobs`.
+- `storage.Container.copy/update/drop/filter/from_series` lost keys starting with `_` and failed on non-string keys.
+- `helpers.pandas.sort` duplicated rows when the index had duplicates. `search` reported `col_number` relative to the searched columns, failed on nullable columns and on numeric object columns for case-insensitive/regex searches. `select` with no queries and `reorder_by_similarity` with nullable integers now behave.
+- `computation.pairwise_associations` crashed on categorical columns with missing values.
+- `computation.modeling.StabilitySelector` replaced a failure reported by the selector with `None`, and aborted when the estimator factory raised.
+- The Spearman correlation in `computation._corr` ignored ties (and ranked NaN). Ties get their average rank and NaN is rejected.
+- `LinearModel.add_contrasts` gave repeated contrast labels (e.g., the same comparison in several visits) the context of the last one. `clear_results(fit=True)` also clears `n_subjects` and `fit_theta`.
+- `LinearModel.add_contrasts` left the `operator` column empty when the contrasts are conditioned on another predictor (`spec='group | visit'`), and failed for numeric predictors (their levels now stay numeric in the `_left`/`_right` columns). `factorize()` requires data set by this model, a `set_reference()` that fails halfway invalidates the fit it made stale, and `fit_logistic` validates `ci` before discarding the previous fit.
+- `RSpace`: zero-column matrices keep their rows, non-atomic R objects (functions, environments) are no longer turned into a `Series`, `clear_warnings()`/`clear_messages()` inside a `capture_*()` block no longer loses later entries, and `close()` works without a running IPython shell.
+- `graphics.UpsetPlot` counted duplicates in set sizes, failed on generators, dropped distinct intersections whose labels collided, and accepted set names that clash with its metadata columns (`_size`, ...). Empty input is rejected.
+- `graphics.links` assigned levels depending on the input order for equally wide links.
+- `graphics.overlay_shapes` derived automatic legend bins from masked or NaN cells too.
+- `graphics.jitter` failed for lists and arrays. `graphics.to_colors` treated numbers mixed with `None` as categories, and turned missing strings into the text `'nan'`.
+- `graphics.repel_text` rejects non-finite anchors (it crashed). `graphics.InteractiveSelection` uses the axes of its collection by default.
+- `loggers.RestrictedLogger` ignored `setLevel()` after construction. `computation.LinkageTreeParser` explains how to fit a scikit-learn model that lacks `distances_`.
+- `helpers.watermark` could combine the date of one day with the time of another. Corrected examples in the docstrings of `is_true`, `select`, `watermark` and `TextWrapper`, and in the README.
+
 ## [0.0.58] - 2026-11-19
 ### Changed:
 - **Breaking:** `graphics.overlay_boxes` is renamed to `graphics.overlay_shapes`, as it draws shapes and not only boxes. The axes of its size legend are now labelled `size_legend` (was `marker_legend`). Its docstring has an example that lays out the heatmap, the colorbar and the size legend with a `GridSpec` and passes the legend axes through `legend={'ax': ...}`.
@@ -104,13 +136,9 @@
 - `graphics.repel_text` to remove the overlap between textboxes.
 
 ## [0.0.42] - 2026-02-06
-### Updated:
-- `RSpace` now supports returning variables from nested objects in R and automatically convert them to Python objects
 ### Changed:
 - `formatters` is now imported from `helpers`.
-
-## [0.0.42] - 2026-02-06
-### Changed:
+- `RSpace` now supports returning variables from nested objects in R and automatically convert them to Python objects
 - `RSpace` now holds a copy of its dedicated `logger` in `self.logger`.
 ### Added:
 - `RSpace.r_warnings` to collect the raised warnings.

@@ -1,4 +1,6 @@
 import logging
+import re
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -6,6 +8,45 @@ import pandas as pd
 from ...storage import Container
 
 logger = logging.getLogger(__name__)
+
+
+class StaleResultError(RuntimeError):
+    """An upstream R object (data, fit, ...) is no longer the one a downstream step was built from."""
+
+
+# R-side registry of what `LinearModel` created: variable name -> list(token, ref), where `ref` is the object itself.
+# `identical(ref, <current object>)` is a pointer comparison while nothing changed (R does not copy on assignment),
+# and detects a variable that was re-assigned or modified in R since it was registered.
+_REGISTRY_SOURCE = r"""
+if (!exists(".__aa_token", envir = globalenv(), inherits = FALSE)) {
+    assign(".__aa_token", new.env(parent = emptyenv()), envir = globalenv())
+}
+
+.__aa_stamp <- function(name, token) {
+    ref <- get(name, envir = globalenv(), inherits = FALSE)  # not inherits: `data` must not resolve to utils::data
+    assign(name, list(token = token, ref = ref), envir = get(".__aa_token", envir = globalenv()))
+    invisible(NULL)
+}
+
+.__aa_unstamp <- function(name, token) {
+    registry <- get(".__aa_token", envir = globalenv())
+    # only the owner removes an entry: another LinearModel may have registered its own object under this name
+    if (exists(name, envir = registry, inherits = FALSE) && identical(get(name, envir = registry)$token, token)) {
+        rm(list = name, envir = registry)
+    }
+    invisible(NULL)
+}
+
+.__aa_check <- function(name, token) {
+    if (!exists(name, envir = globalenv(), inherits = FALSE)) return("deleted")
+    registry <- get(".__aa_token", envir = globalenv())
+    if (!exists(name, envir = registry, inherits = FALSE)) return("missing")
+    entry <- get(name, envir = registry)
+    if (!identical(entry$token, token)) return("other_token")
+    if (!identical(entry$ref, get(name, envir = globalenv(), inherits = FALSE))) return("modified")
+    "ok"
+}
+"""
 
 
 def _prepare_categoricals(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
@@ -22,8 +63,29 @@ def _prepare_categoricals(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 class LinearModel:
     _ONE_VS_ONE_METHODS = {'pairwise', 'revpairwise'}  # contrast methods that always compare a single level vs. a single level
 
+    # stage -> (R variable, upstream stage, what to run to recreate it). Each stage is built from its upstream one.
+    _STAGES = {
+        'data': ('data', None, '`set_data()`'),
+        'fit': ('fit', 'data', 'a `fit_*()` method'),
+        'emmeans': ('LSmeans', 'fit', '`add_emmeans()`'),
+        'contrasts': ('emm_diff', 'emmeans', '`add_contrasts()`'),
+    }
+    _STALE_REASONS = {
+        'missing': 'was not created by this LinearModel in the current R session',
+        'other_token': 'was re-created by another LinearModel sharing this R session',
+        'modified': 'was modified or re-assigned in R outside of this LinearModel',
+        'deleted': 'no longer exists in the R session',
+    }
+
     def __init__(self, space=None):
+        if space is None:
+            try:
+                from ...wrappers import RSpace
+            except ImportError as exc:
+                raise ImportError('LinearModel needs the `rpy2` package to create its own `RSpace`.') from exc
+            space = RSpace()
         self.R = space
+        self._lineage = {}  # stage -> (token, token of the upstream stage when it was created)
 
         self.R("""
             library(tidyverse)
@@ -42,11 +104,79 @@ class LinearModel:
             if (!requireNamespace("emmeans", quietly=TRUE)) stop("Package 'emmeans' is not installed.")
             if (!requireNamespace("mmrm", quietly=TRUE)) stop("Package 'mmrm' is not installed.")
         """)
+        self.R(_REGISTRY_SOURCE)
 
         self.results = Container(
             # is_factored=False,
         )
         self.results._pp.display_width = 175
+
+    # ------------------------------------------------------------------
+    # Lineage: every stage gets a token, recorded here and in the R-side registry. A downstream step first checks
+    # that the R objects it needs are still the ones this LinearModel created, and refuses to use them otherwise.
+    # ------------------------------------------------------------------
+    @property
+    def lineage(self):
+        """Current token of each stage (`data`, `fit`, `emmeans`, `contrasts`) that holds a valid result."""
+        return {stage: token for stage, (token, _) in self._lineage.items()}
+
+    def _r_registry(self, function, *args):
+        return self.R.ro.r[function](*args)
+
+    def _stamp(self, stage):
+        variable, upstream, _ = self._STAGES[stage]
+        token = uuid.uuid4().hex[:8]
+        self._r_registry('.__aa_stamp', variable, token)
+        self._lineage[stage] = (token, self._lineage[upstream][0] if upstream else None)
+
+    def _forget(self, stage):
+        entry = self._lineage.pop(stage, None)
+        if entry is not None:  # a stage this model never registered must not touch the R registry
+            self._r_registry('.__aa_unstamp', self._STAGES[stage][0], entry[0])
+
+    def _r_status(self, stage):
+        return str(self._r_registry('.__aa_check', self._STAGES[stage][0], self._lineage[stage][0])[0])
+
+    def _verify(self, stage):
+        """Raises `StaleResultError` unless `stage` and everything upstream of it are still what this model created."""
+        chain = []
+        while stage is not None:
+            chain.insert(0, stage)
+            stage = self._STAGES[stage][1]
+
+        for position, current in enumerate(chain):
+            variable, upstream, restart = self._STAGES[current]
+            if current not in self._lineage:
+                raise StaleResultError(f'There is no valid `{variable}` yet. Run {restart}.')
+
+            token, upstream_token = self._lineage[current]
+            if upstream is not None and self._lineage[upstream][0] != upstream_token:
+                raise StaleResultError(
+                    f'`{variable}` was built from a `{self._STAGES[upstream][0]}` that has since changed. '
+                    f'Run {restart} again.'
+                )
+
+            status = self._r_status(current)
+            if status == 'ok':
+                continue
+            is_target = position == len(chain) - 1
+            if current == 'data' and is_target and status in ('missing', 'modified'):
+                # edited by hand in R: adopt it, the results built from the previous data are invalidated
+                logger.warning(f'`data` {self._STALE_REASONS[status]}; using its current content.')
+                self._restamp_data()
+                continue
+            raise StaleResultError(f'`{variable}` {self._STALE_REASONS[status]}. Run {restart} again.')
+
+    def _restamp_data(self):
+        self.clear_results(fit=True)
+        self._stamp('data')
+
+    @staticmethod
+    def _r_level(ci):
+        """Confidence level as R source, without rounding (`:0.2f` would turn 0.954 into 0.95)."""
+        if not 0 < ci < 1:
+            raise ValueError(f'`ci` must be between 0 and 1, got {ci!r}')
+        return f'{ci:.10g}'
 
     @staticmethod  # the function does not need the instantiated object
     def get_dummy(n=500, n_visit=5, seed=42):
@@ -109,12 +239,12 @@ class LinearModel:
             )
         self.R['data'] = df
         if factorize:
-            self.factorize()
+            self._factorize_in_r()
+        self._restamp_data()
 
         self.results['n_samples'] = len(df)
 
-    # @staticmethod # used when no other methods/variables of the Class are needed
-    def factorize(self, columns: list[str] = None):
+    def _factorize_in_r(self, columns: list[str] = None):
         if columns is None:  # Factorize all columns of type object (string)
             self.R("""
                 data <- data %>% mutate(across(where(is.character), as.factor))
@@ -125,9 +255,25 @@ class LinearModel:
                 data <- data %>% mutate(across(to_factor, as.factor))
             """)
 
+    # @staticmethod # used when no other methods/variables of the Class are needed
+    def factorize(self, columns: list[str] = None):
+        self._verify('data')
+        self._factorize_in_r(columns)
+        self._restamp_data()
+
     def set_reference(self, references: dict):
         # example: {'TRT01P': 'Placebo', 'AVISIT': 'Week 0'}
+        self._verify('data')
         self.R['factor_references'] = self.R.ro.ListVector(references)
+        try:
+            self._set_reference_in_r()
+        except Exception:
+            if self._r_status('data') != 'ok':  # failed halfway: some factors were already re-leveled
+                self._restamp_data()
+            raise
+        self._restamp_data()  # the data changed, so a fit made on it is no longer valid
+
+    def _set_reference_in_r(self):
         self.R("""
             for (factor_name in names(factor_references)) {
                 if (factor_name %in% colnames(data)){
@@ -146,18 +292,18 @@ class LinearModel:
 
     def clear_results(self, fit=False, emmeans=False, contrasts=False):
         if fit:
-            self.results.pop('fit_coefs', None)
-            self.results.pop('n_observations', None)
-            self.results.pop('formula', None)
-            self.results.pop('model_name', None)
-            self.results.pop('warnings', None)
+            for key in ('fit_coefs', 'n_observations', 'n_subjects', 'fit_theta', 'formula', 'model_name', 'warnings'):
+                self.results.pop(key, None)
+            self._forget('fit')
             self.clear_results(emmeans=True)
         if emmeans:
             self.results.pop('ls_means', None)
             self.results.pop('predictors', None)
+            self._forget('emmeans')
             self.clear_results(contrasts=True)
         if contrasts:
             self.results.pop('contrasts', None)
+            self._forget('contrasts')
 
     def get_model_formula(self):
         self.R("""
@@ -172,6 +318,8 @@ class LinearModel:
         return formula
 
     def fit_lm(self, formula, ci=0.95):
+        level = self._r_level(ci)
+        self._verify('data')
         self.clear_results(fit=True)
 
         with self.R.capture_warnings() as warnings:
@@ -185,7 +333,7 @@ class LinearModel:
 
             # collect result
             self.R(f"""
-            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f})
+            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {level})
             n_observations <- nobs(fit)
             """)
         self.results.setdefault('warnings', []).extend(warnings)
@@ -193,13 +341,15 @@ class LinearModel:
         self.results['formula'] = self.get_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
+        self._stamp('fit')
 
     def fit_logistic(self, formula, ci=0.95):
-        self.clear_results(fit=True)
         if ci is None:
             broom_params = 'conf.int = FALSE'
         else:
-            broom_params = f'conf.int = TRUE, conf.level = {ci:0.2f}'
+            broom_params = f'conf.int = TRUE, conf.level = {self._r_level(ci)}'
+        self._verify('data')
+        self.clear_results(fit=True)
 
         with self.R.capture_warnings() as warnings:
             self.R(f"""
@@ -221,12 +371,15 @@ class LinearModel:
         self.results['formula'] = self.get_model_formula()
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
+        self._stamp('fit')
 
     def fit_mmrm(self, formula, ci=0.95):
         """
         Having BASE on the right-hand side: Considers that higher/lower baseline values may have a different effect on Response.
         formula = 'Response ~ BASE + TRT01P + AVISIT + TRT01P:AVISIT + us(AVISIT | USUBJID) + confounders'
         """
+        level = self._r_level(ci)
+        self._verify('data')
         self.clear_results(fit=True)
         with self.R.capture_warnings() as warnings:
             self.R(f"""
@@ -246,7 +399,7 @@ class LinearModel:
             # Extract coefficients, statistics and confidence intervals at specified level
             self.R(f"""
             coef_df <- as.data.frame(summary(fit)$coefficients)
-            conf_df <- as.data.frame(confint(fit, level = {ci:0.2f}))
+            conf_df <- as.data.frame(confint(fit, level = {level}))
             """)
         self.results.setdefault('warnings', []).extend(warnings)
         assert self.R['coef_df'].index.equals(self.R['conf_df'].index), (
@@ -277,6 +430,7 @@ class LinearModel:
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['n_subjects'] = int(self.R['n_subjects'])
         self.results['fit_coefs'] = fit_coefs
+        self._stamp('fit')
 
     def fit_negbin(self, formula, exponentiate=True, ci=0.95):
         """Fits a negative binomial regression model using the MASS::glm.nb function in R.
@@ -288,6 +442,8 @@ class LinearModel:
             exponentiate (bool): Whether to exponentiate the coefficients (to get incidence rate ratios).
             ci (float): Confidence interval level (e.g., 0.95 for 95% CI).
         """
+        level = self._r_level(ci)
+        self._verify('data')
         self.clear_results(fit=True)
         self.R['exponentiate'] = exponentiate
 
@@ -305,7 +461,7 @@ class LinearModel:
             summary_fit <- summary(fit)
             fit_theta <- summary_fit$theta
             # fit_theta_se  <- summary_fit$SE.theta
-            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {ci:0.2f}, exponentiate = exponentiate)
+            fit_coefs <- broom::tidy(fit, conf.int = TRUE, conf.level = {level}, exponentiate = exponentiate)
             n_observations <- nobs(fit)
             """)
         self.results.setdefault('warnings', []).extend(warnings)
@@ -314,6 +470,7 @@ class LinearModel:
         self.results['n_observations'] = int(self.R['n_observations'])
         self.results['fit_theta'] = float(self.R['fit_theta'])
         self.results['fit_coefs'] = self.R['fit_coefs'].set_index('term')
+        self._stamp('fit')
 
     def add_emmeans(self, spec, scale='link', ci=0.95, emm_kws=', rg.limit = 100000'):
         # add estimated marginal means (EMMs), or Least-squares means to `self.results`
@@ -339,6 +496,8 @@ class LinearModel:
         # """
 
         # clean up old `results`, if any
+        level = self._r_level(ci)
+        self._verify('fit')
         self.clear_results(emmeans=True)
 
         with self.R.capture_warnings() as warnings:
@@ -346,8 +505,8 @@ class LinearModel:
                 # type:
                 #   * "response": # Estimates are back-transformed to the response scale (e.g., probabilities if you fit a logistic model). Note that only back-transforms when it can detect the outcome came from a recognized link/transform (e.g. `log(y) ~`) written directly in the model formula, or a GLM family/link). Otherwise, it works as `link`
                 #   * "link" :    # Estimates are shown on the linear predictor scale. For example, you see logits for logistic regression.
-                LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {ci:0.2f}{emm_kws})
-                LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {ci:0.2f})
+                LSmeans <- emmeans::emmeans(fit, spec = ~ {spec}, type="{scale}", level = {level}{emm_kws})
+                LSmeans_td <- broom::tidy(LSmeans, conf.int = TRUE, conf.level = {level})
                 # print(LSmeans_td)
                 
                 LSmeans_attrs <- attributes(LSmeans)
@@ -360,6 +519,7 @@ class LinearModel:
             predictors = self.R['predictors'].tolist()
         self.results['predictors'] = predictors
         self.results['ls_means'] = self.R['LSmeans_td'].set_index(predictors)
+        self._stamp('emmeans')
 
     def add_contrasts(self, method='revpairwise', ci=0.95, append=False):
         """
@@ -372,11 +532,15 @@ class LinearModel:
 
         For one-vs-one contrast methods (`pairwise`, `revpairwise`), the single `contrast`
         label index is additionally split into per-side predictor columns (named
-        `{predictor}_left`/`{predictor}_right`, per the emmeans spec order), plus `label`
-        (the raw contrast string) and `operator` columns -- this enables `get_contrast()`.
+        `{predictor}_left`/`{predictor}_right`, per the emmeans spec order), plus an `operator`
+        column (e.g., `-` or `/`) -- this enables `get_contrast()`. The raw contrast label is the index.
+        Predictors the contrasts are conditioned on (`spec='group | visit'`) are not part of the
+        label, but still get their `_left`/`_right` columns (equal on both sides).
         Other methods (e.g. `eff`/`del.eff`, which compare a level against a combination of
         several others) keep only their raw label, since they aren't a clean one-vs-one split.
         """
+        level = self._r_level(ci)
+        self._verify('emmeans')
         if not append:
             self.clear_results(contrasts=True)
         
@@ -385,7 +549,7 @@ class LinearModel:
                 # `pairs()` is a special case of `contrast()`
                 # emm_diff <- pairs(LSmeans, adjust = "none", reverse = TRUE)
                 emm_diff <- emmeans::contrast(LSmeans, method="{method}", adjust = "none")
-                emm_diff_td <- broom::tidy(emm_diff, conf.int = TRUE, conf.level = {ci:0.2f})
+                emm_diff_td <- broom::tidy(emm_diff, conf.int = TRUE, conf.level = {level})
                 # for models with an offset, broom returns `null.value` as a matrix column, which rpy2 can not convert
                 emm_diff_td <- emm_diff_td %>% dplyr::mutate(dplyr::across(dplyr::where(is.matrix), as.vector))
                 # print(emm_diff_td, width = Inf, n = Inf)
@@ -410,6 +574,7 @@ class LinearModel:
             )
         else:
             self.results['contrasts'] = contrasts_df
+        self._stamp('contrasts')
 
     def _expand_contrasts(self, contrasts_df):
         """Split each one-vs-one contrast label into per-side predictor levels.
@@ -432,7 +597,12 @@ class LinearModel:
             # (coef.emmGrid is an S3 method registered by emmeans but not exported,
             # so it must be called via the base generic rather than emmeans::coef)
             contrast_coefs <- as.data.frame(coef(emm_diff), check.names = FALSE)
+            # predictors the contrasts are conditioned on (`spec = ~ a | b`) are not part of the contrast labels
+            contrast_by <- emm_diff@misc$by.vars
+            if (is.null(contrast_by)) contrast_by <- character(0)
         """)
+        by = self.R['contrast_by']
+        by_vars = [by] if isinstance(by, str) else list(by)
         grid = (
             self.R['contrast_coefs']
             .set_index(predictors)
@@ -442,19 +612,31 @@ class LinearModel:
             'Mismatch between number of contrasts in coef(emm_diff) and emm_diff_td.'
         )
 
-        # get individual predictor levels for each side of the contrast
-        comb1 = pd.DataFrame(data='', columns=predictors, index=contrasts_df.index)
-        comb2 = pd.DataFrame(data='', columns=predictors, index=contrasts_df.index)
+        def label_text(levels):
+            # how emmeans writes one side of a label: factor levels as they are, numeric ones prefixed by the name
+            return ' '.join(
+                str(level) if isinstance(level, str) else f'{name}{level:g}'
+                for name, level in zip(predictors, levels)
+                if name not in by_vars
+            )
+
+        # get individual predictor levels for each side of the contrast (object dtype keeps numeric levels numeric)
+        comb1 = pd.DataFrame(data='', columns=predictors, index=contrasts_df.index, dtype=object)
+        comb2 = pd.DataFrame(data='', columns=predictors, index=contrasts_df.index, dtype=object)
         operators = pd.DataFrame(data='', columns=['operator'], index=contrasts_df.index)
-        for label, (_, cnt) in zip(contrasts_df.index, grid.iterrows()):
+        # positions, not labels: repeated labels (e.g., the same comparison within several visits) are common
+        for position, (label, (_, cnt)) in enumerate(zip(contrasts_df.index, grid.iterrows())):
             preds1 = cnt.loc[cnt == +1].index
             preds2 = cnt.loc[cnt == -1].index
             assert len(preds1) == 1 and len(preds2) == 1, "Each contrast must have exactly one +1 and one -1 coefficient"
-            comb1.loc[label, :] = preds1[0]
-            comb2.loc[label, :] = preds2[0]
-            side1 = ' '.join(comb1.loc[label])
-            side2 = ' '.join(comb2.loc[label])
-            operators.loc[label, 'operator'] = label[len(side1):len(label) - len(side2)].strip()
+            comb1.iloc[position, :] = preds1[0]
+            comb2.iloc[position, :] = preds2[0]
+            label = str(label)
+            left, right = label_text(comb1.iloc[position].tolist()), label_text(comb2.iloc[position].tolist())
+            if label.startswith(left) and label.endswith(right) and len(left) + len(right) <= len(label):
+                operators.iloc[position, 0] = label[len(left):len(label) - len(right)].strip()
+            elif match := re.search(r'\s([-/])\s', label):  # unexpected label format
+                operators.iloc[position, 0] = match.group(1)
         expanded = pd.concat([
             contrasts_df, 
             comb1.add_suffix('_left'), 

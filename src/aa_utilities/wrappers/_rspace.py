@@ -51,7 +51,11 @@ _RUNNER_SOURCE = r"""
                 .visible <- withVisible(eval(parse(text = .code), envir = globalenv()))
                 list(status = "ok", value = if (.visible$visible) .visible$value else NULL, error = NULL)
             },
-            warning = function(w) { .record(w, "warnings"); invokeRestart("muffleWarning") },
+            warning = function(w) {
+                .record(w, "warnings")
+                # with options(warn = 2) R turns the warning into an error, unless a handler muffles it
+                if (!isTRUE(getOption("warn") >= 2)) invokeRestart("muffleWarning")
+            },
             message = function(m) { .record(m, "messages"); invokeRestart("muffleMessage") }
         ),
         error = function(e) {
@@ -157,9 +161,11 @@ class RSpace:
         """
         self.ro = ro
         self.logger = logger
-        self.ipython_loaded = ipython
+        self.ipython_loaded = False
         self.warnings: list[RWarning] = []  # append-only log of captured R warnings, see `capture_warnings()`
         self.messages: list[RMessage] = []  # append-only log of captured R messages, see `capture_messages()`
+        self._warning_collectors: list[list] = []  # lists filled live by the active `capture_warnings()` blocks
+        self._message_collectors: list[list] = []
 
         # defines (or harmlessly redefines) the hidden runner closure used by `__call__`
         ro.r(_RUNNER_SOURCE)
@@ -237,7 +243,7 @@ class RSpace:
 
         if len(dim) == 2:
             n_row, n_col = dim
-            value_py = pd.DataFrame({j: flat[j * n_row : (j + 1) * n_row] for j in range(n_col)})
+            value_py = pd.DataFrame({j: flat[j * n_row : (j + 1) * n_row] for j in range(n_col)}, index=range(n_row))
             if self._r_rownames(r_arr) != ro.rinterface.NULL:
                 value_py.index = list(self._r_rownames(r_arr))
             if self._r_colnames(r_arr) != ro.rinterface.NULL:
@@ -335,7 +341,8 @@ class RSpace:
         # Atomic vectors are homogeneous typed arrays with optional names, making pd.Series the natural Python analogue.
         # source: https://stackoverflow.com/questions/12944250/handing-null-return-in-rpy2
         # source: https://stackoverflow.com/questions/73259425/how-to-load-a-rtypes-nilsxp-data-object-when-using-rpy2
-        if not has_dim:
+        # Only atomic vectors; other types (functions, environments, ...) keep rpy2's own conversion below
+        if is_atomic and not has_dim:
             names = self._r_names(r_obj)
             data_vec = self._nullable_from_r(r_obj)
             if data_vec is None:
@@ -366,30 +373,30 @@ class RSpace:
     def capture_warnings(self):
         """Collect the `RWarning`s raised by any R() calls made inside this block.
 
-        `self.warnings` is never reset automatically (see __call__), so this just
-        watermarks its current length and slices off everything appended since.
+        The returned list is filled as the warnings occur, independently of `self.warnings`, so
+        `clear_warnings()` inside the block does not affect it.
         Usage:
             with self.capture_warnings() as warnings:
                 self(...)
                 self(...)
             # `warnings` now holds every RWarning raised across both calls
         """
-        n_past_warnings = len(self.warnings)
         captured = []
+        self._warning_collectors.append(captured)
         try:
             yield captured
         finally:
-            captured.extend(self.warnings[n_past_warnings:])
+            self._warning_collectors[:] = [c for c in self._warning_collectors if c is not captured]
 
     @contextmanager
     def capture_messages(self):
         """Collect the `RMessage`s raised by any R() calls made inside this block. Mirrors `capture_warnings()`."""
-        n_past_messages = len(self.messages)
         captured = []
+        self._message_collectors.append(captured)
         try:
             yield captured
         finally:
-            captured.extend(self.messages[n_past_messages:])
+            self._message_collectors[:] = [c for c in self._message_collectors if c is not captured]
 
     def __call__(self, r_snippet, convert=True):
         """Runs `r_snippet` in R (in `globalenv()`, exactly like plain `ro.r(code)`) and returns its value.
@@ -409,7 +416,7 @@ class RSpace:
         timestamp = datetime.now()
 
         new_warnings = self._r_to_py(wrapped[fields['warnings']]) or []
-        self.warnings.extend(
+        recorded_warnings = [
             RWarning(
                 timestamp=timestamp,
                 snippet=r_snippet,
@@ -418,14 +425,17 @@ class RSpace:
                 classes=_as_classes(entry.get('classes')),
             )
             for entry in new_warnings
-        )
+        ]
+        self.warnings.extend(recorded_warnings)
+        for collector in self._warning_collectors:
+            collector.extend(recorded_warnings)
         if new_warnings:
             self.logger.warning(
                 '%d warning(s) issued during execution. Check `self.warnings` for details.', len(new_warnings)
             )
 
         new_messages = self._r_to_py(wrapped[fields['messages']]) or []
-        self.messages.extend(
+        recorded_messages = [
             RMessage(
                 timestamp=timestamp,
                 snippet=r_snippet,
@@ -434,7 +444,10 @@ class RSpace:
                 classes=_as_classes(entry.get('classes')),
             )
             for entry in new_messages
-        )
+        ]
+        self.messages.extend(recorded_messages)
+        for collector in self._message_collectors:
+            collector.extend(recorded_messages)
 
         if self._r_to_py(wrapped[fields['status']]) == 'error':
             error = self._r_to_py(wrapped[fields['error']])

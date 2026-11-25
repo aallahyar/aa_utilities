@@ -144,13 +144,13 @@ class StabilitySelector(Generic[T]):
         fit_params: dict[str, Any] | None,
         iter_seed: int | None,
     ) -> SelectorResult[T]:
-        # Create a fresh estimator, passing the per-iteration seed if supported
         try:
-            estimator = self.estimator_factory(iter_seed)
-        except TypeError:
-            estimator = self.estimator_factory()
+            # Create a fresh estimator, passing the per-iteration seed if supported
+            try:
+                estimator = self.estimator_factory(iter_seed)
+            except TypeError:
+                estimator = self.estimator_factory()
 
-        try:
             X_sub = X[sample_idxs, :]
             y_sub = y[sample_idxs] if y is not None else None
 
@@ -163,12 +163,11 @@ class StabilitySelector(Generic[T]):
 
             # Optional output validation (caller-supplied; raises ValueError to reject)
             n_features = X.shape[1]
-            if self.output_validator is not None and sel_result.output is not None:
+            if self.output_validator is not None and sel_result.output is not None and sel_result.failure is None:
                 self.output_validator(sel_result.output, n_features)
 
-            # Attach indices and meta
+            # Attach indices and meta; a failure reported by the selector itself is kept
             sel_result.sample_idxs = sample_idxs
-            sel_result.failure = None
             meta = sel_result.meta or {}
             meta.update(
                 {

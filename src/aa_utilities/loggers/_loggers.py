@@ -148,7 +148,7 @@ class RestrictedLogger(logging.Logger):
             )
             handler = logging.StreamHandler(stream=sys.stderr)
             handler.setFormatter(ColoredFormatter(LOG_FORMAT, datefmt=DATE_FORMAT, color=_color_supported(handler.stream)))
-            handler.setLevel(level)
+            # handler level stays NOTSET: the logger's level decides, so `setLevel()` works after construction
             self.addHandler(handler)
             self.addFilter(self.loggable)
 

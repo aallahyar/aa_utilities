@@ -172,6 +172,8 @@ def _resolve_legend_bins(sizes, bins):
             raise ValueError('legend `bins` must be a positive integer or a non-empty array-like of numeric values')
         if bins <= 0:
             raise ValueError('legend `bins` must be a positive integer')
+        if sizes.size == 0:
+            raise ValueError('No visible cell has a finite size to derive the legend bins from; pass explicit `bins`')
         return np.linspace(sizes.min(), sizes.max(), int(bins))
 
     bin_values = np.asarray(bins)
@@ -236,12 +238,12 @@ def _overlay_shapes(ax, shape, face_colors, sizes, shape_kws):
         quad_mesh._facecolors_pristine = quad_mesh.get_facecolors().copy()
     quad_mesh.set_alpha(background_alpha)
 
-    boxes = []
+    patches = []
     for ri in range(shape[0]):
         for ci in range(shape[1]):
             if is_hidden[ri, ci]:
                 continue
-            boxes.append(
+            patches.append(
                 _shape_patch(
                     ax,
                     shapes[ri, ci],
@@ -253,7 +255,7 @@ def _overlay_shapes(ax, shape, face_colors, sizes, shape_kws):
                     linewidth=linewidths[ri, ci],
                 )
             )
-    patch_collection = PatchCollection(boxes, match_original=True)
+    patch_collection = PatchCollection(patches, match_original=True)
     ax.add_collection(patch_collection)
 
     return patch_collection
@@ -274,7 +276,7 @@ def _draw_size_legend(ax, ax_heat, sizes, legend_kws, shape=_DEFAULT_SHAPE):
     Args:
         ax: Axes to draw the legend into.
         ax_heat: The heatmap axes to match scale against.
-        sizes (np.ndarray): The per-cell sizes matrix (typically in [0, 1]).
+        sizes (np.ndarray): The sizes of the visible cells (any shape; only used to derive automatic bins).
         legend_kws (dict): Configuration dict. Keys:
             - shape (str): Marker code of the legend boxes. Default: `shape`.
             - bins (int or array-like): Number of evenly spaced sizes or
@@ -517,6 +519,9 @@ def overlay_shapes(
         if ax_legend is None:
             ax_legend = heat_ax.inset_axes(_default_legend_rect(heat_ax))
         ax_legend.set_label('size_legend')
-        _draw_size_legend(ax_legend, heat_ax, sizes_reordered, legend_kws, shape=_reference_shape(shapes))
+        # cells hidden by seaborn (mask=, NaN) and non-finite sizes must not stretch the automatic bins
+        is_hidden = np.ma.getmaskarray(_find_mesh(heat_ax).get_array())
+        legend_sizes = sizes_reordered[~is_hidden & np.isfinite(sizes_reordered)]
+        _draw_size_legend(ax_legend, heat_ax, legend_sizes, legend_kws, shape=_reference_shape(shapes))
 
     return patch_collection
